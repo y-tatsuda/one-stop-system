@@ -106,17 +106,20 @@ export default function AccessoryInventoryPage() {
       }
 
       // 型変換
-      const typedData: AccessoryInventory[] = (data || []).map(item => {
-        const acc = item.accessory as { id: number; name: string; variation: string | null; category_id: number } | null
-        return {
-          id: item.id,
-          shop_id: item.shop_id,
-          accessory_id: item.accessory_id,
-          required_qty: item.required_qty,
-          actual_qty: item.actual_qty,
-          accessory: acc,
-        }
-      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const typedData: AccessoryInventory[] = (data || []).map((item: any) => ({
+        id: item.id,
+        shop_id: item.shop_id,
+        accessory_id: item.accessory_id,
+        required_qty: item.required_qty,
+        actual_qty: item.actual_qty,
+        accessory: item.accessory ? {
+          id: item.accessory.id,
+          name: item.accessory.name,
+          variation: item.accessory.variation,
+          category_id: item.accessory.category_id,
+        } : null,
+      }))
 
       setInventory(typedData)
     }
