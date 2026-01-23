@@ -1,0 +1,628 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+
+type IphoneModel = {
+  model: string
+  display_name: string
+}
+
+type UsedInventory = {
+  id: number
+  arrival_date: string
+  model: string
+  storage: number
+  rank: string
+  imei: string | null
+  management_number: string | null
+  battery_percent: number | null
+  is_service_state: boolean | null
+  nw_status: string | null
+  camera_stain_level: string | null
+  camera_broken: boolean | null
+  repair_history: boolean | null
+  repair_types: string | null
+  buyback_price: number
+  repair_cost: number
+  total_cost: number
+  sales_price: number | null
+  status: string
+  ec_status: string | null
+  memo: string | null
+  shop_id: number
+  shop: {
+    name: string
+  }
+}
+
+type Shop = {
+  id: number
+  name: string
+}
+
+type PartsInventory = {
+  id: number
+  model: string
+  parts_type: string
+  actual_qty: number
+}
+
+const repairTypesList = [
+  { key: 'screen', label: '画面修理', partsType: 'LCDパネル' },
+  { key: 'screen_oled', label: '画面修理 有機EL', partsType: '有機ELパネル' },
+  { key: 'battery', label: 'バッテリー', partsType: 'バッテリー' },
+  { key: 'connector', label: 'コネクタ', partsType: 'コネクタ' },
+  { key: 'rear_camera', label: 'リアカメラ', partsType: 'リアカメラ' },
+  { key: 'front_camera', label: 'インカメラ', partsType: 'インカメラ' },
+  { key: 'camera_glass', label: 'カメラ窓', partsType: 'カメラ窓' },
+]
+
+export default function InventoryPage() {
+  const [inventory, setInventory] = useState<UsedInventory[]>([])
+  const [shops, setShops] = useState<Shop[]>([])
+  const [iphoneModels, setIphoneModels] = useState<IphoneModel[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const [filters, setFilters] = useState({
+    shopId: '',
+    status: '',
+    model: '',
+    managementNumber: '',
+  })
+
+  const [selectedItem, setSelectedItem] = useState<UsedInventory | null>(null)
+  const [showDetailModal, setShowDetailModal] = useState(false)
+  const [editData, setEditData] = useState({
+    sales_price: 0,
+    ec_status: '',
+    status: '',
+    memo: '',
+  })
+
+  const [showRepairModal, setShowRepairModal] = useState(false)
+  const [selectedParts, setSelectedParts] = useState<string[]>([])
+  const [partsInventory, setPartsInventory] = useState<PartsInventory[]>([])
+
+  const getDisplayName = (model: string) => {
+    const found = iphoneModels.find(m => m.model === model)
+    return found ? found.display_name : model
+  }
+
+  const calculateDaysInStock = (arrivalDate: string) => {
+    const arrival = new Date(arrivalDate)
+    const today = new Date()
+    const diffTime = today.getTime() - arrival.getTime()
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  const getDaysBadgeClass = (days: number) => {
+    if (days >= 120) return 'badge-danger'
+    if (days >= 90) return 'badge-warning'
+    if (days >= 60) return 'badge-warning'
+    if (days >= 45) return 'badge-primary'
+    return 'badge-gray'
+  }
+
+  const getNwStatusDisplay = (status: string | null) => {
+    if (status === 'ok') return '○'
+    if (status === 'triangle') return '△'
+    if (status === 'cross') return '×'
+    return '-'
+  }
+
+  const getCameraStainDisplay = (level: string | null) => {
+    if (level === 'none') return 'なし'
+    if (level === 'minor') return '少'
+    if (level === 'major') return '多'
+    return '-'
+  }
+
+  const getEcStatusDisplay = (status: string | null) => {
+    if (!status) return '未出品'
+    if (status === 'shopify') return 'Shopify'
+    if (status === 'mercari') return 'メルカリ'
+    if (status === 'both') return '両方'
+    return status
+  }
+
+  const getStatusDisplay = (status: string) => {
+    return status
+  }
+
+  useEffect(() => {
+    async function fetchData() {
+      const { data: shopsData } = await supabase
+        .from('m_shops')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('id')
+
+      setShops(shopsData || [])
+
+      const { data: modelsData } = await supabase
+        .from('m_iphone_models')
+        .select('model, display_name')
+        .eq('tenant_id', 1)
+        .eq('is_active', true)
+        .order('sort_order')
+
+      setIphoneModels(modelsData || [])
+      await fetchInventory()
+    }
+
+    fetchData()
+  }, [])
+
+  useEffect(() => {
+    fetchInventory()
+  }, [filters])
+
+  const fetchInventory = async () => {
+    setLoading(true)
+
+    let query = supabase
+      .from('t_used_inventory')
+      .select(`*, shop:m_shops(name)`)
+      .eq('tenant_id', 1)
+      .order('arrival_date', { ascending: false })
+
+    if (filters.shopId) query = query.eq('shop_id', parseInt(filters.shopId))
+    if (filters.status) query = query.eq('status', filters.status)
+    if (filters.model) query = query.ilike('model', `%${filters.model}%`)
+    if (filters.managementNumber) query = query.ilike('management_number', `%${filters.managementNumber}%`)
+
+    const { data, error } = await query
+    if (error) console.error('Error:', error)
+    else setInventory(data || [])
+    setLoading(false)
+  }
+
+  const openDetailModal = (item: UsedInventory) => {
+    setSelectedItem(item)
+    setEditData({
+      sales_price: item.sales_price || 0,
+      ec_status: item.ec_status || '',
+      status: item.status,
+      memo: item.memo || '',
+    })
+    setShowDetailModal(true)
+  }
+
+  const saveDetail = async () => {
+    if (!selectedItem) return
+
+    if (selectedItem.status === '修理中' && editData.status === '販売可') {
+      await fetchPartsInventory(selectedItem.shop_id, selectedItem.model)
+      setShowRepairModal(true)
+      return
+    }
+
+    const { error } = await supabase
+      .from('t_used_inventory')
+      .update({
+        sales_price: editData.sales_price,
+        ec_status: editData.ec_status || null,
+        status: editData.status,
+        memo: editData.memo || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', selectedItem.id)
+
+    if (error) {
+      alert('更新に失敗しました: ' + error.message)
+      return
+    }
+
+    setShowDetailModal(false)
+    setSelectedItem(null)
+    fetchInventory()
+  }
+
+  const fetchPartsInventory = async (shopId: number, model: string) => {
+    const { data } = await supabase
+      .from('t_parts_inventory')
+      .select('id, model, parts_type, actual_qty')
+      .eq('tenant_id', 1)
+      .eq('shop_id', shopId)
+      .eq('model', model)
+
+    setPartsInventory(data || [])
+    
+    if (selectedItem?.repair_types) {
+      setSelectedParts(selectedItem.repair_types.split(','))
+    } else {
+      setSelectedParts([])
+    }
+  }
+
+  const togglePart = (key: string) => {
+    if (selectedParts.includes(key)) {
+      setSelectedParts(selectedParts.filter(p => p !== key))
+    } else {
+      setSelectedParts([...selectedParts, key])
+    }
+  }
+
+  const getPartsQty = (partsType: string) => {
+    const found = partsInventory.find(p => p.parts_type === partsType)
+    return found ? found.actual_qty : 0
+  }
+
+  const completeRepair = async () => {
+    if (!selectedItem) return
+
+    const { error: updateError } = await supabase
+      .from('t_used_inventory')
+      .update({
+        sales_price: editData.sales_price,
+        ec_status: editData.ec_status || null,
+        status: '販売可',
+        memo: editData.memo || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', selectedItem.id)
+
+    if (updateError) {
+      alert('ステータス更新に失敗しました: ' + updateError.message)
+      return
+    }
+
+    for (const partKey of selectedParts) {
+      const repairType = repairTypesList.find(r => r.key === partKey)
+      if (!repairType) continue
+      const partsRecord = partsInventory.find(p => p.parts_type === repairType.partsType)
+      if (!partsRecord) continue
+
+      await supabase
+        .from('t_parts_inventory')
+        .update({ actual_qty: partsRecord.actual_qty - 1, updated_at: new Date().toISOString() })
+        .eq('id', partsRecord.id)
+    }
+
+    alert('修理完了処理が完了しました')
+    setShowRepairModal(false)
+    setShowDetailModal(false)
+    setSelectedItem(null)
+    setSelectedParts([])
+    fetchInventory()
+  }
+
+  // サマリー計算
+  const totalStock = inventory.filter(i => i.status === '販売可' || i.status === '修理中').length
+  const totalInStock = inventory.filter(i => i.status === '販売可').length
+  const totalRepairing = inventory.filter(i => i.status === '修理中').length
+  const over45Days = inventory.filter(i => (i.status === '販売可' || i.status === '修理中') && calculateDaysInStock(i.arrival_date) >= 45).length
+  const over90Days = inventory.filter(i => (i.status === '販売可' || i.status === '修理中') && calculateDaysInStock(i.arrival_date) >= 90).length
+  const totalNoEc = inventory.filter(i => (i.status === '販売可' || i.status === '修理中') && !i.ec_status).length
+  
+  const getShopStats = (shopId: number) => {
+    const shopItems = inventory.filter(i => i.shop_id === shopId)
+    const inStock = shopItems.filter(i => i.status === '販売可').length
+    const repairing = shopItems.filter(i => i.status === '修理中').length
+    const noEc = shopItems.filter(i => (i.status === '販売可' || i.status === '修理中') && !i.ec_status).length
+    return { total: inStock + repairing, inStock, repairing, noEc }
+  }
+
+  const showRepairingCount = filters.status === ''
+
+  if (loading && inventory.length === 0) {
+    return <div className="loading" style={{ height: '100vh' }}><div className="loading-spinner"></div></div>
+  }
+
+  return (
+    <div className="container">
+      <style jsx>{`
+        .filter-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 12px;
+          align-items: end;
+        }
+        .summary-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 10px;
+        }
+        .shop-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+          margin-top: 10px;
+        }
+        .summary-card {
+          background: #F8FAFC;
+          border-radius: 6px;
+          padding: 10px 12px;
+        }
+        .summary-label {
+          font-size: 0.7rem;
+          color: #6B7280;
+          margin-bottom: 2px;
+        }
+        .summary-value {
+          font-size: 1.1rem;
+          font-weight: 700;
+          line-height: 1.2;
+        }
+        .summary-sub {
+          font-size: 0.65rem;
+          color: #6B7280;
+          margin-top: 2px;
+        }
+        @media (max-width: 768px) {
+          .filter-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .summary-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .shop-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+
+      <div className="page-header">
+        <h1 className="page-title">中古在庫管理</h1>
+        <p className="page-subtitle">中古iPhoneの在庫状況を管理します</p>
+      </div>
+
+      {/* フィルター */}
+      <div className="card mb-md">
+        <div className="card-body" style={{ padding: '12px 16px' }}>
+          <div className="filter-grid">
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: '#6B7280' }}>店舗</label>
+              <select value={filters.shopId} onChange={(e) => setFilters({ ...filters, shopId: e.target.value })} className="form-select" style={{ padding: '6px 10px', fontSize: '0.85rem' }}>
+                <option value="">全店舗</option>
+                {shops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: '#6B7280' }}>ステータス</label>
+              <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="form-select" style={{ padding: '6px 10px', fontSize: '0.85rem' }}>
+                <option value="">すべて</option>
+                <option value="修理中">修理中</option>
+                <option value="販売可">販売可</option>
+                <option value="販売済">販売済</option>
+                <option value="移動中">移動中</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: '#6B7280' }}>機種</label>
+              <input type="text" value={filters.model} onChange={(e) => setFilters({ ...filters, model: e.target.value })} placeholder="機種名" className="form-input" style={{ padding: '6px 10px', fontSize: '0.85rem' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: '#6B7280' }}>管理番号</label>
+              <input type="text" value={filters.managementNumber} onChange={(e) => setFilters({ ...filters, managementNumber: e.target.value })} placeholder="IMEI下4桁" className="form-input" style={{ padding: '6px 10px', fontSize: '0.85rem' }} maxLength={4} />
+            </div>
+            <div>
+              <button onClick={() => setFilters({ shopId: '', status: '', model: '', managementNumber: '' })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem', width: '100%' }}>リセット</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 在庫サマリー */}
+      <div className="card mb-md">
+        <div className="card-body" style={{ padding: '12px 16px' }}>
+          <div className="summary-grid">
+            <div className="summary-card">
+              <p className="summary-label">累計在庫</p>
+              <p className="summary-value">{totalStock}台</p>
+              {showRepairingCount && <p className="summary-sub">販売可{totalInStock} / 修理中{totalRepairing}</p>}
+            </div>
+            <div className="summary-card">
+              <p className="summary-label">45日以上</p>
+              <p className="summary-value" style={{ color: '#D97706' }}>{over45Days}台</p>
+            </div>
+            <div className="summary-card">
+              <p className="summary-label">90日以上</p>
+              <p className="summary-value" style={{ color: '#EA580C' }}>{over90Days}台</p>
+            </div>
+            <div className="summary-card">
+              <p className="summary-label">EC未出品</p>
+              <p className="summary-value" style={{ color: '#DC2626' }}>{totalNoEc}台</p>
+            </div>
+          </div>
+          <div className="shop-grid">
+            {shops.map((shop) => {
+              const stats = getShopStats(shop.id)
+              return (
+                <div key={shop.id} className="summary-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontWeight: '600', fontSize: '0.85rem' }}>{shop.name}</span>
+                    <span style={{ marginLeft: '8px', fontWeight: '700' }}>{stats.total}台</span>
+                    {showRepairingCount && <span style={{ fontSize: '0.7rem', color: '#6B7280', marginLeft: '6px' }}>（販売可{stats.inStock}/修理中{stats.repairing}）</span>}
+                  </div>
+                  {stats.noEc > 0 && <span style={{ fontSize: '0.75rem', color: '#DC2626' }}>未出品{stats.noEc}</span>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 在庫一覧 */}
+      <div className="card">
+        <div className="card-header" style={{ padding: '10px 16px' }}>
+          <h2 className="card-title" style={{ fontSize: '0.95rem' }}>在庫一覧（{inventory.length}件）</h2>
+        </div>
+        <div className="table-wrapper">
+          {loading ? (
+            <div className="loading"><div className="loading-spinner"></div></div>
+          ) : inventory.length === 0 ? (
+            <div className="empty-state">
+              <p className="empty-state-title">在庫がありません</p>
+              <p className="empty-state-text">フィルター条件を変更してください</p>
+            </div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>店舗</th>
+                  <th>入荷日</th>
+                  <th>滞留</th>
+                  <th>機種</th>
+                  <th>容量</th>
+                  <th>ランク</th>
+                  <th>管理番号</th>
+                  <th className="text-right">原価</th>
+                  <th className="text-right">販売価格</th>
+                  <th>EC</th>
+                  <th>ステータス</th>
+                  <th className="text-center">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventory.map((item) => {
+                  const days = calculateDaysInStock(item.arrival_date)
+                  return (
+                    <tr key={item.id}>
+                      <td>{item.shop?.name}</td>
+                      <td>{item.arrival_date}</td>
+                      <td><span className={`badge ${getDaysBadgeClass(days)}`}>{days}日</span></td>
+                      <td className="font-medium">{getDisplayName(item.model)}</td>
+                      <td>{item.storage === 1000 ? '1TB' : `${item.storage}GB`}</td>
+                      <td>{item.rank}</td>
+                      <td style={{ fontFamily: 'monospace' }}>{item.management_number || '-'}</td>
+                      <td className="text-right">¥{item.total_cost.toLocaleString()}</td>
+                      <td className="text-right">
+                        {item.sales_price ? (
+                          <div>
+                            <div style={{ fontWeight: '600' }}>¥{Math.floor(item.sales_price * 1.1).toLocaleString()}</div>
+                            <div style={{ fontSize: '0.7rem', color: '#6B7280' }}>税抜 ¥{item.sales_price.toLocaleString()}</div>
+                          </div>
+                        ) : '-'}
+                      </td>
+                      <td><span className={`badge ${item.ec_status === 'both' ? 'badge-success' : item.ec_status ? 'badge-primary' : 'badge-gray'}`}>{getEcStatusDisplay(item.ec_status)}</span></td>
+                      <td><span className={`badge ${item.status === '修理中' ? 'badge-primary' : item.status === '販売可' ? 'badge-success' : item.status === '販売済' ? 'badge-gray' : 'badge-warning'}`}>{getStatusDisplay(item.status)}</span></td>
+                      <td className="text-center"><button onClick={() => openDetailModal(item)} className="btn btn-sm btn-secondary">詳細</button></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* 詳細モーダル */}
+      {showDetailModal && selectedItem && (
+        <div className="modal-overlay">
+          <div className="modal modal-lg">
+            <div className="modal-header">
+              <h2 className="modal-title">在庫詳細</h2>
+              <button onClick={() => setShowDetailModal(false)} className="modal-close">✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '12px', marginBottom: '12px' }}>
+                <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>商品情報</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '0.8rem' }}>
+                  <div><span style={{ color: '#6B7280' }}>機種:</span> <span style={{ fontWeight: '500' }}>{getDisplayName(selectedItem.model)}</span></div>
+                  <div><span style={{ color: '#6B7280' }}>容量:</span> <span style={{ fontWeight: '500' }}>{selectedItem.storage === 1000 ? '1TB' : `${selectedItem.storage}GB`}</span></div>
+                  <div><span style={{ color: '#6B7280' }}>ランク:</span> <span style={{ fontWeight: '500' }}>{selectedItem.rank}</span></div>
+                  <div><span style={{ color: '#6B7280' }}>IMEI:</span> <span style={{ fontFamily: 'monospace' }}>{selectedItem.imei || '-'}</span></div>
+                  <div><span style={{ color: '#6B7280' }}>管理番号:</span> <span style={{ fontFamily: 'monospace', fontWeight: '500' }}>{selectedItem.management_number || '-'}</span></div>
+                  <div><span style={{ color: '#6B7280' }}>滞留:</span> <span>{calculateDaysInStock(selectedItem.arrival_date)}日</span></div>
+                </div>
+              </div>
+              <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '12px', marginBottom: '12px' }}>
+                <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>状態・価格</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '0.8rem' }}>
+                  <div><span style={{ color: '#6B7280' }}>バッテリー:</span> <span style={{ fontWeight: '500' }}>{selectedItem.is_service_state ? 'サービス' : selectedItem.battery_percent ? `${selectedItem.battery_percent}%` : '-'}</span></div>
+                  <div><span style={{ color: '#6B7280' }}>NW制限:</span> <span style={{ fontWeight: '500' }}>{getNwStatusDisplay(selectedItem.nw_status)}</span></div>
+                  <div><span style={{ color: '#6B7280' }}>カメラ染み:</span> <span style={{ fontWeight: '500' }}>{getCameraStainDisplay(selectedItem.camera_stain_level)}</span></div>
+                  <div><span style={{ color: '#6B7280' }}>買取価格:</span> <span style={{ fontWeight: '500' }}>¥{selectedItem.buyback_price.toLocaleString()}</span></div>
+                  <div><span style={{ color: '#6B7280' }}>修理費:</span> <span style={{ fontWeight: '500' }}>¥{selectedItem.repair_cost.toLocaleString()}</span></div>
+                  <div><span style={{ color: '#6B7280' }}>原価合計:</span> <span style={{ fontWeight: '700' }}>¥{selectedItem.total_cost.toLocaleString()}</span><span style={{ fontSize: '0.7rem', color: '#6B7280', marginLeft: '4px' }}>(税込¥{Math.floor(selectedItem.total_cost * 1.1).toLocaleString()})</span></div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>販売価格（税抜で入力）</label>
+                  <input type="number" value={editData.sales_price} onChange={(e) => setEditData({ ...editData, sales_price: parseInt(e.target.value) || 0 })} className="form-input" />
+                  {editData.sales_price > 0 && (
+                    <div style={{ marginTop: '4px', padding: '6px 10px', background: '#E0F2FE', borderRadius: '4px', fontSize: '0.85rem' }}>
+                      <span style={{ color: '#6B7280' }}>税込価格（値札用）:</span>
+                      <span style={{ fontWeight: '700', marginLeft: '8px', color: '#0369A1' }}>¥{Math.floor(editData.sales_price * 1.1).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+                <div><label className="form-label" style={{ fontSize: '0.8rem' }}>EC出品</label><select value={editData.ec_status} onChange={(e) => setEditData({ ...editData, ec_status: e.target.value })} className="form-select"><option value="">未出品</option><option value="shopify">Shopify</option><option value="mercari">メルカリ</option><option value="both">両方</option></select></div>
+                <div><label className="form-label" style={{ fontSize: '0.8rem' }}>ステータス</label><select value={editData.status} onChange={(e) => setEditData({ ...editData, status: e.target.value })} className="form-select"><option value="修理中">修理中</option><option value="販売可">販売可</option><option value="販売済">販売済</option><option value="移動中">移動中</option></select></div>
+                <div><label className="form-label" style={{ fontSize: '0.8rem' }}>メモ</label><textarea value={editData.memo} onChange={(e) => setEditData({ ...editData, memo: e.target.value })} rows={2} className="form-textarea" /></div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setShowDetailModal(false)} className="btn btn-secondary">キャンセル</button>
+              <button onClick={saveDetail} className="btn btn-primary">保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 修理完了モーダル */}
+      {showRepairModal && selectedItem && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2 className="modal-title">修理完了確認</h2>
+              <button onClick={() => { setShowRepairModal(false); setSelectedParts([]) }} className="modal-close">✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ background: '#E8F0FE', borderRadius: '6px', padding: '10px', marginBottom: '12px', fontSize: '0.85rem' }}>
+                <span style={{ fontWeight: '500' }}>{getDisplayName(selectedItem.model)}</span>
+                <span style={{ marginLeft: '6px' }}>{selectedItem.storage}GB</span>
+                <span style={{ color: '#6B7280', marginLeft: '6px' }}>（{selectedItem.management_number}）</span>
+              </div>
+              <p style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '10px' }}>使用パーツを選択:</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                {repairTypesList.map((repair) => {
+                  const qty = getPartsQty(repair.partsType)
+                  const isSelected = selectedParts.includes(repair.key)
+                  const willBeNegative = isSelected && qty <= 0
+                  return (
+                    <label key={repair.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '6px', border: `1px solid ${isSelected ? '#004AAD' : '#E5E7EB'}`, background: isSelected ? '#E8F0FE' : 'white', cursor: 'pointer', fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <input type="checkbox" checked={isSelected} onChange={() => togglePart(repair.key)} />
+                        <span style={{ fontWeight: '500' }}>{repair.label}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ color: qty <= 0 ? '#DC2626' : '#6B7280' }}>在庫:{qty}</span>
+                        {willBeNegative && <span>⚠️</span>}
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+              {/* 在庫0警告 */}
+              {selectedParts.some(key => {
+                const repair = repairTypesList.find(r => r.key === key)
+                return repair && getPartsQty(repair.partsType) <= 0
+              }) && (
+                <div style={{ background: '#FEF3C7', border: '1px solid #D97706', borderRadius: '6px', padding: '10px', marginBottom: '12px' }}>
+                  <p style={{ fontWeight: '600', color: '#92400E', fontSize: '0.85rem', marginBottom: '4px' }}>⚠️ 以下のパーツは在庫が0のためマイナスになります</p>
+                  <ul style={{ paddingLeft: '20px', fontSize: '0.8rem', color: '#92400E', margin: 0 }}>
+                    {selectedParts.map(key => {
+                      const repair = repairTypesList.find(r => r.key === key)
+                      if (!repair) return null
+                      const qty = getPartsQty(repair.partsType)
+                      if (qty > 0) return null
+                      return <li key={key}>{repair.label}（現在:{qty} → 処理後:{qty - 1}）</li>
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => { setShowRepairModal(false); setSelectedParts([]) }} className="btn btn-secondary">キャンセル</button>
+              <button onClick={completeRepair} className="btn btn-success">修理完了</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
