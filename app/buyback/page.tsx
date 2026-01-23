@@ -776,7 +776,7 @@ export default function BuybackPage() {
               {repairTypes.map((repair) => {
                 const cost = getPartsCost(repair.partsType)
                 const isSelected = formData.selectedRepairs.includes(repair.key)
-                const isDisabled = repair.exclusive && formData.selectedRepairs.includes(repair.exclusive)
+                const isDisabled = !!(repair.exclusive && formData.selectedRepairs.includes(repair.exclusive))
                 
                 return (
                   <button
