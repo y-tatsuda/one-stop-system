@@ -544,6 +544,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     setDetails([...details, newDetail])
     setUsedSalesForm({
       inventoryId: '',
+      searchNumber: '',
       basePrice: 0,
       batteryStatus: '90',
       cameraStain: 'none',

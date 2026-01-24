@@ -286,14 +286,15 @@ export default function MasterManagementPage() {
       .order('name')
 
     if (accessoryData) {
-      const formatted = accessoryData.map(a => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const formatted = accessoryData.map((a: any) => ({
         id: a.id,
         name: a.name,
         variation: a.variation,
         price: a.price,
         cost: a.cost,
         category_id: a.category_id,
-        category_name: (a.m_accessory_categories as { name: string } | null)?.name || '',
+        category_name: a.m_accessory_categories?.name || '',
       }))
       setAccessories(formatted)
     }
@@ -624,9 +625,11 @@ export default function MasterManagementPage() {
     if (error) {
       alert('追加に失敗しました')
     } else if (data) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = data as any
       setAccessories([...accessories, {
-        id: data.id, name: data.name, variation: data.variation, price: data.price, cost: data.cost,
-        category_id: data.category_id, category_name: (data.m_accessory_categories as { name: string } | null)?.name || '',
+        id: d.id, name: d.name, variation: d.variation, price: d.price, cost: d.cost,
+        category_id: d.category_id, category_name: d.m_accessory_categories?.name || '',
       }])
       setShowAddModal(false)
     }

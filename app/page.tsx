@@ -93,7 +93,7 @@ export default function Home() {
           if (shortage.length > 0) {
             const details = shortage.map(a => {
               const diff = a.required_qty - a.actual_qty
-              const name = (a.m_accessories as { name: string } | null)?.name || 'アクセサリ'
+              const name = (a.m_accessories as any)?.name || 'アクセサリ'
               return name + ' ×' + diff
             })
             
@@ -123,10 +123,10 @@ export default function Home() {
         for (const shop of shopsData) {
           const shopInventory = inventoryData.filter(i => i.shop_id === shop.id)
           
-          const over45: typeof inventoryData = []
-          const over60: typeof inventoryData = []
-          const over90: typeof inventoryData = []
-          const over120: typeof inventoryData = []
+          const over45: any[] = []
+          const over60: any[] = []
+          const over90: any[] = []
+          const over120: any[] = []
           
           for (const item of shopInventory) {
             const arrival = new Date(item.arrival_date)

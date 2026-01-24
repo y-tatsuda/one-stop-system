@@ -1025,7 +1025,7 @@ export default function ReportsPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="weekLabel" tick={{ fontSize: 12 }} />
                         <YAxis tickFormatter={(value) => `${(value / 10000).toFixed(0)}万`} />
-                        <Tooltip formatter={(value: number) => `¥${value.toLocaleString()}`} labelFormatter={(label) => `${label}`} />
+                        <Tooltip formatter={(value: any) => `¥${value?.toLocaleString()}`} labelFormatter={(label) => `${label}`} />
                         <Legend />
                         <Line type="monotone" dataKey="amount" name={`${trendYear}年`} stroke="var(--color-primary)" strokeWidth={2} dot={false} />
                         <Line type="monotone" dataKey="lastYearAmount" name={`${trendYear - 1}年`} stroke="var(--color-text-secondary)" strokeWidth={2} strokeDasharray="5 5" dot={false} />

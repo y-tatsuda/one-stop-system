@@ -115,12 +115,9 @@ export default function InventoryCheckPage() {
           .eq('shop_id', parseInt(selectedShop))
 
         if (data) {
-          const formatted: AccessoryItem[] = data.map(item => {
-            const accessory = item.m_accessories as {
-              name: string
-              variation: string | null
-              m_accessory_categories: { name: string } | null
-            } | null
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const formatted: AccessoryItem[] = data.map((item: any) => {
+            const accessory = item.m_accessories
 
             return {
               id: item.id,
