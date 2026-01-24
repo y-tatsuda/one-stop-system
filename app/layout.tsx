@@ -153,7 +153,7 @@ export default function RootLayout({
             買取入力
           </Link>
 
-          <div className="mobile-nav-group-title">在庫</div>
+          <div className="mobile-nav-group-title mobile-nav-group-inventory">在庫</div>
           <Link
             href="/inventory"
             className="mobile-nav-link"
@@ -176,7 +176,7 @@ export default function RootLayout({
             アクセサリ在庫
           </Link>
 
-          <div className="mobile-nav-group-title">業務</div>
+          <div className="mobile-nav-group-title mobile-nav-group-work">業務</div>
           <Link
             href="/inventory-check"
             className="mobile-nav-link"
@@ -199,7 +199,7 @@ export default function RootLayout({
             日報
           </Link>
 
-          <div className="mobile-nav-group-title">設定</div>
+          <div className="mobile-nav-group-title mobile-nav-group-settings">設定</div>
           <Link
             href="/reports"
             className="mobile-nav-link"
