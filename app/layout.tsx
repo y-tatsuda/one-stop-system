@@ -133,21 +133,21 @@ export default function RootLayout({
         <nav className={`mobile-nav ${mobileMenuOpen ? "mobile-nav-open" : ""}`}>
           <Link
             href="/"
-            className="mobile-nav-link"
+            className="mobile-nav-link mobile-nav-link-home"
             onClick={() => setMobileMenuOpen(false)}
           >
             ホーム
           </Link>
           <Link
             href="/sales"
-            className="mobile-nav-link"
+            className="mobile-nav-link mobile-nav-link-sales"
             onClick={() => setMobileMenuOpen(false)}
           >
             売上入力
           </Link>
           <Link
             href="/buyback"
-            className="mobile-nav-link"
+            className="mobile-nav-link mobile-nav-link-buyback"
             onClick={() => setMobileMenuOpen(false)}
           >
             買取入力

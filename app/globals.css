@@ -982,14 +982,28 @@ body {
   border-bottom: 1px solid var(--color-border);
 }
 
+/* メニュー項目の個別色 */
+.mobile-nav-link-home {
+  background: rgba(107, 114, 128, 0.08);
+}
+
+.mobile-nav-link-sales {
+  background: rgba(0, 74, 173, 0.1);
+}
+
+.mobile-nav-link-buyback {
+  background: rgba(5, 150, 105, 0.1);
+}
+
+/* 見出しの個別色 */
 .mobile-nav-group-inventory {
-  background: rgba(0, 74, 173, 0.08);
-  color: #004AAD;
+  background: rgba(124, 58, 237, 0.1);
+  color: #7C3AED;
 }
 
 .mobile-nav-group-work {
-  background: rgba(124, 58, 237, 0.08);
-  color: #7C3AED;
+  background: rgba(217, 119, 6, 0.1);
+  color: #D97706;
 }
 
 .mobile-nav-group-settings {
