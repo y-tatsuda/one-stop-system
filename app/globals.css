@@ -976,12 +976,12 @@ body {
 }
 
 .mobile-nav-group-title {
-  padding: 12px 16px 8px;
-  font-size: 0.85rem;
+  padding: 12px 16px;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: var(--color-primary);
+  background: #e8f0fe;
+  border-bottom: 1px solid var(--color-border);
 }
 
 @media (max-width: 768px) {
