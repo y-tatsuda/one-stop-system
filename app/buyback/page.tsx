@@ -1729,7 +1729,7 @@ function CustomerInputScreen({
             />
           </div>
 
-          <div className="form-grid-2 mb-md">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }} className="mb-md">
             <div className="form-group">
               <label className="form-label form-label-required">生年月日</label>
               <input
