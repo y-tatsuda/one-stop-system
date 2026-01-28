@@ -1729,8 +1729,8 @@ function CustomerInputScreen({
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }} className="mb-md">
-            <div className="form-group">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }} className="mb-md">
+            <div className="form-group" style={{ flex: '1 1 200px' }}>
               <label className="form-label form-label-required">生年月日</label>
               <input
                 type="date"
@@ -1742,7 +1742,7 @@ function CustomerInputScreen({
                 className="form-input"
               />
             </div>
-            <div className="form-group">
+            <div className="form-group" style={{ flex: '0 0 80px' }}>
               <label className="form-label">年齢</label>
               <div className="form-input" style={{ background: '#F3F4F6' }}>
                 {customerInfo.age !== null ? `${customerInfo.age}歳` : '-'}
