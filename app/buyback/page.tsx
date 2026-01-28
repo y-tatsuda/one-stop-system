@@ -1729,25 +1729,22 @@ function CustomerInputScreen({
             />
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }} className="mb-md">
-            <div className="form-group" style={{ flex: '1 1 200px' }}>
-              <label className="form-label form-label-required">生年月日</label>
-              <input
-                type="date"
-                value={customerInfo.birthDate}
-                onChange={(e) => {
-                  const age = calculateAge(e.target.value)
-                  setCustomerInfo({ ...customerInfo, birthDate: e.target.value, age })
-                }}
-                className="form-input"
-              />
-            </div>
-            <div className="form-group" style={{ flex: '0 0 80px' }}>
-              <label className="form-label">年齢</label>
-              <div className="form-input" style={{ background: '#F3F4F6' }}>
-                {customerInfo.age !== null ? `${customerInfo.age}歳` : '-'}
+          <div className="form-group mb-md">
+            <label className="form-label form-label-required">生年月日</label>
+            <input
+              type="date"
+              value={customerInfo.birthDate}
+              onChange={(e) => {
+                const age = calculateAge(e.target.value)
+                setCustomerInfo({ ...customerInfo, birthDate: e.target.value, age })
+              }}
+              className="form-input"
+            />
+            {customerInfo.age !== null && (
+              <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#374151' }}>
+                年齢: {customerInfo.age}歳
               </div>
-            </div>
+            )}
           </div>
 
           <div className="form-grid-2 mb-md">
