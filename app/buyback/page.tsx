@@ -1739,6 +1739,7 @@ function CustomerInputScreen({
                 setCustomerInfo({ ...customerInfo, birthDate: e.target.value, age })
               }}
               className="form-input"
+              style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
             />
             {customerInfo.age !== null && (
               <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#374151' }}>
