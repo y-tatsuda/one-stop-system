@@ -4,8 +4,12 @@ export async function POST(request: NextRequest) {
   try {
     const { message } = await request.json()
 
-    // Slack Webhook URL
-    const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || 'https://hooks.slack.com/services/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'
+    const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL
+
+    if (!SLACK_WEBHOOK_URL) {
+      console.error('SLACK_WEBHOOK_URL is not set')
+      return NextResponse.json({ success: false, error: 'Webhook URL not configured' }, { status: 500 })
+    }
 
     const response = await fetch(SLACK_WEBHOOK_URL, {
       method: 'POST',
@@ -14,16 +18,6 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         text: message,
-        // リッチフォーマット用（オプション）
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: message.replace(/\n/g, '\n'),
-            },
-          },
-        ],
       }),
     })
 
