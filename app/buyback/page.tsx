@@ -1058,7 +1058,7 @@ function ItemForm({
     if (item.model && item.storage && item.rank) {
       onCalculate(item.model, item.storage, item.rank)
     }
-  }, [item.model, item.storage, item.rank, item.batteryPercent, item.isServiceState, item.nwStatus, item.cameraStain, item.cameraBroken, item.repairHistory])
+  }, [item.model, item.storage, item.rank])
 
   // 修理選択
   const handleRepairSelect = (key: string) => {
