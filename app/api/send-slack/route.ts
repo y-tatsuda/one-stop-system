@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
     const { message } = await request.json()
 
     // Slack Webhook URL
-    const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || 'https://hooks.slack.com/services/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'
+    const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || 'https://hooks.slack.com/services/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'
 
     const response = await fetch(SLACK_WEBHOOK_URL, {
       method: 'POST',

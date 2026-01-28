@@ -731,7 +731,7 @@ ${bankInfo.accountHolder}
             <h2 className="card-title">買取方法を選択してください</h2>
           </div>
           <div className="card-body">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', maxWidth: '600px', margin: '0 auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', maxWidth: '600px', margin: '0 auto' }}>
               <button
                 onClick={() => { setBuybackType('store'); setPhase('assessment') }}
                 className="btn btn-primary btn-lg"
