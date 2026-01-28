@@ -17,6 +17,10 @@ export default function RootLayout({
       <head>
         <title>ワンストップ管理システム</title>
         <meta name="description" content="スマホ修理・買取・販売管理" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="買取入力" />
       </head>
       <body>
         {/* ヘッダー */}

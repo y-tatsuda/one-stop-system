@@ -1,0 +1,24 @@
+{
+  "name": "ONE STOP 買取入力",
+  "short_name": "買取入力",
+  "description": "スマートフォン買取入力システム",
+  "start_url": "/buyback?standalone=true",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#004AAD",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
