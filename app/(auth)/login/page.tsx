@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useAuth } from '@/app/contexts/AuthContext'
 
 type LoginStep = 'credentials' | 'otp'
 
 export default function LoginPage() {
-  const router = useRouter()
+  const { login } = useAuth()
   const [step, setStep] = useState<LoginStep>('credentials')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -26,8 +26,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include'
+        body: JSON.stringify({ email, password })
       })
 
       const data = await res.json()
@@ -38,11 +37,13 @@ export default function LoginPage() {
       }
 
       if (data.requiresOTP) {
+        // 2段階認証が必要
         setStaffId(data.staffId)
         setMessage(data.message)
         setStep('otp')
       } else {
-        window.location.href = '/'
+        // 2段階認証なし（直接ログイン）
+        login(data.token, data.staff)
       }
     } catch (err) {
       setError('ログインに失敗しました')
@@ -61,8 +62,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staffId, otpCode }),
-        credentials: 'include'
+        body: JSON.stringify({ staffId, otpCode })
       })
 
       const data = await res.json()
@@ -72,8 +72,8 @@ export default function LoginPage() {
         return
       }
 
-      // Cookieが設定されるまで少し待ってからリダイレクト
-      window.location.href = '/'
+      // 認証成功 → コンテキストに保存（リダイレクトは自動）
+      login(data.token, data.staff)
     } catch (err) {
       setError('認証に失敗しました')
     } finally {
@@ -91,8 +91,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/resend-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staffId }),
-        credentials: 'include'
+        body: JSON.stringify({ staffId })
       })
 
       const data = await res.json()
@@ -150,7 +149,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="email@example.com"
+                placeholder="example@email.com"
                 required
                 disabled={isLoading}
                 autoComplete="email"

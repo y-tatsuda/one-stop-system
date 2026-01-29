@@ -1,16 +1,28 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { logAuthAction } from '@/app/lib/auth'
 
-export async function POST() {
-  const response = NextResponse.json({ success: true })
-  
-  // 認証Cookieを削除
-  response.cookies.set('auth_token', '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 0,
-    path: '/'
-  })
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json().catch(() => ({}))
+    const { staffId, email } = body
+    const ipAddress = request.headers.get('x-forwarded-for') || 'unknown'
+    const userAgent = request.headers.get('user-agent') || 'unknown'
 
-  return response
+    // ログアウトアクションを記録（オプション）
+    if (staffId && email) {
+      await logAuthAction(staffId, email, 'logout', 'success', ipAddress, userAgent)
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'ログアウトしました'
+    })
+
+  } catch (error) {
+    console.error('ログアウトエラー:', error)
+    return NextResponse.json({
+      success: true,
+      message: 'ログアウトしました'
+    })
+  }
 }

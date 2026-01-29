@@ -11,6 +11,7 @@ export interface Staff {
   is_2fa_enabled: boolean
   is_active: boolean
   last_login_at: string | null
+  password_changed?: boolean
 }
 
 export interface AuthResult {

@@ -6,7 +6,8 @@ import {
   sendOTPEmail,
   logAuthAction,
   checkLoginAttempts,
-  recordLoginFailure
+  recordLoginFailure,
+  clearLoginAttempts
 } from '@/app/lib/auth'
 
 export async function POST(request: NextRequest) {
@@ -101,42 +102,60 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // OTPをメール送信
-      const sent = await sendOTPEmail(email, otpCode)
-      if (!sent) {
-        return NextResponse.json(
-          { success: false, error: '認証コードの送信に失敗しました。' },
-          { status: 500 }
-        )
+      // OTPをメールで送信
+      const emailSent = await sendOTPEmail(email, otpCode)
+      if (!emailSent) {
+        console.warn('OTPメール送信に失敗しましたが、処理を継続します')
       }
 
-      await logAuthAction(staff.id, email, '2fa_sent', 'success', ipAddress, userAgent)
+      await logAuthAction(staff.id, email, 'otp_requested', 'success', ipAddress, userAgent)
 
       return NextResponse.json({
         success: true,
         requiresOTP: true,
         staffId: staff.id,
-        message: '認証コードをメールに送信しました。'
+        message: '認証コードをメールに送信しました'
       })
     }
 
-    // 2FAが無効の場合（通常は無いが念のため）
+    // 2段階認証なしの場合 → 直接ログイン成功
     await logAuthAction(staff.id, email, 'login_success', 'success', ipAddress, userAgent)
+    await clearLoginAttempts(email)
+
+    // 最終ログイン日時を更新
+    await supabaseAdmin
+      .from('m_staff')
+      .update({ last_login_at: new Date().toISOString() })
+      .eq('id', staff.id)
+
+    // トークンを生成
+    const tokenData = {
+      staffId: staff.id,
+      name: staff.name,
+      email: staff.email,
+      role: staff.role,
+      tenantId: staff.tenant_id,
+      passwordChanged: staff.password_changed ?? false,
+      exp: Date.now() + 24 * 60 * 60 * 1000
+    }
+    const authToken = Buffer.from(JSON.stringify(tokenData)).toString('base64')
 
     return NextResponse.json({
       success: true,
       requiresOTP: false,
+      token: authToken,
       staff: {
         id: staff.id,
         name: staff.name,
         email: staff.email,
-        role: staff.role
-      },
-      session: authData.session
+        role: staff.role,
+        tenant_id: staff.tenant_id,
+        password_changed: staff.password_changed ?? false
+      }
     })
 
   } catch (error) {
-    console.error('❌ ログインエラー:', error)
+    console.error('ログインエラー:', error)
     return NextResponse.json(
       { success: false, error: 'サーバーエラーが発生しました。' },
       { status: 500 }
