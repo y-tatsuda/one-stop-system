@@ -106,6 +106,10 @@ type BuybackItem = {
   salesPrice: number
   expectedProfit: number
   memo: string
+  // 事前査定価格（本査定で変更があったか確認用）
+  preliminaryPrice: number
+  priceChanged: boolean
+  priceChangeReason: string
 }
 
 // 顧客情報の型定義
@@ -165,6 +169,9 @@ const createEmptyItem = (): BuybackItem => ({
   salesPrice: 0,
   expectedProfit: 0,
   memo: '',
+  preliminaryPrice: 0,
+  priceChanged: false,
+  priceChangeReason: '',
 })
 
 // =====================================================
@@ -172,7 +179,7 @@ const createEmptyItem = (): BuybackItem => ({
 // =====================================================
 export default function BuybackPage() {
   // フェーズ管理
-  const [phase, setPhase] = useState<'select' | 'assessment' | 'customer-view' | 'customer-input' | 'verification' | 'payment'>('select')
+  const [phase, setPhase] = useState<'select' | 'assessment' | 'customer-view' | 'operation-check' | 'customer-input' | 'verification' | 'payment'>('select')
   const [buybackType, setBuybackType] = useState<'store' | 'mail'>('store')
   
   // マスタデータ
@@ -774,10 +781,10 @@ ${bankInfo.accountHolder}
 
       {/* フェーズ表示 */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        {['assessment', 'customer-view', 'customer-input', 'verification', 'payment'].map((p, i) => {
-          const labels = buybackType === 'store' 
-            ? ['1.査定', '2.案内', '3.同意・入力', '4.本人確認', '5.支払']
-            : ['1.査定', '', '2.顧客情報', '3.確定', '']
+        {['assessment', 'customer-view', 'operation-check', 'customer-input', 'verification', 'payment'].map((p, i) => {
+          const labels = buybackType === 'store'
+            ? ['1.事前査定', '2.価格案内', '3.本査定', '4.同意・入力', '5.本人確認', '6.支払']
+            : ['1.査定', '', '', '2.顧客情報', '3.確定', '']
           if (!labels[i]) return null
           return (
             <div
@@ -911,7 +918,17 @@ ${bankInfo.accountHolder}
               戻る
             </button>
             <button
-              onClick={() => setPhase(buybackType === 'store' ? 'customer-view' : 'customer-input')}
+              onClick={() => {
+                // 事前査定価格を保存
+                const updatedItems = items.map(item => ({
+                  ...item,
+                  preliminaryPrice: item.finalPrice,
+                  priceChanged: false,
+                  priceChangeReason: '',
+                }))
+                setItems(updatedItems)
+                setPhase(buybackType === 'store' ? 'customer-view' : 'customer-input')
+              }}
               disabled={!shopId || !staffId || items.some(item => !item.model || !item.storage || !item.rank)}
               className="btn btn-primary btn-lg"
             >
@@ -927,8 +944,19 @@ ${bankInfo.accountHolder}
           items={items}
           iphoneModels={iphoneModels}
           totalBuybackPrice={totalBuybackPrice}
-          onNext={() => setPhase('customer-input')}
+          onNext={() => setPhase('operation-check')}
           onBack={() => setPhase('assessment')}
+        />
+      )}
+
+      {/* 動作チェック画面（店頭のみ） */}
+      {phase === 'operation-check' && buybackType === 'store' && (
+        <OperationCheckScreen
+          items={items}
+          iphoneModels={iphoneModels}
+          onUpdateItem={updateItem}
+          onNext={() => setPhase('customer-input')}
+          onBack={() => setPhase('customer-view')}
         />
       )}
 
@@ -936,6 +964,9 @@ ${bankInfo.accountHolder}
       {phase === 'customer-input' && (
         <CustomerInputScreen
           buybackType={buybackType}
+          items={items}
+          iphoneModels={iphoneModels}
+          totalBuybackPrice={totalBuybackPrice}
           customerInfo={customerInfo}
           setCustomerInfo={setCustomerInfo}
           consentImageFile={consentImageFile}
@@ -945,7 +976,7 @@ ${bankInfo.accountHolder}
           fetchAddressFromPostalCode={fetchAddressFromPostalCode}
           calculateAge={calculateAge}
           onNext={() => setPhase('verification')}
-          onBack={() => setPhase(buybackType === 'store' ? 'customer-view' : 'assessment')}
+          onBack={() => setPhase(buybackType === 'store' ? 'operation-check' : 'assessment')}
         />
       )}
 
@@ -1010,7 +1041,6 @@ function ItemForm({
 }) {
   const [availableStorages, setAvailableStorages] = useState<number[]>([])
   const [partsCosts, setPartsCosts] = useState<CostData[]>([])
-  const [showOperationCheck, setShowOperationCheck] = useState(false)
 
   // 機種変更時に容量リストを取得
   useEffect(() => {
@@ -1243,79 +1273,13 @@ function ItemForm({
           </label>
         </div>
 
-        {/* 動作チェック */}
-        <div className="card mb-lg" style={{ background: '#F9FAFB' }}>
-          <div className="card-header" style={{ cursor: 'pointer' }} onClick={() => setShowOperationCheck(!showOperationCheck)}>
-            <h3 className="card-title" style={{ fontSize: '1rem' }}>
-              動作チェック（20項目）
-              <span style={{ marginLeft: '8px', color: '#6B7280' }}>{showOperationCheck ? '▼' : '▶'}</span>
-            </h3>
+        {/* 動作チェックは本査定フェーズで実施するため、ここでは省略 */}
+        <div className="card mb-lg" style={{ background: '#F0F9FF', border: '1px dashed #60A5FA' }}>
+          <div className="card-body" style={{ padding: '16px', textAlign: 'center' }}>
+            <p style={{ margin: 0, color: '#3B82F6', fontSize: '0.9rem' }}>
+              💡 動作チェック（20項目）は「本査定」フェーズで実施します
+            </p>
           </div>
-          {showOperationCheck && (
-            <div className="card-body">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
-                {OPERATION_CHECK_ITEMS.map(checkItem => {
-                  const check = item.operationCheck[checkItem.key]
-                  return (
-                    <div key={checkItem.key} style={{ padding: '12px', background: 'white', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
-                      <div style={{ fontWeight: '600', marginBottom: '8px' }}>{checkItem.label}</div>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        {['normal', 'minor', 'abnormal'].map(status => (
-                          <label key={status} className="form-check">
-                            <input
-                              type="radio"
-                              name={`${item.id}-${checkItem.key}`}
-                              checked={check.status === status}
-                              onChange={() => onUpdate({
-                                operationCheck: {
-                                  ...item.operationCheck,
-                                  [checkItem.key]: { ...check, status }
-                                }
-                              })}
-                            />
-                            <span style={{ color: status === 'normal' ? '#059669' : status === 'minor' ? '#D97706' : '#DC2626' }}>
-                              {status === 'normal' ? '正常' : status === 'minor' ? '軽度異常' : '異常'}
-                            </span>
-                          </label>
-                        ))}
-                        {checkItem.hasNotApplicable && (
-                          <label className="form-check">
-                            <input
-                              type="radio"
-                              name={`${item.id}-${checkItem.key}`}
-                              checked={check.status === 'not_applicable'}
-                              onChange={() => onUpdate({
-                                operationCheck: {
-                                  ...item.operationCheck,
-                                  [checkItem.key]: { ...check, status: 'not_applicable', detail: '' }
-                                }
-                              })}
-                            />
-                            <span style={{ color: '#6B7280' }}>対象外</span>
-                          </label>
-                        )}
-                      </div>
-                      {(check.status === 'minor' || check.status === 'abnormal') && (
-                        <input
-                          type="text"
-                          value={check.detail}
-                          onChange={(e) => onUpdate({
-                            operationCheck: {
-                              ...item.operationCheck,
-                              [checkItem.key]: { ...check, detail: e.target.value }
-                            }
-                          })}
-                          placeholder="詳細を入力"
-                          className="form-input"
-                          style={{ marginTop: '8px' }}
-                        />
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* 修理が必要 */}
@@ -1554,14 +1518,20 @@ function CustomerViewScreen({
             </div>
           )}
 
+          <div style={{ background: '#FEF3C7', padding: '16px', borderRadius: '8px', marginBottom: '20px', textAlign: 'left' }}>
+            <p style={{ fontSize: '0.95rem', color: '#92400E', margin: 0 }}>
+              ※ これは事前査定の金額です。本査定（動作チェック）の結果により、金額が変更になる場合があります。
+            </p>
+          </div>
+
           <button
             onClick={onNext}
             className="btn btn-primary btn-lg"
             style={{ width: '100%', padding: '20px', fontSize: '1.2rem' }}
           >
-            この金額で買取を申し込む
+            本査定を依頼する
           </button>
-          
+
           <button
             onClick={onBack}
             className="btn btn-secondary"
@@ -1580,6 +1550,9 @@ function CustomerViewScreen({
 // =====================================================
 function CustomerInputScreen({
   buybackType,
+  items,
+  iphoneModels,
+  totalBuybackPrice,
   customerInfo,
   setCustomerInfo,
   consentImageFile,
@@ -1592,6 +1565,9 @@ function CustomerInputScreen({
   onBack,
 }: {
   buybackType: 'store' | 'mail'
+  items: BuybackItem[]
+  iphoneModels: IphoneModel[]
+  totalBuybackPrice: number
   customerInfo: CustomerInfo
   setCustomerInfo: (info: CustomerInfo) => void
   consentImageFile: File | null
@@ -1603,6 +1579,9 @@ function CustomerInputScreen({
   onNext: () => void
   onBack: () => void
 }) {
+  // 価格変更があったかどうか
+  const hasPriceChange = items.some(item => item.priceChanged)
+  const totalPreliminaryPrice = items.reduce((sum, item) => sum + item.preliminaryPrice, 0)
   const consentItems = buybackType === 'store' ? STORE_CONSENT_ITEMS : []
   const allConsented = buybackType === 'mail' || customerInfo.consentItems.every(c => c)
   
@@ -1636,6 +1615,66 @@ function CustomerInputScreen({
 
   return (
     <div style={{ maxWidth: buybackType === 'store' ? '600px' : '800px', margin: '0 auto' }}>
+      {/* 店頭買取: 買取価格表示 */}
+      {buybackType === 'store' && (
+        <div className="card mb-lg" style={{ background: hasPriceChange ? '#FEF3C7' : '#F0F9FF' }}>
+          <div className="card-header" style={{ background: hasPriceChange ? '#F59E0B' : '#004AAD', color: 'white' }}>
+            <h2 className="card-title" style={{ color: 'white', margin: 0 }}>
+              {hasPriceChange ? '⚠️ 買取価格が変更されました' : '✓ 買取価格（確定）'}
+            </h2>
+          </div>
+          <div className="card-body">
+            {items.map((item, index) => {
+              const modelName = iphoneModels.find(m => m.model === item.model)?.display_name || item.model
+              return (
+                <div key={item.id} style={{ marginBottom: index < items.length - 1 ? '16px' : '0', paddingBottom: index < items.length - 1 ? '16px' : '0', borderBottom: index < items.length - 1 ? '1px solid #E5E7EB' : 'none' }}>
+                  <div style={{ fontWeight: '600', marginBottom: '8px' }}>
+                    {items.length > 1 && `${index + 1}台目: `}{modelName} {item.storage}GB {item.rank}
+                  </div>
+                  {item.priceChanged ? (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ color: '#6B7280', textDecoration: 'line-through' }}>事前査定: ¥{item.preliminaryPrice.toLocaleString()}</span>
+                        <span style={{ fontWeight: '700', color: '#D97706' }}>→ ¥{item.finalPrice.toLocaleString()}</span>
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#92400E', background: '#FEF9C3', padding: '8px', borderRadius: '4px' }}>
+                        理由: {item.priceChangeReason}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>買取価格</span>
+                      <span style={{ fontWeight: '700', color: '#004AAD' }}>¥{item.finalPrice.toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* 合計 */}
+            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '2px solid #004AAD' }}>
+              {hasPriceChange && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#6B7280' }}>
+                  <span>事前査定合計</span>
+                  <span style={{ textDecoration: 'line-through' }}>¥{totalPreliminaryPrice.toLocaleString()}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1.3rem' }}>
+                <span>最終買取価格</span>
+                <span style={{ color: hasPriceChange ? '#D97706' : '#004AAD' }}>¥{totalBuybackPrice.toLocaleString()}</span>
+              </div>
+              {hasPriceChange && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.9rem', color: totalBuybackPrice < totalPreliminaryPrice ? '#DC2626' : '#059669' }}>
+                    （{totalBuybackPrice < totalPreliminaryPrice ? '' : '+'}¥{(totalBuybackPrice - totalPreliminaryPrice).toLocaleString()}）
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 店頭買取: 同意項目 */}
       {buybackType === 'store' && (
         <div className="card mb-lg">
@@ -2117,6 +2156,328 @@ function PaymentScreen({
           className="btn btn-success btn-lg"
         >
           {saving ? '処理中...' : paymentMethod === 'cash' ? '買取を終了する' : '振込依頼を送信して終了'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// =====================================================
+// サブコンポーネント: 動作チェック画面（本査定）
+// =====================================================
+function OperationCheckScreen({
+  items,
+  iphoneModels,
+  onUpdateItem,
+  onNext,
+  onBack,
+}: {
+  items: BuybackItem[]
+  iphoneModels: IphoneModel[]
+  onUpdateItem: (index: number, updates: Partial<BuybackItem>) => void
+  onNext: () => void
+  onBack: () => void
+}) {
+  const [activeItemIndex, setActiveItemIndex] = useState(0)
+  const [showPriceChange, setShowPriceChange] = useState<boolean[]>(new Array(items.length).fill(false))
+
+  const activeItem = items[activeItemIndex]
+  const modelName = iphoneModels.find(m => m.model === activeItem?.model)?.display_name || activeItem?.model
+
+  // すべての端末で動作チェック完了しているか
+  const allChecked = items.every((item, i) => {
+    // 価格変更なしを選択済み、または価格変更ありで理由入力済み
+    return !showPriceChange[i] || (item.priceChanged && item.priceChangeReason)
+  })
+
+  const handleNoChange = (index: number) => {
+    onUpdateItem(index, { priceChanged: false, priceChangeReason: '' })
+    const newShowPriceChange = [...showPriceChange]
+    newShowPriceChange[index] = false
+    setShowPriceChange(newShowPriceChange)
+
+    // 次の端末へ、または完了
+    if (index < items.length - 1) {
+      setActiveItemIndex(index + 1)
+    }
+  }
+
+  const handleHasChange = (index: number) => {
+    const newShowPriceChange = [...showPriceChange]
+    newShowPriceChange[index] = true
+    setShowPriceChange(newShowPriceChange)
+    onUpdateItem(index, { priceChanged: true })
+  }
+
+  const handlePriceUpdate = (index: number, newPrice: number, reason: string) => {
+    const item = items[index]
+    const newExpectedProfit = item.salesPrice - (newPrice + item.repairCost)
+    onUpdateItem(index, {
+      finalPrice: newPrice,
+      expectedProfit: newExpectedProfit,
+      priceChangeReason: reason,
+    })
+  }
+
+  const handleRankChange = async (index: number, newRank: string) => {
+    const item = items[index]
+    onUpdateItem(index, { rank: newRank })
+
+    // 新しいランクで価格を再計算（簡易版：本来はcalculatePricesを呼ぶべき）
+    const { data: priceData } = await supabase
+      .from('m_buyback_prices')
+      .select('price')
+      .eq('tenant_id', 1)
+      .eq('model', item.model)
+      .eq('storage', parseInt(item.storage))
+      .eq('rank', newRank)
+      .single()
+
+    if (priceData) {
+      const newBasePrice = priceData.price
+      const newCalculatedPrice = newBasePrice - item.totalDeduction
+      const newFinalPrice = Math.max(newCalculatedPrice, item.guaranteePrice)
+      const newExpectedProfit = item.salesPrice - (newFinalPrice + item.repairCost)
+
+      onUpdateItem(index, {
+        basePrice: newBasePrice,
+        calculatedPrice: newCalculatedPrice,
+        finalPrice: newFinalPrice,
+        expectedProfit: newExpectedProfit,
+      })
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+      <div className="card mb-lg" style={{ background: 'linear-gradient(135deg, #059669 0%, #10B981 100%)', color: 'white' }}>
+        <div className="card-body" style={{ textAlign: 'center', padding: '24px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.5rem' }}>本査定（動作チェック）</h2>
+          <p style={{ margin: '8px 0 0', opacity: 0.9 }}>端末の動作を確認し、問題があれば買取価格を修正してください</p>
+        </div>
+      </div>
+
+      {/* 端末タブ（複数台の場合） */}
+      {items.length > 1 && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          {items.map((item, index) => {
+            const itemModelName = iphoneModels.find(m => m.model === item.model)?.display_name || item.model
+            const isCompleted = !showPriceChange[index] ? false : (item.priceChanged ? !!item.priceChangeReason : true)
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveItemIndex(index)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: activeItemIndex === index ? '#004AAD' : isCompleted ? '#059669' : '#E5E7EB',
+                  color: activeItemIndex === index || isCompleted ? 'white' : '#374151',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                }}
+              >
+                {index + 1}台目 {itemModelName && `(${itemModelName})`}
+                {isCompleted && ' ✓'}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 動作チェック項目 */}
+      <div className="card mb-lg">
+        <div className="card-header">
+          <h3 className="card-title">
+            {items.length > 1 && `${activeItemIndex + 1}台目: `}
+            {modelName} {activeItem?.storage}GB {activeItem?.rank}
+          </h3>
+        </div>
+        <div className="card-body">
+          <div style={{ marginBottom: '24px', padding: '16px', background: '#F0F9FF', borderRadius: '8px' }}>
+            <div style={{ fontSize: '0.9rem', color: '#6B7280', marginBottom: '4px' }}>事前査定価格</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#004AAD' }}>
+              ¥{activeItem?.preliminaryPrice.toLocaleString()}
+            </div>
+          </div>
+
+          <h4 style={{ marginBottom: '16px', fontSize: '1rem' }}>動作チェック（20項目）</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+            {OPERATION_CHECK_ITEMS.map(checkItem => {
+              const check = activeItem?.operationCheck[checkItem.key]
+              return (
+                <div key={checkItem.key} style={{ padding: '12px', background: '#F9FAFB', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
+                  <div style={{ fontWeight: '600', marginBottom: '8px', fontSize: '0.9rem' }}>{checkItem.label}</div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {['normal', 'minor', 'abnormal'].map(status => (
+                      <label key={status} className="form-check" style={{ fontSize: '0.85rem' }}>
+                        <input
+                          type="radio"
+                          name={`${activeItem?.id}-${checkItem.key}`}
+                          checked={check?.status === status}
+                          onChange={() => onUpdateItem(activeItemIndex, {
+                            operationCheck: {
+                              ...activeItem?.operationCheck,
+                              [checkItem.key]: { ...check, status }
+                            }
+                          })}
+                        />
+                        <span style={{ color: status === 'normal' ? '#059669' : status === 'minor' ? '#D97706' : '#DC2626' }}>
+                          {status === 'normal' ? '正常' : status === 'minor' ? '軽度' : '異常'}
+                        </span>
+                      </label>
+                    ))}
+                    {checkItem.hasNotApplicable && (
+                      <label className="form-check" style={{ fontSize: '0.85rem' }}>
+                        <input
+                          type="radio"
+                          name={`${activeItem?.id}-${checkItem.key}`}
+                          checked={check?.status === 'not_applicable'}
+                          onChange={() => onUpdateItem(activeItemIndex, {
+                            operationCheck: {
+                              ...activeItem?.operationCheck,
+                              [checkItem.key]: { ...check, status: 'not_applicable', detail: '' }
+                            }
+                          })}
+                        />
+                        <span style={{ color: '#6B7280' }}>対象外</span>
+                      </label>
+                    )}
+                  </div>
+                  {(check?.status === 'minor' || check?.status === 'abnormal') && (
+                    <input
+                      type="text"
+                      value={check?.detail || ''}
+                      onChange={(e) => onUpdateItem(activeItemIndex, {
+                        operationCheck: {
+                          ...activeItem?.operationCheck,
+                          [checkItem.key]: { ...check, detail: e.target.value }
+                        }
+                      })}
+                      placeholder="詳細を入力"
+                      className="form-input"
+                      style={{ marginTop: '8px', fontSize: '0.85rem' }}
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* 価格変更の選択 */}
+          {!showPriceChange[activeItemIndex] ? (
+            <div style={{ borderTop: '2px solid #E5E7EB', paddingTop: '24px' }}>
+              <h4 style={{ marginBottom: '16px', textAlign: 'center' }}>動作チェックの結果、買取価格に変更はありますか？</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxWidth: '500px', margin: '0 auto' }}>
+                <button
+                  onClick={() => handleNoChange(activeItemIndex)}
+                  className="btn btn-success btn-lg"
+                  style={{ padding: '20px' }}
+                >
+                  変更なし
+                  <div style={{ fontSize: '0.85rem', marginTop: '4px', opacity: 0.9 }}>
+                    ¥{activeItem?.preliminaryPrice.toLocaleString()}で確定
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleHasChange(activeItemIndex)}
+                  className="btn btn-warning btn-lg"
+                  style={{ padding: '20px' }}
+                >
+                  変更あり
+                  <div style={{ fontSize: '0.85rem', marginTop: '4px', opacity: 0.9 }}>
+                    価格を修正する
+                  </div>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ borderTop: '2px solid #E5E7EB', paddingTop: '24px' }}>
+              <h4 style={{ marginBottom: '16px', color: '#D97706' }}>価格修正</h4>
+
+              <div className="form-grid-2 mb-lg">
+                <div className="form-group">
+                  <label className="form-label">ランク変更</label>
+                  <select
+                    value={activeItem?.rank || ''}
+                    onChange={(e) => handleRankChange(activeItemIndex, e.target.value)}
+                    className="form-select"
+                  >
+                    {RANK_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label form-label-required">修正後の買取価格</label>
+                  <input
+                    type="number"
+                    value={activeItem?.finalPrice || 0}
+                    onChange={(e) => handlePriceUpdate(activeItemIndex, parseInt(e.target.value) || 0, activeItem?.priceChangeReason || '')}
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group mb-lg">
+                <label className="form-label form-label-required">価格変更の理由</label>
+                <input
+                  type="text"
+                  value={activeItem?.priceChangeReason || ''}
+                  onChange={(e) => onUpdateItem(activeItemIndex, { priceChangeReason: e.target.value })}
+                  className="form-input"
+                  placeholder="例: 動作チェックで○○に異常が見つかったため"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', padding: '16px', background: '#FEF3C7', borderRadius: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '0.85rem', color: '#92400E' }}>事前査定価格</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>¥{activeItem?.preliminaryPrice.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.85rem', color: '#92400E' }}>修正後価格</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#D97706' }}>¥{activeItem?.finalPrice.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.85rem', color: '#92400E' }}>差額</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: '600', color: activeItem && activeItem.finalPrice < activeItem.preliminaryPrice ? '#DC2626' : '#059669' }}>
+                    {activeItem && activeItem.finalPrice < activeItem.preliminaryPrice ? '-' : '+'}
+                    ¥{Math.abs((activeItem?.finalPrice || 0) - (activeItem?.preliminaryPrice || 0)).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                <button
+                  onClick={() => {
+                    const newShowPriceChange = [...showPriceChange]
+                    newShowPriceChange[activeItemIndex] = false
+                    setShowPriceChange(newShowPriceChange)
+                    onUpdateItem(activeItemIndex, {
+                      priceChanged: false,
+                      priceChangeReason: '',
+                      finalPrice: activeItem?.preliminaryPrice || 0,
+                    })
+                  }}
+                  className="btn btn-secondary btn-sm"
+                >
+                  変更を取り消す
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-between">
+        <button onClick={onBack} className="btn btn-secondary">
+          戻る
+        </button>
+        <button
+          onClick={onNext}
+          disabled={items.some((item, i) => showPriceChange[i] && item.priceChanged && !item.priceChangeReason)}
+          className="btn btn-primary btn-lg"
+        >
+          同意・入力に進む
         </button>
       </div>
     </div>
