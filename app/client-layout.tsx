@@ -38,7 +38,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }
 
   const handleLogout = async () => {
-    // サーバーにログアウトを通知（オプション）
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',
@@ -51,8 +50,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     } catch (error) {
       console.error('ログアウト通知エラー:', error)
     }
-    
-    // ローカルでログアウト
     logout()
   }
 
@@ -62,8 +59,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <header className="header">
         <div className="header-content">
           <Link href="/" className="header-logo">
-            ONE STOP
+            <img src="/logo.png" alt="ONE STOP" className="header-logo-img" />
           </Link>
+
+          {/* デスクトップナビゲーション */}
+          <nav className="desktop-nav">
+            <Link href="/" className="desktop-nav-link">ホーム</Link>
+            <Link href="/sales" className="desktop-nav-link">売上入力</Link>
+            <Link href="/buyback" className="desktop-nav-link">買取入力</Link>
+            <Link href="/inventory" className="desktop-nav-link">中古在庫</Link>
+            <Link href="/parts-inventory" className="desktop-nav-link">パーツ在庫</Link>
+            <Link href="/inventory-check" className="desktop-nav-link">棚卸し</Link>
+            <Link href="/order" className="desktop-nav-link">発注</Link>
+            <Link href="/daily-report" className="desktop-nav-link">日報</Link>
+            <Link href="/reports" className="desktop-nav-link">レポート</Link>
+            <Link href="/master-management" className="desktop-nav-link">マスタ管理</Link>
+          </nav>
 
           {/* ユーザー情報とログアウト（デスクトップ） */}
           <div className="header-user-area">
@@ -103,108 +114,52 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         )}
 
         <div className="mobile-nav-group-title mobile-nav-group-main">メイン</div>
-        <Link
-          href="/"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           ホーム
         </Link>
-        <Link
-          href="/sales"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/sales" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           売上入力
         </Link>
-        <Link
-          href="/buyback"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/buyback" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           買取入力
         </Link>
 
         <div className="mobile-nav-group-title mobile-nav-group-inventory">在庫管理</div>
-        <Link
-          href="/inventory"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/inventory" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           中古在庫
         </Link>
-        <Link
-          href="/parts-inventory"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/parts-inventory" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           パーツ在庫
         </Link>
-        <Link
-          href="/accessory-inventory"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/accessory-inventory" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           アクセサリ在庫
         </Link>
 
         <div className="mobile-nav-group-title mobile-nav-group-work">業務</div>
-        <Link
-          href="/inventory-check"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/inventory-check" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           棚卸し
         </Link>
-        <Link
-          href="/order"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/order" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           発注
         </Link>
-        <Link
-          href="/daily-report"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/daily-report" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           日報
         </Link>
 
         <div className="mobile-nav-group-title mobile-nav-group-settings">設定</div>
-        <Link
-          href="/reports"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/reports" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           レポート
         </Link>
-        <Link
-          href="/staff-management"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/staff-management" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           スタッフ管理
         </Link>
-        <Link
-          href="/shop-management"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/shop-management" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           店舗管理
         </Link>
-        <Link
-          href="/master-management"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/master-management" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           マスタ管理
         </Link>
-        <Link
-          href="/inventory-settings"
-          className="mobile-nav-link"
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        <Link href="/inventory-settings" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           棚卸し設定
         </Link>
 

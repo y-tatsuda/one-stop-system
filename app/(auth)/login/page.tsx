@@ -120,8 +120,12 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">ONE STOP</h1>
-          <p className="text-gray-500 mt-2">
+          <img 
+            src="/logo.png" 
+            alt="ONE STOP" 
+            style={{ height: '48px', margin: '0 auto 16px' }}
+          />
+          <p className="text-gray-500">
             {step === 'credentials' ? 'ログイン' : '2段階認証'}
           </p>
         </div>

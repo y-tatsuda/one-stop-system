@@ -824,6 +824,150 @@ body {
   z-index: 100;
 }
 
+.header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.header-logo-img {
+  height: 36px;
+  width: auto;
+}
+
+/* デスクトップナビゲーション */
+.desktop-nav {
+  display: none;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 1;
+  margin-left: var(--space-lg);
+}
+
+@media (min-width: 769px) {
+  .desktop-nav {
+    display: flex;
+  }
+}
+
+.desktop-nav-link {
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.desktop-nav-link:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* モバイルメニューボタン */
+.mobile-menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+@media (min-width: 769px) {
+  .mobile-menu-button {
+    display: none;
+  }
+}
+
+.hamburger {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--color-text);
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.hamburger::before,
+.hamburger::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 24px;
+  height: 2px;
+  background: var(--color-text);
+  transition: transform 0.2s ease;
+}
+
+.hamburger::before {
+  top: -7px;
+}
+
+.hamburger::after {
+  top: 7px;
+}
+
+.hamburger.open {
+  background: transparent;
+}
+
+.hamburger.open::before {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger.open::after {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* モバイルメニューオーバーレイ */
+.mobile-menu-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 98;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-overlay {
+    display: block;
+  }
+}
+
+/* モバイルナビ */
+.mobile-nav {
+  position: fixed;
+  top: 64px;
+  right: -280px;
+  width: 280px;
+  height: calc(100vh - 64px);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-lg);
+  overflow-y: auto;
+  z-index: 99;
+  transition: right 0.3s ease;
+}
+
+.mobile-nav.open {
+  right: 0;
+}
+
 .header-inner {
   max-width: 1400px;
   margin: 0 auto;
@@ -1184,4 +1328,10 @@ body {
 
 .animate-spin {
   animation: spin 1s linear infinite;
+}
+
+/* ヘッダーロゴ画像 */
+.header-logo-img {
+  height: 32px;
+  width: auto;
 }
