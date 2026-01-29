@@ -61,7 +61,7 @@ export async function sendOTPEmail(email: string, otpCode: string): Promise<bool
     const resend = new Resend(process.env.RESEND_API_KEY)
     
     const { error } = await resend.emails.send({
-      from: 'ONE STOP <onboarding@resend.dev>',
+      from: 'ONE STOP <noreply@nichellc.net>',
       to: email,
       subject: '【ONE STOP】ログイン認証コード',
       html: `
