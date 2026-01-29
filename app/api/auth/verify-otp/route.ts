@@ -65,7 +65,19 @@ export async function POST(request: NextRequest) {
       .update({ last_login_at: new Date().toISOString() })
       .eq('id', staffId)
 
-    return NextResponse.json({
+    // 認証トークンを生成（簡易版：スタッフ情報をBase64エンコード）
+    const tokenData = {
+      staffId: staff.id,
+      name: staff.name,
+      email: staff.email,
+      role: staff.role,
+      tenantId: staff.tenant_id,
+      exp: Date.now() + 24 * 60 * 60 * 1000 // 24時間
+    }
+    const authToken = Buffer.from(JSON.stringify(tokenData)).toString('base64')
+
+    // レスポンスを作成
+    const response = NextResponse.json({
       success: true,
       message: 'ログインに成功しました',
       staff: {
@@ -76,6 +88,17 @@ export async function POST(request: NextRequest) {
         tenant_id: staff.tenant_id
       }
     })
+
+    // 認証Cookieを設定
+    response.cookies.set('auth_token', authToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60, // 24時間
+      path: '/'
+    })
+
+    return response
 
   } catch (error) {
     console.error('OTP検証エラー:', error)
