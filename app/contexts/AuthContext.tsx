@@ -39,6 +39,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 // 認証不要のパス
 const PUBLIC_PATHS = ['/login', '/invite', '/change-password']
 
+// UTF-8対応のBase64デコード
+function decodeBase64UTF8(str: string): string {
+  const bytes = Uint8Array.from(atob(str), c => c.charCodeAt(0))
+  return new TextDecoder().decode(bytes)
+}
+
+// UTF-8対応のBase64エンコード
+function encodeBase64UTF8(str: string): string {
+  const bytes = new TextEncoder().encode(str)
+  return btoa(String.fromCharCode(...bytes))
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [staff, setStaff] = useState<Staff | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -57,8 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        // トークンをデコード
-        const tokenData: TokenData = JSON.parse(atob(token))
+        // トークンをデコード（UTF-8対応）
+        const tokenData: TokenData = JSON.parse(decodeBase64UTF8(token))
         
         // 有効期限チェック
         if (tokenData.exp < Date.now()) {
@@ -132,12 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updatedStaff = { ...staff, password_changed: true }
       setStaff(updatedStaff)
       
-      // トークンも更新
+      // トークンも更新（UTF-8対応）
       const token = localStorage.getItem('auth_token')
       if (token) {
-        const tokenData: TokenData = JSON.parse(atob(token))
+        const tokenData: TokenData = JSON.parse(decodeBase64UTF8(token))
         tokenData.passwordChanged = true
-        const newToken = btoa(JSON.stringify(tokenData))
+        const newToken = encodeBase64UTF8(JSON.stringify(tokenData))
         localStorage.setItem('auth_token', newToken)
       }
     }
