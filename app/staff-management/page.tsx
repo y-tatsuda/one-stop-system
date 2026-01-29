@@ -274,6 +274,33 @@ export default function StaffManagementPage() {
     }
   }
 
+  // 削除
+  const deleteStaff = async (staff: Staff) => {
+    if (!confirm(`${staff.name}さんを完全に削除しますか？\n\nこの操作は取り消せません。`)) {
+      return
+    }
+
+    try {
+      const res = await fetch('/api/staff/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staffId: staff.id }),
+      })
+
+      const data = await res.json()
+
+      if (!data.success) {
+        setError(data.error)
+        return
+      }
+
+      await fetchData()
+      setSuccess(data.message)
+    } catch (err) {
+      setError('削除に失敗しました: ' + (err as Error).message)
+    }
+  }
+
   // ステータス切り替え
   const toggleStatus = async (staff: Staff) => {
     const newStatus = !staff.is_active
@@ -443,6 +470,12 @@ export default function StaffManagementPage() {
                             className={`btn btn-sm ${staff.is_active ? 'btn-warning' : 'btn-success'}`}
                           >
                             {staff.is_active ? '無効化' : '有効化'}
+                          </button>
+                          <button
+                            onClick={() => deleteStaff(staff)}
+                            className="btn btn-sm btn-danger"
+                          >
+                            削除
                           </button>
                         </div>
                       </td>
