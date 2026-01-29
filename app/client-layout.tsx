@@ -58,22 +58,53 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* ヘッダー */}
       <header className="header">
         <div className="header-content">
+          {/* ロゴ（クリックでホームへ） */}
           <Link href="/" className="header-logo">
             <img src="/logo.png" alt="ONE STOP" className="header-logo-img" />
           </Link>
 
           {/* デスクトップナビゲーション */}
           <nav className="desktop-nav">
-            <Link href="/" className="desktop-nav-link">ホーム</Link>
             <Link href="/sales" className="desktop-nav-link">売上入力</Link>
             <Link href="/buyback" className="desktop-nav-link">買取入力</Link>
-            <Link href="/inventory" className="desktop-nav-link">中古在庫</Link>
-            <Link href="/parts-inventory" className="desktop-nav-link">パーツ在庫</Link>
-            <Link href="/inventory-check" className="desktop-nav-link">棚卸し</Link>
-            <Link href="/order" className="desktop-nav-link">発注</Link>
-            <Link href="/daily-report" className="desktop-nav-link">日報</Link>
-            <Link href="/reports" className="desktop-nav-link">レポート</Link>
-            <Link href="/master-management" className="desktop-nav-link">マスタ管理</Link>
+            
+            {/* 在庫ドロップダウン */}
+            <div className="nav-dropdown">
+              <button className="desktop-nav-link nav-dropdown-trigger">
+                在庫 <span className="dropdown-arrow">▼</span>
+              </button>
+              <div className="nav-dropdown-menu">
+                <Link href="/inventory" className="nav-dropdown-item">中古在庫</Link>
+                <Link href="/parts-inventory" className="nav-dropdown-item">パーツ在庫</Link>
+                <Link href="/accessory-inventory" className="nav-dropdown-item">アクセサリ在庫</Link>
+              </div>
+            </div>
+
+            {/* 業務ドロップダウン */}
+            <div className="nav-dropdown">
+              <button className="desktop-nav-link nav-dropdown-trigger">
+                業務 <span className="dropdown-arrow">▼</span>
+              </button>
+              <div className="nav-dropdown-menu">
+                <Link href="/inventory-check" className="nav-dropdown-item">棚卸し</Link>
+                <Link href="/order" className="nav-dropdown-item">発注</Link>
+                <Link href="/daily-report" className="nav-dropdown-item">日報</Link>
+              </div>
+            </div>
+
+            {/* 管理ドロップダウン */}
+            <div className="nav-dropdown">
+              <button className="desktop-nav-link nav-dropdown-trigger">
+                管理 <span className="dropdown-arrow">▼</span>
+              </button>
+              <div className="nav-dropdown-menu">
+                <Link href="/reports" className="nav-dropdown-item">レポート</Link>
+                <Link href="/staff-management" className="nav-dropdown-item">スタッフ管理</Link>
+                <Link href="/shop-management" className="nav-dropdown-item">店舗管理</Link>
+                <Link href="/master-management" className="nav-dropdown-item">マスタ管理</Link>
+                <Link href="/inventory-settings" className="nav-dropdown-item">棚卸し設定</Link>
+              </div>
+            </div>
           </nav>
 
           {/* ユーザー情報とログアウト（デスクトップ） */}
@@ -81,10 +112,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             {staff && (
               <span className="header-user-name">{staff.name}</span>
             )}
-            <button
-              onClick={handleLogout}
-              className="header-logout-btn"
-            >
+            <button onClick={handleLogout} className="header-logout-btn">
               ログアウト
             </button>
           </div>
@@ -163,7 +191,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           棚卸し設定
         </Link>
 
-        {/* ログアウト */}
         <button
           className="mobile-nav-logout"
           onClick={() => {
