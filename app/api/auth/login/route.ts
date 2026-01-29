@@ -9,6 +9,7 @@ import {
   recordLoginFailure,
   clearLoginAttempts
 } from '@/app/lib/auth'
+import { TOKEN_EXPIRY_MS } from '@/app/lib/constants'
 
 export async function POST(request: NextRequest) {
   try {
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
       role: staff.role,
       tenantId: staff.tenant_id,
       passwordChanged: staff.password_changed ?? false,
-      exp: Date.now() + 24 * 60 * 60 * 1000
+      exp: Date.now() + TOKEN_EXPIRY_MS
     }
     const authToken = Buffer.from(JSON.stringify(tokenData)).toString('base64')
 
