@@ -1,26 +1,90 @@
 "use client";
 
 import "./globals.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+
+const publicPaths = ['/login', '/invite']
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname()
+  const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
+  const isPublicPath = publicPaths.some(path => pathname.startsWith(path))
+
+  useEffect(() => {
+    if (isPublicPath) {
+      setIsAuthenticated(true)
+      return
+    }
+
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/check', { credentials: 'include' })
+        const data = await res.json()
+        
+        if (data.authenticated) {
+          setIsAuthenticated(true)
+        } else {
+          router.push('/login')
+        }
+      } catch {
+        router.push('/login')
+      }
+    }
+
+    checkAuth()
+  }, [pathname, isPublicPath, router])
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    window.location.href = '/login'
+  }
+
+  // 認証チェック中（公開ページ以外）
+  if (isAuthenticated === null && !isPublicPath) {
+    return (
+      <html lang="ja">
+        <body>
+          <div className="min-h-screen flex items-center justify-center bg-gray-100">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          </div>
+        </body>
+      </html>
+    )
+  }
+
+  // 公開ページ（ログイン、招待）
+  if (isPublicPath) {
+    return (
+      <html lang="ja">
+        <head>
+          <title>ワンストップ管理システム</title>
+          <meta name="description" content="スマホ修理・買取・販売管理" />
+        </head>
+        <body>{children}</body>
+      </html>
+    )
+  }
+
+  // 認証済みページ
   return (
     <html lang="ja">
       <head>
         <title>ワンストップ管理システム</title>
         <meta name="description" content="スマホ修理・買取・販売管理" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="買取入力" />
+        <meta name="apple-mobile-web-app-title" content="ONE STOP" />
       </head>
       <body>
         {/* ヘッダー */}
@@ -118,6 +182,11 @@ export default function RootLayout({
                   </Link>
                 </div>
               </div>
+
+              {/* ログアウトボタン */}
+              <button onClick={handleLogout} className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                ログアウト
+              </button>
             </nav>
 
             {/* ハンバーガーメニュー（モバイル用） */}
@@ -239,6 +308,18 @@ export default function RootLayout({
           >
             棚卸し設定
           </Link>
+
+          {/* ログアウト */}
+          <button
+            className="mobile-nav-link"
+            onClick={() => {
+              setMobileMenuOpen(false)
+              handleLogout()
+            }}
+            style={{ background: '#fee2e2', color: '#dc2626', border: 'none', width: '100%', textAlign: 'left', marginTop: '16px' }}
+          >
+            ログアウト
+          </button>
         </nav>
 
         {/* メインコンテンツ */}
