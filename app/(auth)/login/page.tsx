@@ -26,7 +26,8 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
+        credentials: 'include'
       })
 
       const data = await res.json()
@@ -41,7 +42,7 @@ export default function LoginPage() {
         setMessage(data.message)
         setStep('otp')
       } else {
-        router.push('/')
+        window.location.href = '/'
       }
     } catch (err) {
       setError('ログインに失敗しました')
@@ -60,7 +61,8 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staffId, otpCode })
+        body: JSON.stringify({ staffId, otpCode }),
+        credentials: 'include'
       })
 
       const data = await res.json()
@@ -70,7 +72,8 @@ export default function LoginPage() {
         return
       }
 
-      router.push('/')
+      // Cookieが設定されるまで少し待ってからリダイレクト
+      window.location.href = '/'
     } catch (err) {
       setError('認証に失敗しました')
     } finally {
@@ -88,7 +91,8 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/resend-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staffId })
+        body: JSON.stringify({ staffId }),
+        credentials: 'include'
       })
 
       const data = await res.json()
@@ -149,6 +153,7 @@ export default function LoginPage() {
                 placeholder="email@example.com"
                 required
                 disabled={isLoading}
+                autoComplete="email"
               />
             </div>
 
@@ -164,6 +169,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 required
                 disabled={isLoading}
+                autoComplete="current-password"
               />
             </div>
 
@@ -174,12 +180,6 @@ export default function LoginPage() {
             >
               {isLoading ? 'ログイン中...' : 'ログイン'}
             </button>
-
-            <div className="mt-4 text-center">
-              <a href="/forgot-password" className="text-sm text-blue-600 hover:underline">
-                パスワードをお忘れですか？
-              </a>
-            </div>
           </form>
         )}
 
@@ -205,6 +205,7 @@ export default function LoginPage() {
                 required
                 disabled={isLoading}
                 autoFocus
+                autoComplete="one-time-code"
               />
               <p className="text-xs text-gray-500 mt-2">※ コードは5分間有効です</p>
             </div>
