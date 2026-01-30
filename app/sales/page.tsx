@@ -41,6 +41,12 @@ type UsedInventory = {
   management_number: string | null
 }
 
+type Supplier = {
+  id: number
+  code: string
+  name: string
+}
+
 type SalesDetail = {
   id: string
   category: string
@@ -51,6 +57,7 @@ type SalesDetail = {
   rank: string | null
   accessoryId: number | null
   usedInventoryId: number | null
+  supplierId: number | null
   quantity: number
   unitPrice: number
   unitCost: number
@@ -86,6 +93,7 @@ export default function SalesPage() {
   const [androidModels, setAndroidModels] = useState<AndroidModel[]>([])
   const [accessories, setAccessories] = useState<Accessory[]>([])
   const [usedInventory, setUsedInventory] = useState<UsedInventory[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [details, setDetails] = useState<SalesDetail[]>([])
@@ -107,6 +115,7 @@ export default function SalesPage() {
   const [iphoneForm, setIphoneForm] = useState({
     model: '',
     menu: '',
+    supplierId: '',
     unitPrice: 0,
     unitCost: 0,
   })
@@ -233,6 +242,14 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
             })
         : []
 
+      // 仕入先マスタ取得
+      const { data: suppliersData } = await supabase
+        .from('m_suppliers')
+        .select('id, code, name')
+        .eq('tenant_id', 1)
+        .eq('is_active', true)
+        .order('sort_order')
+
       setShops(shopsData || [])
       setStaff(staffData || [])
       setVisitSources(visitSourcesData || [])
@@ -240,6 +257,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       setAccessories(accessoriesData || [])
       setIphoneModels(iphoneModelsData || [])
       setIphoneRepairMenus(uniqueIphoneMenus)
+      setSuppliers(suppliersData || [])
       setLoading(false)
     }
 
@@ -268,11 +286,11 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     fetchUsedInventory()
   }, [formData.shopId])
 
-  // iPhone価格取得（修正版：変換なし）
+  // iPhone価格取得（仕入先対応版）
   useEffect(() => {
     async function fetchIphonePrice() {
       if (iphoneForm.model && iphoneForm.menu) {
-        // 修理価格取得
+        // 修理価格取得（仕入先によらず共通）
         const { data } = await supabase
           .from('m_repair_prices_iphone')
           .select('price')
@@ -281,14 +299,20 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
           .eq('repair_type', iphoneForm.menu)
           .single()
 
-        // パーツ原価取得（変換なし、そのまま検索）
-        const { data: costData } = await supabase
+        // パーツ原価取得（仕入先別）
+        let costQuery = supabase
           .from('m_costs_hw')
           .select('cost')
           .eq('tenant_id', 1)
           .eq('model', iphoneForm.model)
           .eq('parts_type', iphoneForm.menu)
-          .single()
+
+        // 仕入先が選択されている場合はその仕入先の原価を取得
+        if (iphoneForm.supplierId) {
+          costQuery = costQuery.eq('supplier_id', parseInt(iphoneForm.supplierId))
+        }
+
+        const { data: costData } = await costQuery.single()
 
         setIphoneForm(prev => ({
           ...prev,
@@ -298,7 +322,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       }
     }
     fetchIphonePrice()
-  }, [iphoneForm.model, iphoneForm.menu])
+  }, [iphoneForm.model, iphoneForm.menu, iphoneForm.supplierId])
 
   // Android価格取得
   useEffect(() => {
@@ -471,6 +495,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       rank: null,
       accessoryId: null,
       usedInventoryId: null,
+      supplierId: iphoneForm.supplierId ? parseInt(iphoneForm.supplierId) : null,
       quantity: 1,
       unitPrice: iphoneForm.unitPrice,
       unitCost: iphoneForm.unitCost,
@@ -479,7 +504,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       profit,
     }
     setDetails([...details, newDetail])
-    setIphoneForm({ model: '', menu: '', unitPrice: 0, unitCost: 0 })
+    setIphoneForm({ model: '', menu: '', supplierId: '', unitPrice: 0, unitCost: 0 })
   }
 
   // Android修理追加
@@ -501,6 +526,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       rank: null,
       accessoryId: null,
       usedInventoryId: null,
+      supplierId: null,
       quantity: 1,
       unitPrice: androidForm.unitPrice,
       unitCost: androidForm.unitCost,
@@ -534,6 +560,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       rank: inventory.rank,
       accessoryId: null,
       usedInventoryId: inventory.id,
+      supplierId: null,
       quantity: 1,
       unitPrice: usedSalesForm.unitPrice,
       unitCost: usedSalesForm.unitCost,
@@ -579,6 +606,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       rank: null,
       accessoryId: accessory.id,
       usedInventoryId: null,
+      supplierId: null,
       quantity,
       unitPrice: accessoryForm.unitPrice,
       unitCost: accessoryForm.unitCost,
@@ -609,6 +637,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       rank: null,
       accessoryId: null,
       usedInventoryId: null,
+      supplierId: null,
       quantity: 1,
       unitPrice: dataMigrationForm.unitPrice,
       unitCost: 0,
@@ -639,6 +668,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       rank: null,
       accessoryId: null,
       usedInventoryId: null,
+      supplierId: null,
       quantity: 1,
       unitPrice: operationGuideForm.unitPrice,
       unitCost: 0,
@@ -703,6 +733,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       rank: d.rank,
       accessory_id: d.accessoryId,
       used_inventory_id: d.usedInventoryId,
+      supplier_id: d.supplierId,
       quantity: d.quantity,
       unit_price: d.unitPrice,
       unit_cost: d.unitCost,
@@ -961,7 +992,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
             <h2 className="card-title">iPhone修理</h2>
           </div>
           <div className="card-body">
-            <div className="form-grid form-grid-4">
+            <div className="form-grid form-grid-5">
               <div className="form-group">
                 <label className="form-label">機種</label>
                 <select
@@ -985,6 +1016,19 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   <option value="">選択してください</option>
                   {iphoneRepairMenus.map((menu) => (
                     <option key={menu} value={menu}>{menu}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">仕入先</label>
+                <select
+                  value={iphoneForm.supplierId}
+                  onChange={(e) => setIphoneForm({ ...iphoneForm, supplierId: e.target.value })}
+                  className="form-select"
+                >
+                  <option value="">選択してください</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
               </div>

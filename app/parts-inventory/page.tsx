@@ -8,11 +8,18 @@ type Shop = {
   name: string
 }
 
+type Supplier = {
+  id: number
+  code: string
+  name: string
+}
+
 type PartsInventory = {
   id: number
   shop_id: number
   model: string
   parts_type: string
+  supplier_id: number | null
   required_qty: number
   actual_qty: number
 }
@@ -36,10 +43,12 @@ const partsTypes = [
 
 export default function PartsInventoryPage() {
   const [shops, setShops] = useState<Shop[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [inventory, setInventory] = useState<PartsInventory[]>([])
   const [iphoneModels, setIphoneModels] = useState<IphoneModel[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedShop, setSelectedShop] = useState<string>('')
+  const [selectedSupplier, setSelectedSupplier] = useState<string>('')
   const [selectedPartsType, setSelectedPartsType] = useState<string>('')
   const [showShortageOnly, setShowShortageOnly] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -63,29 +72,44 @@ export default function PartsInventoryPage() {
         .eq('is_active', true)
         .order('sort_order')
 
+      // 仕入先マスタ取得
+      const { data: suppliersData } = await supabase
+        .from('m_suppliers')
+        .select('id, code, name')
+        .eq('tenant_id', 1)
+        .eq('is_active', true)
+        .order('sort_order')
+
       setShops(shopsData || [])
       setIphoneModels(modelsData || [])
-      
+      setSuppliers(suppliersData || [])
+
       if (shopsData && shopsData.length > 0) {
         setSelectedShop(shopsData[0].id.toString())
       }
-      
+
+      // デフォルトで最初の仕入先を選択
+      if (suppliersData && suppliersData.length > 0) {
+        setSelectedSupplier(suppliersData[0].id.toString())
+      }
+
       setLoading(false)
     }
 
     fetchData()
   }, [])
 
-  // 店舗変更時に在庫取得
+  // 店舗・仕入先変更時に在庫取得
   useEffect(() => {
     async function fetchInventory() {
-      if (!selectedShop) return
+      if (!selectedShop || !selectedSupplier) return
 
       const { data } = await supabase
         .from('t_parts_inventory')
         .select('*')
         .eq('tenant_id', 1)
         .eq('shop_id', parseInt(selectedShop))
+        .eq('supplier_id', parseInt(selectedSupplier))
         .order('model')
         .order('parts_type')
 
@@ -93,7 +117,7 @@ export default function PartsInventoryPage() {
     }
 
     fetchInventory()
-  }, [selectedShop])
+  }, [selectedShop, selectedSupplier])
 
   // 機種名を表示名に変換
   const getDisplayName = (model: string) => {
@@ -184,7 +208,7 @@ export default function PartsInventoryPage() {
       {/* フィルター */}
       <div className="card mb-lg">
         <div className="card-body">
-          <div className="form-grid form-grid-4">
+          <div className="form-grid form-grid-5">
             <div className="form-group">
               <label className="form-label">店舗</label>
               <select
@@ -194,6 +218,18 @@ export default function PartsInventoryPage() {
               >
                 {shops.map((shop) => (
                   <option key={shop.id} value={shop.id}>{shop.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">仕入先</label>
+              <select
+                value={selectedSupplier}
+                onChange={(e) => setSelectedSupplier(e.target.value)}
+                className="form-select"
+              >
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
             </div>

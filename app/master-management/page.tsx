@@ -24,6 +24,13 @@ type PartsCost = {
   model: string
   parts_type: string
   cost: number
+  supplier_id: number | null
+}
+
+type Supplier = {
+  id: number
+  code: string
+  name: string
 }
 
 type BuybackPrice = {
@@ -124,6 +131,7 @@ export default function MasterManagementPage() {
 
   // マスタデータ
   const [iphoneModels, setIphoneModels] = useState<IphoneModel[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [repairPrices, setRepairPrices] = useState<RepairPrice[]>([])
   const [partsCosts, setPartsCosts] = useState<PartsCost[]>([])
   const [buybackPrices, setBuybackPrices] = useState<BuybackPrice[]>([])
@@ -142,6 +150,7 @@ export default function MasterManagementPage() {
 
   // フィルター
   const [modelFilter, setModelFilter] = useState('')
+  const [supplierFilter, setSupplierFilter] = useState<string>('')
 
   // モーダル
   const [showAddModal, setShowAddModal] = useState(false)
@@ -152,6 +161,7 @@ export default function MasterManagementPage() {
   const [newRepairType, setNewRepairType] = useState('')
   const [newPrice, setNewPrice] = useState(0)
   const [newCost, setNewCost] = useState(0)
+  const [newSupplierId, setNewSupplierId] = useState<string>('')
   const [newStorage, setNewStorage] = useState(64)
   const [newRank, setNewRank] = useState('超美品')
   const [newPriceExclTax, setNewPriceExclTax] = useState(0)
@@ -187,6 +197,20 @@ export default function MasterManagementPage() {
 
     setIphoneModels(modelsData || [])
 
+    // 仕入先マスタ取得
+    const { data: suppliersData } = await supabase
+      .from('m_suppliers')
+      .select('id, code, name')
+      .eq('tenant_id', 1)
+      .eq('is_active', true)
+      .order('sort_order')
+
+    setSuppliers(suppliersData || [])
+    // デフォルトで最初の仕入先を選択
+    if (suppliersData && suppliersData.length > 0 && !supplierFilter) {
+      setSupplierFilter(suppliersData[0].id.toString())
+    }
+
     // iPhone修理価格
     const { data: repairData } = await supabase
       .from('m_repair_prices_iphone')
@@ -201,7 +225,7 @@ export default function MasterManagementPage() {
     // パーツ原価
     const { data: partsData } = await supabase
       .from('m_costs_hw')
-      .select('id, model, parts_type, cost')
+      .select('id, model, parts_type, cost, supplier_id')
       .eq('tenant_id', 1)
       .eq('is_active', true)
       .order('model')
@@ -452,6 +476,7 @@ export default function MasterManagementPage() {
     setNewRepairType(REPAIR_TYPES[0])
     setNewPrice(0)
     setNewCost(0)
+    setNewSupplierId('')
     setNewStorage(64)
     setNewRank('超美品')
     setNewPriceExclTax(0)
@@ -479,6 +504,11 @@ export default function MasterManagementPage() {
       return
     }
 
+    if (!newSupplierId) {
+      alert('仕入先を選択してください')
+      return
+    }
+
     setSaving(true)
 
     const { data: repairData, error: repairError } = await supabase
@@ -500,12 +530,12 @@ export default function MasterManagementPage() {
     const partsType = REPAIR_PARTS_MAP[newRepairType]
     const { data: partsData } = await supabase
       .from('m_costs_hw')
-      .insert({ tenant_id: 1, model: newModel, parts_type: partsType, cost: newCost, is_active: true })
+      .insert({ tenant_id: 1, model: newModel, parts_type: partsType, cost: newCost, supplier_id: parseInt(newSupplierId), is_active: true })
       .select()
       .single()
 
     if (repairData) setRepairPrices([...repairPrices, repairData])
-    if (partsData) setPartsCosts([...partsCosts, partsData])
+    if (partsData) setPartsCosts([...partsCosts, { ...partsData, supplier_id: parseInt(newSupplierId) }])
 
     setShowAddModal(false)
     setSaving(false)
@@ -707,25 +737,30 @@ export default function MasterManagementPage() {
     return <div className="loading"><div className="loading-spinner"></div></div>
   }
 
-  // 修理/パーツの統合データを作成
+  // 修理/パーツの統合データを作成（仕入先フィルター対応）
   const getRepairPartsData = () => {
     const result: { model: string; repairType: string; repairId: number | null; repairPrice: number; partsId: number | null; partsCost: number; sortOrder: number; repairSortOrder: number }[] = []
-    
+
+    // 選択された仕入先でパーツ原価をフィルタ
+    const filteredPartsCosts = supplierFilter
+      ? partsCosts.filter(p => p.supplier_id === parseInt(supplierFilter))
+      : partsCosts
+
     for (const repair of repairPrices) {
       if (!REPAIR_TYPES.includes(repair.repair_type)) continue
-      
+
       const partsType = REPAIR_PARTS_MAP[repair.repair_type]
-      const parts = partsCosts.find(p => p.model === repair.model && p.parts_type === partsType)
+      const parts = filteredPartsCosts.find(p => p.model === repair.model && p.parts_type === partsType)
       const modelIndex = iphoneModels.findIndex(m => m.model === repair.model)
       const repairTypeIndex = REPAIR_TYPES.indexOf(repair.repair_type)
-      
+
       result.push({
         model: repair.model, repairType: repair.repair_type, repairId: repair.id, repairPrice: repair.price,
         partsId: parts?.id || null, partsCost: parts?.cost || 0,
         sortOrder: modelIndex >= 0 ? modelIndex : 999, repairSortOrder: repairTypeIndex >= 0 ? repairTypeIndex : 999
       })
     }
-    
+
     result.sort((a, b) => a.sortOrder !== b.sortOrder ? a.sortOrder - b.sortOrder : a.repairSortOrder - b.repairSortOrder)
     return result
   }
@@ -885,6 +920,18 @@ export default function MasterManagementPage() {
             className="form-input"
             style={{ maxWidth: '250px' }}
           />
+          {activeTab === 'repair_parts' && (
+            <select
+              value={supplierFilter}
+              onChange={(e) => setSupplierFilter(e.target.value)}
+              className="form-select"
+              style={{ maxWidth: '150px' }}
+            >
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          )}
           <button onClick={openAddModal} className="btn btn-primary">新規追加</button>
           {((activeTab === 'buyback' && buybackSubTab === 'price') || (activeTab === 'sales' && salesSubTab === 'price')) && (
             <button onClick={openBulkAddModal} className="btn btn-secondary">一括追加</button>
@@ -1312,6 +1359,13 @@ export default function MasterManagementPage() {
                     <label className="form-label form-label-required">種別</label>
                     <select value={newRepairType} onChange={e => setNewRepairType(e.target.value)} className="form-select">
                       {REPAIR_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label form-label-required">仕入先</label>
+                    <select value={newSupplierId} onChange={e => setNewSupplierId(e.target.value)} className="form-select">
+                      <option value="">選択してください</option>
+                      {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
                   <div className="form-group">

@@ -8,6 +8,12 @@ type Shop = {
   name: string
 }
 
+type Supplier = {
+  id: number
+  code: string
+  name: string
+}
+
 type IphoneModel = {
   model: string
   display_name: string
@@ -17,6 +23,8 @@ type ShortageItem = {
   id: number
   shop_id: number
   shop_name: string
+  supplier_id: number | null
+  supplier_name: string
   model: string
   parts_type: string
   required_qty: number
@@ -27,10 +35,12 @@ type ShortageItem = {
 
 export default function OrderPage() {
   const [shops, setShops] = useState<Shop[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [shortageItems, setShortageItems] = useState<ShortageItem[]>([])
   const [iphoneModels, setIphoneModels] = useState<IphoneModel[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedShop, setSelectedShop] = useState<string>('')
+  const [selectedSupplier, setSelectedSupplier] = useState<string>('')
   const [showOrderModal, setShowOrderModal] = useState(false)
 
   // データ取得
@@ -51,8 +61,23 @@ export default function OrderPage() {
         .eq('is_active', true)
         .order('sort_order')
 
+      // 仕入先マスタ取得
+      const { data: suppliersData } = await supabase
+        .from('m_suppliers')
+        .select('id, code, name')
+        .eq('tenant_id', 1)
+        .eq('is_active', true)
+        .order('sort_order')
+
       setShops(shopsData || [])
       setIphoneModels(modelsData || [])
+      setSuppliers(suppliersData || [])
+
+      // デフォルトで最初の仕入先を選択
+      if (suppliersData && suppliersData.length > 0) {
+        setSelectedSupplier(suppliersData[0].id.toString())
+      }
+
       setLoading(false)
     }
 
@@ -62,10 +87,17 @@ export default function OrderPage() {
   // 不足パーツ取得
   useEffect(() => {
     async function fetchShortage() {
-      const { data } = await supabase
+      let query = supabase
         .from('t_parts_inventory')
-        .select('id, shop_id, model, parts_type, required_qty, actual_qty')
+        .select('id, shop_id, model, parts_type, supplier_id, required_qty, actual_qty')
         .eq('tenant_id', 1)
+
+      // 仕入先でフィルタ
+      if (selectedSupplier) {
+        query = query.eq('supplier_id', parseInt(selectedSupplier))
+      }
+
+      const { data } = await query
 
       if (data && shops.length > 0) {
         const shortages: ShortageItem[] = data
@@ -73,10 +105,13 @@ export default function OrderPage() {
           .filter(item => !selectedShop || item.shop_id === parseInt(selectedShop))
           .map(item => {
             const shop = shops.find(s => s.id === item.shop_id)
+            const supplier = suppliers.find(s => s.id === item.supplier_id)
             return {
               id: item.id,
               shop_id: item.shop_id,
               shop_name: shop?.name || '',
+              supplier_id: item.supplier_id,
+              supplier_name: supplier?.name || '',
               model: item.model,
               parts_type: item.parts_type,
               required_qty: item.required_qty,
@@ -101,10 +136,10 @@ export default function OrderPage() {
       }
     }
 
-    if (shops.length > 0) {
+    if (shops.length > 0 && suppliers.length > 0) {
       fetchShortage()
     }
-  }, [shops, selectedShop, iphoneModels])
+  }, [shops, suppliers, selectedShop, selectedSupplier, iphoneModels])
 
   // 機種名を表示名に変換
   const getDisplayName = (model: string) => {
@@ -132,7 +167,10 @@ export default function OrderPage() {
   // 発注書テキスト生成
   const generateOrderText = () => {
     const checkedItems = getCheckedItems()
-    
+
+    // 選択された仕入先名を取得
+    const supplierName = suppliers.find(s => s.id === parseInt(selectedSupplier))?.name || ''
+
     // 店舗別にグループ化
     const byShop = checkedItems.reduce((acc, item) => {
       if (!acc[item.shop_name]) {
@@ -142,7 +180,8 @@ export default function OrderPage() {
       return acc
     }, {} as Record<string, ShortageItem[]>)
 
-    let text = `【発注依頼】${new Date().toLocaleDateString('ja-JP')}\n\n`
+    let text = `【発注依頼】${new Date().toLocaleDateString('ja-JP')}\n`
+    text += `仕入先: ${supplierName}\n\n`
 
     for (const [shopName, items] of Object.entries(byShop)) {
       text += `■ ${shopName}\n`
@@ -197,6 +236,18 @@ export default function OrderPage() {
                 <option value="">全店舗</option>
                 {shops.map((shop) => (
                   <option key={shop.id} value={shop.id}>{shop.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">仕入先</label>
+              <select
+                value={selectedSupplier}
+                onChange={(e) => setSelectedSupplier(e.target.value)}
+                className="form-select"
+              >
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
             </div>
