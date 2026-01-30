@@ -31,15 +31,33 @@ type IphoneModel = {
 }
 
 // パーツ種類（新形式）
+// パーツ種別（原価テーブルと同じ名称）
 const partsTypes = [
-  'LCDパネル',
-  '有機ELパネル',
+  'TH-F',
+  'TH-L',
+  'HG-F',
+  'HG-L',
   'バッテリー',
+  'HGバッテリー',
   'コネクタ',
   'リアカメラ',
   'インカメラ',
   'カメラ窓',
 ]
+
+// パーツ種別の表示名
+const partsTypeLabels: { [key: string]: string } = {
+  'TH-F': '標準パネル(白)',
+  'TH-L': '標準パネル(黒)',
+  'HG-F': '有機EL(白)',
+  'HG-L': '有機EL(黒)',
+  'バッテリー': 'バッテリー',
+  'HGバッテリー': 'HGバッテリー',
+  'コネクタ': 'コネクタ',
+  'リアカメラ': 'リアカメラ',
+  'インカメラ': 'インカメラ',
+  'カメラ窓': 'カメラ窓',
+}
 
 export default function PartsInventoryPage() {
   const [shops, setShops] = useState<Shop[]>([])
@@ -242,7 +260,7 @@ export default function PartsInventoryPage() {
               >
                 <option value="">すべて</option>
                 {partsTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
+                  <option key={type} value={type}>{partsTypeLabels[type] || type}</option>
                 ))}
               </select>
             </div>
@@ -302,7 +320,7 @@ export default function PartsInventoryPage() {
                               {getDisplayName(model)}
                             </td>
                           ) : null}
-                          <td>{item.parts_type}</td>
+                          <td>{partsTypeLabels[item.parts_type] || item.parts_type}</td>
                           <td className="text-center">
                             <input
                               type="number"

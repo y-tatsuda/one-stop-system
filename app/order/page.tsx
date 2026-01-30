@@ -33,6 +33,20 @@ type ShortageItem = {
   checked: boolean
 }
 
+// パーツ種別の表示名
+const partsTypeLabels: { [key: string]: string } = {
+  'TH-F': '標準パネル(白)',
+  'TH-L': '標準パネル(黒)',
+  'HG-F': '有機EL(白)',
+  'HG-L': '有機EL(黒)',
+  'バッテリー': 'バッテリー',
+  'HGバッテリー': 'HGバッテリー',
+  'コネクタ': 'コネクタ',
+  'リアカメラ': 'リアカメラ',
+  'インカメラ': 'インカメラ',
+  'カメラ窓': 'カメラ窓',
+}
+
 export default function OrderPage() {
   const [shops, setShops] = useState<Shop[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -186,7 +200,7 @@ export default function OrderPage() {
     for (const [shopName, items] of Object.entries(byShop)) {
       text += `■ ${shopName}\n`
       for (const item of items) {
-        text += `・${getDisplayName(item.model)} ${item.parts_type} ×${item.shortage}\n`
+        text += `・${getDisplayName(item.model)} ${partsTypeLabels[item.parts_type] || item.parts_type} ×${item.shortage}\n`
       }
       text += '\n'
     }
@@ -319,7 +333,7 @@ export default function OrderPage() {
                       </td>
                       <td>{item.shop_name}</td>
                       <td style={{ fontWeight: 500 }}>{getDisplayName(item.model)}</td>
-                      <td>{item.parts_type}</td>
+                      <td>{partsTypeLabels[item.parts_type] || item.parts_type}</td>
                       <td className="text-center">{item.required_qty}</td>
                       <td className="text-center" style={{ color: 'var(--color-danger)', fontWeight: 500 }}>{item.actual_qty}</td>
                       <td className="text-center">

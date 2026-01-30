@@ -72,6 +72,18 @@ const androidRepairMenus = [
   { value: 'バッテリー', label: 'バッテリー' },
 ]
 
+// 修理メニュー名→パーツ種別マッピング（原価取得用）
+const REPAIR_TO_PARTS_MAP: { [key: string]: string } = {
+  '画面修理': 'TH-F',
+  '画面修理 (有機EL)': 'HG-F',
+  'バッテリー': 'バッテリー',
+  'HGバッテリー': 'HGバッテリー',
+  'コネクタ': 'コネクタ',
+  'リアカメラ': 'リアカメラ',
+  'インカメラ': 'インカメラ',
+  'カメラ窓': 'カメラ窓',
+}
+
 // データ移行メニュー（固定価格）
 const dataMigrationMenus = [
   { value: 'データ移行', label: 'データ移行', price: 3000 },
@@ -300,12 +312,15 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
           .single()
 
         // パーツ原価取得（仕入先別）
+        // 修理メニュー名からパーツ種別名に変換
+        const partsType = REPAIR_TO_PARTS_MAP[iphoneForm.menu] || iphoneForm.menu
+
         let costQuery = supabase
           .from('m_costs_hw')
           .select('cost')
           .eq('tenant_id', 1)
           .eq('model', iphoneForm.model)
-          .eq('parts_type', iphoneForm.menu)
+          .eq('parts_type', partsType)
 
         // 仕入先が選択されている場合はその仕入先の原価を取得
         if (iphoneForm.supplierId) {
