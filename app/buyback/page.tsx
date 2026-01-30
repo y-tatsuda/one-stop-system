@@ -153,6 +153,7 @@ type CustomerInfo = {
   guardianNameKana: string
   guardianRelationship: string
   guardianPhone: string
+  guardianPostalCode: string
   guardianAddress: string
   guardianIdType: string
   guardianIdNumber: string
@@ -253,6 +254,7 @@ export default function BuybackPage() {
     guardianNameKana: '',
     guardianRelationship: '',
     guardianPhone: '',
+    guardianPostalCode: '',
     guardianAddress: '',
     guardianIdType: '',
     guardianIdNumber: '',
@@ -295,6 +297,13 @@ export default function BuybackPage() {
     }
     fetchMasterData()
   }, [])
+
+  // =====================================================
+  // フェーズ変更時にページトップにスクロール
+  // =====================================================
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [phase])
 
   // =====================================================
   // 合計計算
@@ -775,6 +784,7 @@ ${bankInfo.accountHolder}
         guardianNameKana: '',
         guardianRelationship: '',
         guardianPhone: '',
+        guardianPostalCode: '',
         guardianAddress: '',
         guardianIdType: '',
         guardianIdNumber: '',
@@ -1893,6 +1903,7 @@ function CustomerInputScreen({
                   guardianNameKana: isMinor ? customerInfo.guardianNameKana : '',
                   guardianRelationship: isMinor ? customerInfo.guardianRelationship : '',
                   guardianPhone: isMinor ? customerInfo.guardianPhone : '',
+                  guardianPostalCode: isMinor ? customerInfo.guardianPostalCode : '',
                   guardianAddress: isMinor ? customerInfo.guardianAddress : '',
                   guardianIdType: isMinor ? customerInfo.guardianIdType : '',
                   guardianIdNumber: isMinor ? customerInfo.guardianIdNumber : '',
@@ -2086,15 +2097,47 @@ function CustomerInputScreen({
               />
             </div>
 
-            <div className="form-group mb-md">
-              <label className="form-label">住所</label>
-              <input
-                type="text"
-                value={customerInfo.guardianAddress}
-                onChange={(e) => setCustomerInfo({ ...customerInfo, guardianAddress: e.target.value })}
-                className="form-input"
-                placeholder="東京都渋谷区..."
-              />
+            <div className="form-grid-2 mb-md">
+              <div className="form-group">
+                <label className="form-label">郵便番号</label>
+                <input
+                  type="text"
+                  value={customerInfo.guardianPostalCode}
+                  onChange={async (e) => {
+                    const code = e.target.value.replace(/\D/g, '').slice(0, 7)
+                    const newInfo = { ...customerInfo, guardianPostalCode: code }
+                    setCustomerInfo(newInfo)
+                    if (code.length === 7) {
+                      try {
+                        const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${code}`)
+                        const data = await res.json()
+                        if (data.results && data.results[0]) {
+                          const result = data.results[0]
+                          setCustomerInfo({
+                            ...newInfo,
+                            guardianAddress: `${result.address1}${result.address2}${result.address3}`
+                          })
+                        }
+                      } catch (err) {
+                        console.error('住所取得エラー:', err)
+                      }
+                    }
+                  }}
+                  className="form-input"
+                  placeholder="1234567"
+                  maxLength={7}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">住所（自動入力）</label>
+                <input
+                  type="text"
+                  value={customerInfo.guardianAddress}
+                  onChange={(e) => setCustomerInfo({ ...customerInfo, guardianAddress: e.target.value })}
+                  className="form-input"
+                  placeholder="東京都渋谷区..."
+                />
+              </div>
             </div>
 
             <div className="form-group mb-md">
