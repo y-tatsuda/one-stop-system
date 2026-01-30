@@ -2181,3 +2181,4 @@ const REPAIR_PRICES_IPHONE = {
     "個別60分": 5000
   }
 };
+module.exports = REPAIR_PRICES_IPHONE;

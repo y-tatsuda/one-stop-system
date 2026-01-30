@@ -72,10 +72,12 @@ const androidRepairMenus = [
   { value: 'バッテリー', label: 'バッテリー' },
 ]
 
-// 修理メニュー名→パーツ種別マッピング（原価取得用）
-const REPAIR_TO_PARTS_MAP: { [key: string]: string } = {
-  '画面修理': 'TH-F',
-  '画面修理 (有機EL)': 'HG-F',
+// 修理メニューの表示名（DBの値→表示用ラベル）
+const REPAIR_TYPE_LABELS: { [key: string]: string } = {
+  'TH-F': '標準パネル(白)',
+  'TH-L': '標準パネル(黒)',
+  'HG-F': '有機EL(白)',
+  'HG-L': '有機EL(黒)',
   'バッテリー': 'バッテリー',
   'HGバッテリー': 'HGバッテリー',
   'コネクタ': 'コネクタ',
@@ -312,15 +314,13 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
           .single()
 
         // パーツ原価取得（仕入先別）
-        // 修理メニュー名からパーツ種別名に変換
-        const partsType = REPAIR_TO_PARTS_MAP[iphoneForm.menu] || iphoneForm.menu
-
+        // repair_typeとparts_typeは同じ名称を使用
         let costQuery = supabase
           .from('m_costs_hw')
           .select('cost')
           .eq('tenant_id', 1)
           .eq('model', iphoneForm.model)
-          .eq('parts_type', partsType)
+          .eq('parts_type', iphoneForm.menu)
 
         // 仕入先が選択されている場合はその仕入先の原価を取得
         if (iphoneForm.supplierId) {
@@ -1030,7 +1030,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                 >
                   <option value="">選択してください</option>
                   {iphoneRepairMenus.map((menu) => (
-                    <option key={menu} value={menu}>{menu}</option>
+                    <option key={menu} value={menu}>{REPAIR_TYPE_LABELS[menu] || menu}</option>
                   ))}
                 </select>
               </div>

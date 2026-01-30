@@ -87,10 +87,19 @@ type AccessoryCategory = {
   name: string
 }
 
-// 修理種別とパーツ種別のマッピング（原価テーブルのparts_typeに対応）
-const REPAIR_PARTS_MAP: { [key: string]: string } = {
-  '画面修理': 'TH-F',
-  '画面修理 (有機EL)': 'HG-F',
+// 修理種別（repair_type = parts_type で統一）
+const REPAIR_TYPES_LIST = [
+  'TH-F', 'TH-L', 'HG-F', 'HG-L',
+  'バッテリー', 'HGバッテリー',
+  'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
+]
+
+// 修理種別の表示名
+const REPAIR_TYPE_LABELS: { [key: string]: string } = {
+  'TH-F': '標準パネル(白)',
+  'TH-L': '標準パネル(黒)',
+  'HG-F': '有機EL(白)',
+  'HG-L': '有機EL(黒)',
   'バッテリー': 'バッテリー',
   'HGバッテリー': 'HGバッテリー',
   'コネクタ': 'コネクタ',
@@ -99,7 +108,7 @@ const REPAIR_PARTS_MAP: { [key: string]: string } = {
   'カメラ窓': 'カメラ窓',
 }
 
-const REPAIR_TYPES = Object.keys(REPAIR_PARTS_MAP)
+const REPAIR_TYPES = REPAIR_TYPES_LIST
 const RANKS = ['超美品', '美品', '良品', '並品', 'リペア品']
 const STORAGES = [64, 128, 256, 512, 1024]
 
@@ -528,10 +537,10 @@ export default function MasterManagementPage() {
       return
     }
 
-    const partsType = REPAIR_PARTS_MAP[newRepairType]
+    // repair_typeとparts_typeは同じ値を使用
     const { data: partsData } = await supabase
       .from('m_costs_hw')
-      .insert({ tenant_id: 1, model: newModel, parts_type: partsType, cost: newCost, supplier_id: parseInt(newSupplierId), is_active: true })
+      .insert({ tenant_id: 1, model: newModel, parts_type: newRepairType, cost: newCost, supplier_id: parseInt(newSupplierId), is_active: true })
       .select()
       .single()
 
@@ -750,8 +759,8 @@ export default function MasterManagementPage() {
     for (const repair of repairPrices) {
       if (!REPAIR_TYPES.includes(repair.repair_type)) continue
 
-      const partsType = REPAIR_PARTS_MAP[repair.repair_type]
-      const parts = filteredPartsCosts.find(p => p.model === repair.model && p.parts_type === partsType)
+      // repair_typeとparts_typeは同じ値を使用
+      const parts = filteredPartsCosts.find(p => p.model === repair.model && p.parts_type === repair.repair_type)
       const modelIndex = iphoneModels.findIndex(m => m.model === repair.model)
       const repairTypeIndex = REPAIR_TYPES.indexOf(repair.repair_type)
 
@@ -966,7 +975,7 @@ export default function MasterManagementPage() {
                       return (
                         <tr key={`${item.model}-${item.repairType}-${idx}`}>
                           <td style={{ fontWeight: 500 }}>{getDisplayName(item.model)}</td>
-                          <td>{item.repairType}</td>
+                          <td>{REPAIR_TYPE_LABELS[item.repairType] || item.repairType}</td>
                           <td className="text-right">
                             {isEditingRepair ? (
                               <input type="number" value={editValue} onChange={(e) => setEditValue(parseInt(e.target.value) || 0)} className="form-input" style={{ width: '100px', textAlign: 'right', padding: '4px 8px' }} autoFocus />
@@ -1359,7 +1368,7 @@ export default function MasterManagementPage() {
                   <div className="form-group">
                     <label className="form-label form-label-required">種別</label>
                     <select value={newRepairType} onChange={e => setNewRepairType(e.target.value)} className="form-select">
-                      {REPAIR_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      {REPAIR_TYPES.map(t => <option key={t} value={t}>{REPAIR_TYPE_LABELS[t] || t}</option>)}
                     </select>
                   </div>
                   <div className="form-group">
