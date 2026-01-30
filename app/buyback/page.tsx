@@ -61,9 +61,26 @@ const OCCUPATION_OPTIONS = [
   '会社員', '自営業', '公務員', 'パート・アルバイト', '学生', '主婦・主夫', '無職', 'その他'
 ]
 
-// 本人確認書類
+// 本人確認書類（旧）
 const ID_DOCUMENT_OPTIONS = [
   '運転免許証', 'マイナンバーカード', 'パスポート', '健康保険証', 'その他'
+]
+
+// 本人確認書類の種類（t_customers用）
+const ID_TYPE_OPTIONS = [
+  { value: 'drivers_license', label: '運転免許証' },
+  { value: 'insurance_card', label: '健康保険証' },
+  { value: 'passport', label: 'パスポート' },
+  { value: 'mynumber', label: 'マイナンバーカード' },
+  { value: 'residence_card', label: '在留カード' },
+  { value: 'student_id', label: '学生証' },
+]
+
+// 保護者/後見人の続柄
+const GUARDIAN_RELATIONSHIP_OPTIONS = [
+  { value: 'father', label: '父' },
+  { value: 'mother', label: '母' },
+  { value: 'guardian', label: '未成年後見人' },
 ]
 
 // 店頭買取の同意項目（6項目）
@@ -108,6 +125,7 @@ type BuybackItem = {
   memo: string
   // 事前査定価格（本査定で変更があったか確認用）
   preliminaryPrice: number
+  priceDecided: boolean // 価格決定済みかどうか（変更なし/変更ありを選択済み）
   priceChanged: boolean
   priceChangeReason: string
 }
@@ -115,6 +133,7 @@ type BuybackItem = {
 // 顧客情報の型定義
 type CustomerInfo = {
   name: string
+  nameKana: string
   birthDate: string
   age: number | null
   postalCode: string
@@ -125,6 +144,18 @@ type CustomerInfo = {
   idDocumentType: string
   idVerificationMethod: string
   consentItems: boolean[]
+  // t_customers用の新フィールド
+  idType: string
+  idNumber: string
+  isMinor: boolean
+  guardianConsent: boolean
+  guardianName: string
+  guardianNameKana: string
+  guardianRelationship: string
+  guardianPhone: string
+  guardianAddress: string
+  guardianIdType: string
+  guardianIdNumber: string
 }
 
 // 振込情報の型定義
@@ -170,6 +201,7 @@ const createEmptyItem = (): BuybackItem => ({
   expectedProfit: 0,
   memo: '',
   preliminaryPrice: 0,
+  priceDecided: false,
   priceChanged: false,
   priceChangeReason: '',
 })
@@ -201,6 +233,7 @@ export default function BuybackPage() {
   // 顧客情報
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '',
+    nameKana: '',
     birthDate: '',
     age: null,
     postalCode: '',
@@ -211,6 +244,18 @@ export default function BuybackPage() {
     idDocumentType: '',
     idVerificationMethod: 'visual',
     consentItems: new Array(buybackType === 'store' ? 6 : 12).fill(false),
+    // t_customers用の新フィールド
+    idType: '',
+    idNumber: '',
+    isMinor: false,
+    guardianConsent: false,
+    guardianName: '',
+    guardianNameKana: '',
+    guardianRelationship: '',
+    guardianPhone: '',
+    guardianAddress: '',
+    guardianIdType: '',
+    guardianIdNumber: '',
   })
   
   // 本人確認
@@ -519,7 +564,7 @@ ${bankInfo.accountHolder}
   // =====================================================
   const saveBuyback = async () => {
     setSaving(true)
-    
+
     try {
       // 同意書画像アップロード（郵送の場合）
       let consentImageUrl = ''
@@ -528,15 +573,43 @@ ${bankInfo.accountHolder}
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('buyback-documents')
           .upload(fileName, consentImageFile)
-        
+
         if (uploadError) throw uploadError
         consentImageUrl = uploadData.path
       }
+
+      // 顧客情報をt_customersに保存
+      const { data: customerData, error: customerError } = await supabase
+        .from('t_customers')
+        .insert({
+          tenant_id: 1,
+          name: customerInfo.name,
+          name_kana: customerInfo.nameKana || null,
+          birth_date: customerInfo.birthDate || null,
+          phone: customerInfo.phone,
+          address: customerInfo.address ? `${customerInfo.address} ${customerInfo.addressDetail}` : null,
+          id_type: customerInfo.idType || null,
+          id_number: customerInfo.idNumber || null,
+          is_minor: customerInfo.isMinor,
+          guardian_consent: customerInfo.isMinor ? customerInfo.guardianConsent : null,
+          guardian_name: customerInfo.isMinor ? customerInfo.guardianName : null,
+          guardian_name_kana: customerInfo.isMinor ? customerInfo.guardianNameKana : null,
+          guardian_relationship: customerInfo.isMinor ? customerInfo.guardianRelationship : null,
+          guardian_phone: customerInfo.isMinor ? customerInfo.guardianPhone : null,
+          guardian_address: customerInfo.isMinor ? customerInfo.guardianAddress : null,
+          guardian_id_type: customerInfo.isMinor ? customerInfo.guardianIdType : null,
+          guardian_id_number: customerInfo.isMinor ? customerInfo.guardianIdNumber : null,
+        })
+        .select()
+        .single()
+
+      if (customerError) throw customerError
 
       // ヘッダー登録
       const { data: buybackData, error: buybackError } = await supabase
         .from('t_buyback')
         .insert({
+          customer_id: customerData.id,
           tenant_id: 1,
           shop_id: parseInt(shopId),
           staff_id: parseInt(staffId),
@@ -683,6 +756,7 @@ ${bankInfo.accountHolder}
       setActiveItemIndex(0)
       setCustomerInfo({
         name: '',
+        nameKana: '',
         birthDate: '',
         age: null,
         postalCode: '',
@@ -693,6 +767,17 @@ ${bankInfo.accountHolder}
         idDocumentType: '',
         idVerificationMethod: 'visual',
         consentItems: new Array(6).fill(false),
+        idType: '',
+        idNumber: '',
+        isMinor: false,
+        guardianConsent: false,
+        guardianName: '',
+        guardianNameKana: '',
+        guardianRelationship: '',
+        guardianPhone: '',
+        guardianAddress: '',
+        guardianIdType: '',
+        guardianIdNumber: '',
       })
       setIdVerified(false)
       setBankInfo({
@@ -923,6 +1008,7 @@ ${bankInfo.accountHolder}
                 const updatedItems = items.map(item => ({
                   ...item,
                   preliminaryPrice: item.finalPrice,
+                  priceDecided: false,
                   priceChanged: false,
                   priceChangeReason: '',
                 }))
@@ -1585,7 +1671,15 @@ function CustomerInputScreen({
   const consentItems = buybackType === 'store' ? STORE_CONSENT_ITEMS : []
   const allConsented = buybackType === 'mail' || customerInfo.consentItems.every(c => c)
   
-  const canProceed = 
+  // 18歳未満の場合は保護者情報も必須
+  const guardianInfoValid = !customerInfo.isMinor || (
+    customerInfo.guardianConsent &&
+    customerInfo.guardianRelationship &&
+    customerInfo.guardianName &&
+    customerInfo.guardianPhone
+  )
+
+  const canProceed =
     customerInfo.name &&
     customerInfo.birthDate &&
     customerInfo.postalCode &&
@@ -1593,8 +1687,9 @@ function CustomerInputScreen({
     customerInfo.addressDetail &&
     customerInfo.occupation &&
     customerInfo.phone &&
-    customerInfo.idDocumentType &&
+    customerInfo.idType &&
     allConsented &&
+    guardianInfoValid &&
     (buybackType === 'store' || (consentImageFile && customerInfo.idVerificationMethod))
 
   const handleConsentChange = (index: number, checked: boolean) => {
@@ -1753,7 +1848,7 @@ function CustomerInputScreen({
       {/* 顧客情報入力 */}
       <div className="card mb-lg">
         <div className="card-header">
-          <h2 className="card-title">お客様情報</h2>
+          <h2 className="card-title">お客様情報（本人確認）</h2>
         </div>
         <div className="card-body">
           <div className="form-group mb-md">
@@ -1769,21 +1864,72 @@ function CustomerInputScreen({
           </div>
 
           <div className="form-group mb-md">
+            <label className="form-label">フリガナ</label>
+            <input
+              type="text"
+              value={customerInfo.nameKana}
+              onChange={(e) => setCustomerInfo({ ...customerInfo, nameKana: e.target.value })}
+              className="form-input"
+              placeholder="ヤマダ タロウ"
+            />
+          </div>
+
+          <div className="form-group mb-md">
             <label className="form-label form-label-required">生年月日</label>
             <input
               type="date"
               value={customerInfo.birthDate}
               onChange={(e) => {
                 const age = calculateAge(e.target.value)
-                setCustomerInfo({ ...customerInfo, birthDate: e.target.value, age })
+                const isMinor = age !== null && age < 18
+                setCustomerInfo({
+                  ...customerInfo,
+                  birthDate: e.target.value,
+                  age,
+                  isMinor,
+                  // 18歳以上になったら保護者情報をリセット
+                  guardianConsent: isMinor ? customerInfo.guardianConsent : false,
+                  guardianName: isMinor ? customerInfo.guardianName : '',
+                  guardianNameKana: isMinor ? customerInfo.guardianNameKana : '',
+                  guardianRelationship: isMinor ? customerInfo.guardianRelationship : '',
+                  guardianPhone: isMinor ? customerInfo.guardianPhone : '',
+                  guardianAddress: isMinor ? customerInfo.guardianAddress : '',
+                  guardianIdType: isMinor ? customerInfo.guardianIdType : '',
+                  guardianIdNumber: isMinor ? customerInfo.guardianIdNumber : '',
+                })
               }}
               className="form-input"
             />
             {customerInfo.age !== null && (
-              <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#374151' }}>
+              <div style={{ marginTop: '8px', fontSize: '0.9rem', color: customerInfo.isMinor ? '#DC2626' : '#374151', fontWeight: customerInfo.isMinor ? '600' : '400' }}>
                 年齢: {customerInfo.age}歳
+                {customerInfo.isMinor && ' （18歳未満）'}
               </div>
             )}
+          </div>
+
+          <div className="form-grid-2 mb-md">
+            <div className="form-group">
+              <label className="form-label form-label-required">電話番号</label>
+              <input
+                type="tel"
+                value={customerInfo.phone}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+                className="form-input"
+                placeholder="090-1234-5678"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label form-label-required">職業</label>
+              <select
+                value={customerInfo.occupation}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, occupation: e.target.value })}
+                className="form-select"
+              >
+                <option value="">選択してください</option>
+                {OCCUPATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
           </div>
 
           <div className="form-grid-2 mb-md">
@@ -1827,49 +1973,157 @@ function CustomerInputScreen({
             />
           </div>
 
-          <div className="form-grid-2 mb-md">
-            <div className="form-group">
-              <label className="form-label form-label-required">職業</label>
+          <div className="form-group mb-md">
+            <label className="form-label form-label-required">本人確認書類</label>
+            <select
+              value={customerInfo.idType}
+              onChange={(e) => {
+                // 旧フィールドとの互換性のため両方設定
+                const selected = ID_TYPE_OPTIONS.find(opt => opt.value === e.target.value)
+                setCustomerInfo({
+                  ...customerInfo,
+                  idType: e.target.value,
+                  idDocumentType: selected?.label || ''
+                })
+              }}
+              className="form-select"
+            >
+              <option value="">選択してください</option>
+              {ID_TYPE_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">書類番号</label>
+            <input
+              type="text"
+              value={customerInfo.idNumber}
+              onChange={(e) => setCustomerInfo({ ...customerInfo, idNumber: e.target.value })}
+              className="form-input"
+              placeholder="本人確認書類の番号"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 18歳未満の警告 */}
+      {customerInfo.isMinor && (
+        <div className="card mb-lg" style={{ background: '#FEF3C7', border: '2px solid #F59E0B' }}>
+          <div className="card-body" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+            <span style={{ fontWeight: '600', color: '#92400E' }}>
+              18歳未満のお客様です。保護者または後見人の同意が必要です。
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 保護者/後見人情報（18歳未満の場合のみ） */}
+      {customerInfo.isMinor && (
+        <div className="card mb-lg">
+          <div className="card-header">
+            <h2 className="card-title">保護者/後見人情報</h2>
+          </div>
+          <div className="card-body">
+            <div className="form-group mb-md">
+              <label className="form-check" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: '#FEF3C7', borderRadius: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={customerInfo.guardianConsent}
+                  onChange={(e) => setCustomerInfo({ ...customerInfo, guardianConsent: e.target.checked })}
+                  style={{ width: '24px', height: '24px' }}
+                />
+                <span style={{ fontWeight: '600', fontSize: '1.05rem' }}>保護者/後見人の同意を得ています</span>
+              </label>
+            </div>
+
+            <div className="form-group mb-md">
+              <label className="form-label form-label-required">続柄</label>
               <select
-                value={customerInfo.occupation}
-                onChange={(e) => setCustomerInfo({ ...customerInfo, occupation: e.target.value })}
+                value={customerInfo.guardianRelationship}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, guardianRelationship: e.target.value })}
                 className="form-select"
               >
                 <option value="">選択してください</option>
-                {OCCUPATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                {GUARDIAN_RELATIONSHIP_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
             </div>
-            <div className="form-group">
+
+            <div className="form-group mb-md">
+              <label className="form-label form-label-required">氏名</label>
+              <input
+                type="text"
+                value={customerInfo.guardianName}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, guardianName: e.target.value })}
+                className="form-input"
+                placeholder="山田 一郎"
+              />
+            </div>
+
+            <div className="form-group mb-md">
+              <label className="form-label">フリガナ</label>
+              <input
+                type="text"
+                value={customerInfo.guardianNameKana}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, guardianNameKana: e.target.value })}
+                className="form-input"
+                placeholder="ヤマダ イチロウ"
+              />
+            </div>
+
+            <div className="form-group mb-md">
               <label className="form-label form-label-required">電話番号</label>
               <input
                 type="tel"
-                value={customerInfo.phone}
-                onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+                value={customerInfo.guardianPhone}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, guardianPhone: e.target.value })}
                 className="form-input"
                 placeholder="090-1234-5678"
               />
             </div>
-          </div>
 
-          <div className="form-group">
-            <label className="form-label form-label-required">本人確認書類</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-              {ID_DOCUMENT_OPTIONS.map(doc => (
-                <label key={doc} className="form-check">
-                  <input
-                    type="radio"
-                    name="idDocumentType"
-                    value={doc}
-                    checked={customerInfo.idDocumentType === doc}
-                    onChange={(e) => setCustomerInfo({ ...customerInfo, idDocumentType: e.target.value })}
-                  />
-                  <span>{doc}</span>
-                </label>
-              ))}
+            <div className="form-group mb-md">
+              <label className="form-label">住所</label>
+              <input
+                type="text"
+                value={customerInfo.guardianAddress}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, guardianAddress: e.target.value })}
+                className="form-input"
+                placeholder="東京都渋谷区..."
+              />
+            </div>
+
+            <div className="form-group mb-md">
+              <label className="form-label">本人確認書類</label>
+              <select
+                value={customerInfo.guardianIdType}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, guardianIdType: e.target.value })}
+                className="form-select"
+              >
+                <option value="">選択してください</option>
+                {ID_TYPE_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">書類番号</label>
+              <input
+                type="text"
+                value={customerInfo.guardianIdNumber}
+                onChange={(e) => setCustomerInfo({ ...customerInfo, guardianIdNumber: e.target.value })}
+                className="form-input"
+                placeholder="本人確認書類の番号"
+              />
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 店頭買取: お客様への案内メッセージ */}
       {buybackType === 'store' && (
@@ -1934,16 +2188,53 @@ function VerificationScreen({
         <div className="card-body">
           <table style={{ width: '100%' }}>
             <tbody>
-              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>氏名</td><td style={{ fontWeight: '600' }}>{customerInfo.name}</td></tr>
-              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>生年月日</td><td style={{ fontWeight: '600' }}>{customerInfo.birthDate}（{customerInfo.age}歳）</td></tr>
+              <tr><td style={{ padding: '8px 0', color: '#6B7280', width: '120px' }}>氏名</td><td style={{ fontWeight: '600' }}>{customerInfo.name}</td></tr>
+              {customerInfo.nameKana && (
+                <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>フリガナ</td><td style={{ fontWeight: '600' }}>{customerInfo.nameKana}</td></tr>
+              )}
+              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>生年月日</td><td style={{ fontWeight: '600' }}>{customerInfo.birthDate}（{customerInfo.age}歳{customerInfo.isMinor && <span style={{ color: '#DC2626' }}> ※18歳未満</span>}）</td></tr>
               <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>住所</td><td style={{ fontWeight: '600' }}>〒{customerInfo.postalCode} {customerInfo.address} {customerInfo.addressDetail}</td></tr>
               <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>職業</td><td style={{ fontWeight: '600' }}>{customerInfo.occupation}</td></tr>
               <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>電話番号</td><td style={{ fontWeight: '600' }}>{customerInfo.phone}</td></tr>
-              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>本人確認書類</td><td style={{ fontWeight: '600' }}>{customerInfo.idDocumentType}</td></tr>
+              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>本人確認書類</td><td style={{ fontWeight: '600' }}>{ID_TYPE_OPTIONS.find(opt => opt.value === customerInfo.idType)?.label || customerInfo.idDocumentType}</td></tr>
+              {customerInfo.idNumber && (
+                <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>書類番号</td><td style={{ fontWeight: '600' }}>{customerInfo.idNumber}</td></tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* 保護者情報（18歳未満の場合） */}
+      {customerInfo.isMinor && (
+        <div className="card mb-lg" style={{ background: '#FEF9C3' }}>
+          <div className="card-header" style={{ background: '#F59E0B' }}>
+            <h2 className="card-title" style={{ color: 'white', margin: 0 }}>保護者/後見人情報</h2>
+          </div>
+          <div className="card-body">
+            <table style={{ width: '100%' }}>
+              <tbody>
+                <tr><td style={{ padding: '8px 0', color: '#6B7280', width: '120px' }}>同意</td><td style={{ fontWeight: '600', color: customerInfo.guardianConsent ? '#059669' : '#DC2626' }}>{customerInfo.guardianConsent ? '✓ 同意済み' : '未同意'}</td></tr>
+                <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>続柄</td><td style={{ fontWeight: '600' }}>{GUARDIAN_RELATIONSHIP_OPTIONS.find(opt => opt.value === customerInfo.guardianRelationship)?.label || ''}</td></tr>
+                <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>氏名</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianName}</td></tr>
+                {customerInfo.guardianNameKana && (
+                  <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>フリガナ</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianNameKana}</td></tr>
+                )}
+                <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>電話番号</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianPhone}</td></tr>
+                {customerInfo.guardianAddress && (
+                  <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>住所</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianAddress}</td></tr>
+                )}
+                {customerInfo.guardianIdType && (
+                  <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>本人確認書類</td><td style={{ fontWeight: '600' }}>{ID_TYPE_OPTIONS.find(opt => opt.value === customerInfo.guardianIdType)?.label || ''}</td></tr>
+                )}
+                {customerInfo.guardianIdNumber && (
+                  <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>書類番号</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianIdNumber}</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="card mb-lg">
         <div className="card-header">
@@ -2185,13 +2476,13 @@ function OperationCheckScreen({
   const modelName = iphoneModels.find(m => m.model === activeItem?.model)?.display_name || activeItem?.model
 
   // すべての端末で動作チェック完了しているか
-  const allChecked = items.every((item, i) => {
-    // 価格変更なしを選択済み、または価格変更ありで理由入力済み
-    return !showPriceChange[i] || (item.priceChanged && item.priceChangeReason)
+  const allChecked = items.every((item) => {
+    // 価格決定済み、かつ価格変更ありの場合は理由入力済み
+    return item.priceDecided && (!item.priceChanged || item.priceChangeReason)
   })
 
   const handleNoChange = (index: number) => {
-    onUpdateItem(index, { priceChanged: false, priceChangeReason: '' })
+    onUpdateItem(index, { priceDecided: true, priceChanged: false, priceChangeReason: '' })
     const newShowPriceChange = [...showPriceChange]
     newShowPriceChange[index] = false
     setShowPriceChange(newShowPriceChange)
@@ -2206,7 +2497,7 @@ function OperationCheckScreen({
     const newShowPriceChange = [...showPriceChange]
     newShowPriceChange[index] = true
     setShowPriceChange(newShowPriceChange)
-    onUpdateItem(index, { priceChanged: true })
+    onUpdateItem(index, { priceDecided: true, priceChanged: true })
   }
 
   const handlePriceUpdate = (index: number, newPrice: number, reason: string) => {
@@ -2262,7 +2553,7 @@ function OperationCheckScreen({
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
           {items.map((item, index) => {
             const itemModelName = iphoneModels.find(m => m.model === item.model)?.display_name || item.model
-            const isCompleted = !showPriceChange[index] ? false : (item.priceChanged ? !!item.priceChangeReason : true)
+            const isCompleted = item.priceDecided && (!item.priceChanged || !!item.priceChangeReason)
             return (
               <button
                 key={item.id}
@@ -2365,7 +2656,7 @@ function OperationCheckScreen({
           </div>
 
           {/* 価格変更の選択 */}
-          {!showPriceChange[activeItemIndex] ? (
+          {!showPriceChange[activeItemIndex] && !activeItem?.priceDecided ? (
             <div style={{ borderTop: '2px solid #E5E7EB', paddingTop: '24px' }}>
               <h4 style={{ marginBottom: '16px', textAlign: 'center' }}>動作チェックの結果、買取価格に変更はありますか？</h4>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxWidth: '500px', margin: '0 auto' }}>
@@ -2388,6 +2679,22 @@ function OperationCheckScreen({
                   <div style={{ fontSize: '0.85rem', marginTop: '4px', opacity: 0.9 }}>
                     価格を修正する
                   </div>
+                </button>
+              </div>
+            </div>
+          ) : activeItem?.priceDecided && !activeItem?.priceChanged ? (
+            <div style={{ borderTop: '2px solid #E5E7EB', paddingTop: '24px' }}>
+              <div style={{ textAlign: 'center', padding: '24px', background: '#ECFDF5', borderRadius: '8px' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '8px' }}>✓</div>
+                <h4 style={{ color: '#059669', marginBottom: '8px' }}>価格確定済み</h4>
+                <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#059669', marginBottom: '16px' }}>
+                  ¥{activeItem?.preliminaryPrice.toLocaleString()}
+                </div>
+                <button
+                  onClick={() => onUpdateItem(activeItemIndex, { priceDecided: false })}
+                  className="btn btn-secondary btn-sm"
+                >
+                  選択をやり直す
                 </button>
               </div>
             </div>
@@ -2453,6 +2760,7 @@ function OperationCheckScreen({
                     newShowPriceChange[activeItemIndex] = false
                     setShowPriceChange(newShowPriceChange)
                     onUpdateItem(activeItemIndex, {
+                      priceDecided: false,
                       priceChanged: false,
                       priceChangeReason: '',
                       finalPrice: activeItem?.preliminaryPrice || 0,
@@ -2474,7 +2782,7 @@ function OperationCheckScreen({
         </button>
         <button
           onClick={onNext}
-          disabled={items.some((item, i) => showPriceChange[i] && item.priceChanged && !item.priceChangeReason)}
+          disabled={!allChecked}
           className="btn btn-primary btn-lg"
         >
           同意・入力に進む
