@@ -101,19 +101,21 @@ const getRepairTypeLabel = (repairType: string): string => {
 
 // パーツ種別（parts_type）- 原価/在庫用（THパネル→HGパネル→バッテリー...の順）
 const PARTS_TYPES_LIST = [
-  'TH', 'TH-黒', 'TH-白',
-  'HG', 'HG-黒', 'HG-白',
+  'TH', 'HG',
   'バッテリー', 'HGバッテリー',
   'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
 ]
 
+// 修理種別からパーツ種別を取得
+const getPartsTypeFromRepairType = (repairType: string): string => {
+  if (repairType === 'TH-F' || repairType === 'TH-L') return 'TH'
+  if (repairType === 'HG-F' || repairType === 'HG-L') return 'HG'
+  return repairType
+}
+
 // パーツ種別の表示名
 const PARTS_TYPE_LABELS: { [key: string]: string } = {
-  'TH-白': 'THパネル(白)',
-  'TH-黒': 'THパネル(黒)',
   'TH': 'THパネル',
-  'HG-白': 'HGパネル(白)',
-  'HG-黒': 'HGパネル(黒)',
   'HG': 'HGパネル',
   'バッテリー': 'バッテリー',
   'HGバッテリー': 'HGバッテリー',
@@ -557,10 +559,11 @@ export default function MasterManagementPage() {
       return
     }
 
-    // repair_typeとparts_typeは同じ値を使用
+    // repair_typeからparts_typeに変換して登録
+    const newPartsType = getPartsTypeFromRepairType(newRepairType)
     const { data: partsData } = await supabase
       .from('m_costs_hw')
-      .insert({ tenant_id: 1, model: newModel, parts_type: newRepairType, cost: newCost, supplier_id: parseInt(newSupplierId), is_active: true })
+      .insert({ tenant_id: 1, model: newModel, parts_type: newPartsType, cost: newCost, supplier_id: parseInt(newSupplierId), is_active: true })
       .select()
       .single()
 
@@ -779,8 +782,9 @@ export default function MasterManagementPage() {
     for (const repair of repairPrices) {
       if (!REPAIR_TYPES.includes(repair.repair_type)) continue
 
-      // repair_typeとparts_typeは同じ値を使用
-      const parts = filteredPartsCosts.find(p => p.model === repair.model && p.parts_type === repair.repair_type)
+      // repair_typeからparts_typeを取得して原価を検索
+      const partsType = getPartsTypeFromRepairType(repair.repair_type)
+      const parts = filteredPartsCosts.find(p => p.model === repair.model && p.parts_type === partsType)
       const modelIndex = iphoneModels.findIndex(m => m.model === repair.model)
       const repairTypeIndex = REPAIR_TYPES.indexOf(repair.repair_type)
 

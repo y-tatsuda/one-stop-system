@@ -72,9 +72,6 @@ const androidRepairMenus = [
   { value: 'バッテリー', label: 'バッテリー' },
 ]
 
-// HGパネルがないモデル
-const MODELS_WITHOUT_HG = ['SE', '6s', '7', '7P']
-
 // 修理メニューの並び順（この順番でプルダウンに表示）
 const REPAIR_TYPE_ORDER = [
   'TH-F', 'TH-L', 'HG-F', 'HG-L',
@@ -85,15 +82,6 @@ const REPAIR_TYPE_ORDER = [
 // 修理メニューの表示名を取得（そのまま表示）
 const getRepairTypeLabel = (repairType: string): string => {
   return repairType
-}
-
-// モデルに応じてメニューをフィルター（HGなしモデルはHGを除外）
-const getFilteredRepairMenus = (menus: string[], model?: string): string[] => {
-  if (!model) return menus
-  const hasHG = !MODELS_WITHOUT_HG.includes(model)
-  if (hasHG) return menus
-  // HGなしモデルの場合、HG系メニューを除外
-  return menus.filter(menu => !menu.startsWith('HG'))
 }
 
 // 修理種別からパーツ種別を取得（色区別なし）
@@ -147,6 +135,8 @@ export default function SalesPage() {
   const [iphoneModels, setIphoneModels] = useState<{model: string, display_name: string}[]>([])
   // 【新規】iPhone修理メニュー（DBから取得）
   const [iphoneRepairMenus, setIphoneRepairMenus] = useState<string[]>([])
+  // パーツ原価データ（フィルター用）
+  const [partsCosts, setPartsCosts] = useState<{model: string, parts_type: string}[]>([])
 
   // フォームの状態
   const [formData, setFormData] = useState({
@@ -291,6 +281,13 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         .eq('is_active', true)
         .order('sort_order')
 
+      // パーツ原価データ取得（メニューフィルター用）
+      const { data: partsCostsData } = await supabase
+        .from('m_costs_hw')
+        .select('model, parts_type')
+        .eq('tenant_id', 1)
+        .eq('is_active', true)
+
       setShops(shopsData || [])
       setStaff(staffData || [])
       setVisitSources(visitSourcesData || [])
@@ -299,11 +296,30 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       setIphoneModels(iphoneModelsData || [])
       setIphoneRepairMenus(uniqueIphoneMenus)
       setSuppliers(suppliersData || [])
+      setPartsCosts(partsCostsData || [])
       setLoading(false)
     }
 
     fetchMasterData()
   }, [])
+
+  // モデルに応じて利用可能なメニューをフィルター（原価があるもののみ）
+  const getAvailableRepairMenus = (model: string): string[] => {
+    if (!model) return []
+
+    // このモデルで原価が登録されているパーツ種別を取得
+    const availablePartsTypes = new Set(
+      partsCosts
+        .filter(p => p.model === model)
+        .map(p => p.parts_type)
+    )
+
+    // 修理メニューをフィルター
+    return iphoneRepairMenus.filter(menu => {
+      const partsType = getPartsTypeFromMenu(menu)
+      return availablePartsTypes.has(partsType)
+    })
+  }
 
   // 中古在庫取得（店舗選択時）
   useEffect(() => {
@@ -1102,7 +1118,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   className="form-select"
                 >
                   <option value="">選択してください</option>
-                  {getFilteredRepairMenus(iphoneRepairMenus, iphoneForm.model).map((menu) => (
+                  {getAvailableRepairMenus(iphoneForm.model).map((menu) => (
                     <option key={menu} value={menu}>{getRepairTypeLabel(menu)}</option>
                   ))}
                 </select>
