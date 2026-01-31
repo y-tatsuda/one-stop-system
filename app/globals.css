@@ -326,6 +326,16 @@ body {
   grid-template-columns: repeat(5, 1fr);
 }
 
+.form-grid-6 {
+  grid-template-columns: repeat(6, 1fr);
+}
+
+@media (max-width: 1200px) {
+  .form-grid-6 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 1024px) {
   .form-grid-5 {
     grid-template-columns: repeat(3, 1fr);
@@ -336,7 +346,8 @@ body {
   .form-grid-2,
   .form-grid-3,
   .form-grid-4,
-  .form-grid-5 {
+  .form-grid-5,
+  .form-grid-6 {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -345,7 +356,8 @@ body {
   .form-grid-2,
   .form-grid-3,
   .form-grid-4,
-  .form-grid-5 {
+  .form-grid-5,
+  .form-grid-6 {
     grid-template-columns: 1fr;
   }
 }

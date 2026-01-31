@@ -2,6 +2,11 @@
 // パーツ原価データのSQL生成スクリプト
 // 実行: node data/sql/generate-costs-sql.js
 // ================================================
+//
+// TH = 標準パネル, HG = ハイグレードパネル
+// パーツは色別に管理（該当機種のみ）
+// F/L（軽度/重度）は修理種別であり、パーツは同じ
+// ================================================
 
 const fs = require('fs');
 const path = require('path');
@@ -12,45 +17,43 @@ const REPAIR_COSTS_HW = require('../costs-hw.js');
 // アイサポ原価データ
 const REPAIR_COSTS_AISAPO = require('../costs-aisapo.js');
 
-// 白パネル(TH-F, HG-F)があるモデル（SE初代, 6s〜8）
-const MODELS_WITH_WHITE_PANEL = ['SE', '6s', '7', '7P', '8', '8P'];
+// 色の区別があるモデル（白/黒パネルが別々に存在）
+const MODELS_WITH_COLOR = ['SE', '6s', '7', '7P', '8', '8P'];
 
 // HGパネルがないモデル（SE初代, 6s, 7, 7P）
 const MODELS_WITHOUT_HG = ['SE', '6s', '7', '7P'];
 
-// パーツ種別の並び順
+// パーツ種別の出力順序（THパネル→HGパネル→バッテリー...の順、黒が先）
 const PARTS_TYPE_ORDER = [
-  'TH-F',      // 標準パネル(白)
-  'TH-L',      // 標準パネル(黒)
-  'HG-F',      // 有機EL(白)
-  'HG-L',      // 有機EL(黒)
-  'バッテリー',
-  'HGバッテリー',
-  'コネクタ',
-  'リアカメラ',
-  'インカメラ',
-  'カメラ窓'
+  'TH', 'TH-黒', 'TH-白',
+  'HG', 'HG-黒', 'HG-白',
+  'バッテリー', 'HGバッテリー',
+  'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
 ];
 
 // モデルごとに利用可能なパーツ種別を取得
 function getAvailablePartsTypes(model) {
-  const hasWhitePanel = MODELS_WITH_WHITE_PANEL.includes(model);
+  const hasColor = MODELS_WITH_COLOR.includes(model);
   const hasHG = !MODELS_WITHOUT_HG.includes(model);
 
   const types = [];
 
   // 標準パネル
-  if (hasWhitePanel) {
-    types.push('TH-F');  // 白
+  if (hasColor) {
+    types.push('TH-白');
+    types.push('TH-黒');
+  } else {
+    types.push('TH');
   }
-  types.push('TH-L');    // 黒（全モデル共通）
 
   // HGパネル
   if (hasHG) {
-    if (hasWhitePanel) {
-      types.push('HG-F');  // 白
+    if (hasColor) {
+      types.push('HG-白');
+      types.push('HG-黒');
+    } else {
+      types.push('HG');
     }
-    types.push('HG-L');    // 黒
   }
 
   // バッテリー
@@ -63,6 +66,17 @@ function getAvailablePartsTypes(model) {
   types.push('コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓');
 
   return types;
+}
+
+// パーツ種別から原価データのキーを取得
+function getCostKey(partsType) {
+  if (partsType === 'TH-白' || partsType === 'TH-黒' || partsType === 'TH') {
+    return 'TH-L';  // TH系は全てTH-Lの原価を使用
+  }
+  if (partsType === 'HG-白' || partsType === 'HG-黒' || partsType === 'HG') {
+    return 'HG-L';  // HG系は全てHG-Lの原価を使用
+  }
+  return partsType;  // その他はそのまま
 }
 
 function generateSQL() {
@@ -87,7 +101,9 @@ DELETE FROM m_costs_hw WHERE tenant_id = 1;
     for (const partsType of PARTS_TYPE_ORDER) {
       if (!availableTypes.includes(partsType)) continue;
 
-      const cost = parts[partsType] || 0;
+      // パーツ種別から元データのキーを取得（TH-白/TH-黒/TH → TH-L、HG-白/HG-黒/HG → HG-L）
+      const costKey = getCostKey(partsType);
+      const cost = parts[costKey] || 0;
       if (cost > 0) {
         sql += `INSERT INTO m_costs_hw (tenant_id, model, parts_type, cost, is_active, supplier_id) VALUES (1, '${model}', '${partsType}', ${cost}, true, (SELECT id FROM m_suppliers WHERE code = 'hw'));\n`;
       }
@@ -103,7 +119,9 @@ DELETE FROM m_costs_hw WHERE tenant_id = 1;
     for (const partsType of PARTS_TYPE_ORDER) {
       if (!availableTypes.includes(partsType)) continue;
 
-      const cost = parts[partsType] || 0;
+      // パーツ種別から元データのキーを取得（TH-白/TH-黒/TH → TH-L、HG-白/HG-黒/HG → HG-L）
+      const costKey = getCostKey(partsType);
+      const cost = parts[costKey] || 0;
       if (cost > 0) {
         sql += `INSERT INTO m_costs_hw (tenant_id, model, parts_type, cost, is_active, supplier_id) VALUES (1, '${model}', '${partsType}', ${cost}, true, (SELECT id FROM m_suppliers WHERE code = 'aisapo'));\n`;
       }

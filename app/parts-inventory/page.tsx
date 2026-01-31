@@ -30,13 +30,10 @@ type IphoneModel = {
   sort_order: number
 }
 
-// パーツ種類（新形式）
-// パーツ種別（原価テーブルと同じ名称）
-const partsTypes = [
-  'TH-F',
-  'TH-L',
-  'HG-F',
-  'HG-L',
+// パーツ種別の並び順（この順番で表示）
+const PARTS_TYPE_ORDER = [
+  'TH',
+  'HG',
   'バッテリー',
   'HGバッテリー',
   'コネクタ',
@@ -45,18 +42,24 @@ const partsTypes = [
   'カメラ窓',
 ]
 
+// フィルター用パーツ種別リスト
+const partsTypes = PARTS_TYPE_ORDER
+
 // パーツ種別の表示名
 const partsTypeLabels: { [key: string]: string } = {
-  'TH-F': '標準パネル(白)',
-  'TH-L': '標準パネル(黒)',
-  'HG-F': '有機EL(白)',
-  'HG-L': '有機EL(黒)',
+  'TH': 'THパネル',
+  'HG': 'HGパネル',
   'バッテリー': 'バッテリー',
   'HGバッテリー': 'HGバッテリー',
   'コネクタ': 'コネクタ',
   'リアカメラ': 'リアカメラ',
   'インカメラ': 'インカメラ',
   'カメラ窓': 'カメラ窓',
+}
+
+// パーツ種別の表示名を取得
+const getPartsTypeLabel = (partsType: string): string => {
+  return partsTypeLabels[partsType] || partsType
 }
 
 export default function PartsInventoryPage() {
@@ -150,7 +153,7 @@ export default function PartsInventoryPage() {
     return true
   })
 
-  // 機種でグループ化
+  // 機種でグループ化し、パーツ種別順にソート
   const groupedByModel = filteredInventory.reduce((acc, item) => {
     if (!acc[item.model]) {
       acc[item.model] = []
@@ -158,6 +161,18 @@ export default function PartsInventoryPage() {
     acc[item.model].push(item)
     return acc
   }, {} as Record<string, PartsInventory[]>)
+
+  // 各機種内のパーツをPARTS_TYPE_ORDERの順番でソート
+  Object.keys(groupedByModel).forEach(model => {
+    groupedByModel[model].sort((a, b) => {
+      const indexA = PARTS_TYPE_ORDER.indexOf(a.parts_type)
+      const indexB = PARTS_TYPE_ORDER.indexOf(b.parts_type)
+      if (indexA === -1 && indexB === -1) return a.parts_type.localeCompare(b.parts_type)
+      if (indexA === -1) return 1
+      if (indexB === -1) return -1
+      return indexA - indexB
+    })
+  })
 
   // sort_orderでソートされたモデル順
   const sortedModels = Object.keys(groupedByModel).sort((a, b) => {
@@ -320,7 +335,7 @@ export default function PartsInventoryPage() {
                               {getDisplayName(model)}
                             </td>
                           ) : null}
-                          <td>{partsTypeLabels[item.parts_type] || item.parts_type}</td>
+                          <td>{getPartsTypeLabel(item.parts_type)}</td>
                           <td className="text-center">
                             <input
                               type="number"

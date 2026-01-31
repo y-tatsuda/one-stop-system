@@ -72,14 +72,8 @@ const androidRepairMenus = [
   { value: 'バッテリー', label: 'バッテリー' },
 ]
 
-// 色の区別があるモデル（白パネル/黒パネルが別々に存在）
-const MODELS_WITH_COLOR = ['SE', '6s', '7', '7P', '8', '8P']
-
 // HGパネルがないモデル
 const MODELS_WITHOUT_HG = ['SE', '6s', '7', '7P']
-
-// パネル修理メニュー（TH/HGを含むメニュー）
-const PANEL_REPAIR_TYPES = ['TH-F', 'TH-L', 'HG-F', 'HG-L']
 
 // 修理メニューの並び順（この順番でプルダウンに表示）
 const REPAIR_TYPE_ORDER = [
@@ -102,43 +96,25 @@ const getFilteredRepairMenus = (menus: string[], model?: string): string[] => {
   return menus.filter(menu => !menu.startsWith('HG'))
 }
 
-// 修理種別(TH-F等)とパネル色からパーツ種別(TH-白等)を取得
-const getPartsType = (repairType: string, panelColor: string, model: string): string => {
-  const hasColor = MODELS_WITH_COLOR.includes(model)
-
-  // パネル修理の場合
+// 修理種別からパーツ種別を取得（色区別なし）
+const getPartsTypeFromMenu = (repairType: string): string => {
   if (repairType === 'TH-F' || repairType === 'TH-L') {
-    return hasColor ? `TH-${panelColor}` : 'TH'
+    return 'TH'
   }
   if (repairType === 'HG-F' || repairType === 'HG-L') {
-    return hasColor ? `HG-${panelColor}` : 'HG'
+    return 'HG'
   }
-
-  // その他のパーツはそのまま
   return repairType
-}
-
-// メニュー表示文字列からパーツ種別を取得（例: "TH-F(黒)" → "TH-黒"）
-const getPartsTypeFromMenuDisplay = (menuDisplay: string, model: string): string => {
-  // 括弧内の色を抽出
-  const colorMatch = menuDisplay.match(/\((白|黒)\)$/)
-  const color = colorMatch ? colorMatch[1] : ''
-
-  // 括弧を除去して修理種別を取得
-  const repairType = menuDisplay.replace(/\((白|黒)\)$/, '')
-
-  return getPartsType(repairType, color, model)
 }
 
 // パーツを使用する修理メニューか判定（作業費系・フィルム系は除外）
 const isPartsRepairMenu = (menu: string): boolean => {
-  const baseMenu = menu.replace(/\((白|黒)\)$/, '')
   const partsMenus = [
     'TH-F', 'TH-L', 'HG-F', 'HG-L',
     'バッテリー', 'HGバッテリー',
     'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
   ]
-  return partsMenus.includes(baseMenu)
+  return partsMenus.includes(menu)
 }
 
 // データ移行メニュー（固定価格）
@@ -184,7 +160,6 @@ export default function SalesPage() {
   const [iphoneForm, setIphoneForm] = useState({
     model: '',
     menu: '',
-    panelColor: '', // パネル色（白/黒）- 色区別モデルのパネル修理時のみ使用
     supplierId: '',
     unitPrice: 0,
     unitCost: 0,
@@ -357,14 +332,6 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     async function fetchIphonePrice() {
       if (!iphoneForm.model || !iphoneForm.menu) return
 
-      // パネル修理で色区別モデルの場合、色が未選択なら価格取得しない
-      const isPanelRepair = PANEL_REPAIR_TYPES.includes(iphoneForm.menu)
-      const needsColor = isPanelRepair && MODELS_WITH_COLOR.includes(iphoneForm.model)
-      if (needsColor && !iphoneForm.panelColor) {
-        setIphoneForm(prev => ({ ...prev, unitPrice: 0, unitCost: 0 }))
-        return
-      }
-
       // 修理価格取得（仕入先によらず共通）
       const { data } = await supabase
         .from('m_repair_prices_iphone')
@@ -374,8 +341,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         .eq('repair_type', iphoneForm.menu)
         .single()
 
-      // パーツ種別を決定（修理種別 + パネル色 → パーツ種別）
-      const partsType = getPartsType(iphoneForm.menu, iphoneForm.panelColor, iphoneForm.model)
+      // パーツ種別を決定（色区別なし）
+      const partsType = getPartsTypeFromMenu(iphoneForm.menu)
 
       // パーツ原価取得（仕入先別）
       let costQuery = supabase
@@ -399,7 +366,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       }))
     }
     fetchIphonePrice()
-  }, [iphoneForm.model, iphoneForm.menu, iphoneForm.panelColor, iphoneForm.supplierId])
+  }, [iphoneForm.model, iphoneForm.menu, iphoneForm.supplierId])
 
   // Android価格取得
   useEffect(() => {
@@ -560,30 +527,16 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       return
     }
 
-    // パネル修理で色区別モデルの場合、色が必須
-    const isPanelRepair = PANEL_REPAIR_TYPES.includes(iphoneForm.menu)
-    const needsColor = isPanelRepair && MODELS_WITH_COLOR.includes(iphoneForm.model)
-    if (needsColor && !iphoneForm.panelColor) {
-      alert('パネル色を選択してください')
-      return
-    }
-
     const amount = iphoneForm.unitPrice
     const cost = iphoneForm.unitCost
     const profit = amount - cost
-
-    // メニュー表示名（色区別モデルのパネル修理の場合は色を追加）
-    let menuDisplay = getRepairTypeLabel(iphoneForm.menu)
-    if (needsColor && iphoneForm.panelColor) {
-      menuDisplay = `${menuDisplay}(${iphoneForm.panelColor})`
-    }
 
     const newDetail: SalesDetail = {
       id: Date.now().toString(),
       category: 'iPhone修理',
       subCategory: 'iPhone修理',
       model: iphoneForm.model,
-      menu: menuDisplay,
+      menu: iphoneForm.menu,
       storage: null,
       rank: null,
       accessoryId: null,
@@ -597,7 +550,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       profit,
     }
     setDetails([...details, newDetail])
-    setIphoneForm({ model: '', menu: '', panelColor: '', supplierId: '', unitPrice: 0, unitCost: 0 })
+    setIphoneForm({ model: '', menu: '', supplierId: '', unitPrice: 0, unitCost: 0 })
   }
 
   // Android修理追加
@@ -870,8 +823,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
           continue
         }
 
-        // メニュー表示からパーツ種別を取得
-        const partsType = getPartsTypeFromMenuDisplay(detail.menu, detail.model)
+        // メニューからパーツ種別を取得
+        const partsType = getPartsTypeFromMenu(detail.menu)
 
         // 在庫レコードを取得して減算
         const { data: invData, error: invFetchError } = await supabase
@@ -1132,7 +1085,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                 <label className="form-label">機種</label>
                 <select
                   value={iphoneForm.model}
-                  onChange={(e) => setIphoneForm({ ...iphoneForm, model: e.target.value, menu: '', panelColor: '', unitPrice: 0, unitCost: 0 })}
+                  onChange={(e) => setIphoneForm({ ...iphoneForm, model: e.target.value, menu: '', unitPrice: 0, unitCost: 0 })}
                   className="form-select"
                 >
                   <option value="">選択してください</option>
@@ -1145,7 +1098,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                 <label className="form-label">メニュー</label>
                 <select
                   value={iphoneForm.menu}
-                  onChange={(e) => setIphoneForm({ ...iphoneForm, menu: e.target.value, panelColor: '' })}
+                  onChange={(e) => setIphoneForm({ ...iphoneForm, menu: e.target.value })}
                   className="form-select"
                 >
                   <option value="">選択してください</option>
@@ -1154,21 +1107,6 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   ))}
                 </select>
               </div>
-              {/* パネル色選択（色区別モデルのパネル修理時のみ表示） */}
-              {iphoneForm.model && MODELS_WITH_COLOR.includes(iphoneForm.model) && PANEL_REPAIR_TYPES.includes(iphoneForm.menu) && (
-                <div className="form-group">
-                  <label className="form-label">パネル色</label>
-                  <select
-                    value={iphoneForm.panelColor}
-                    onChange={(e) => setIphoneForm({ ...iphoneForm, panelColor: e.target.value })}
-                    className="form-select"
-                  >
-                    <option value="">選択してください</option>
-                    <option value="白">白</option>
-                    <option value="黒">黒</option>
-                  </select>
-                </div>
-              )}
               <div className="form-group">
                 <label className="form-label">仕入先</label>
                 <select

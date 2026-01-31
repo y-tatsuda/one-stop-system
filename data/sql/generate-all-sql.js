@@ -16,8 +16,7 @@ const REPAIR_PRICES = require('../repair-prices-iphone.js')
 const COSTS_HW = require('../costs-hw.js')
 const COSTS_AISAPO = require('../costs-aisapo.js')
 
-// 色区別モデル（パネルに白/黒の区別がある）
-const MODELS_WITH_COLOR = ['SE', '6s', '7', '7P', '8', '8P']
+// 色区別は廃止（全機種で白/黒の区別なし）
 
 // 修理メニュー（パーツ関連のみ）
 const REPAIR_MENUS = [
@@ -26,23 +25,20 @@ const REPAIR_MENUS = [
   'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
 ]
 
-// パーツ種別の順序（黒が先）
+// パーツ種別の順序（色区別なし）
 const PARTS_TYPE_ORDER = [
-  'TH', 'TH-黒', 'TH-白',
-  'HG', 'HG-黒', 'HG-白',
+  'TH', 'HG',
   'バッテリー', 'HGバッテリー',
   'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
 ]
 
-// 修理メニューからパーツ種別への変換
-function repairTypeToPartsTypes(repairType, model) {
-  const hasColor = MODELS_WITH_COLOR.includes(model)
-
+// 修理メニューからパーツ種別への変換（色区別なし）
+function repairTypeToPartsTypes(repairType) {
   if (repairType === 'TH-F' || repairType === 'TH-L') {
-    return hasColor ? ['TH-黒', 'TH-白'] : ['TH']
+    return ['TH']
   }
   if (repairType === 'HG-F' || repairType === 'HG-L') {
-    return hasColor ? ['HG-黒', 'HG-白'] : ['HG']
+    return ['HG']
   }
   // その他はそのまま
   return [repairType]
@@ -118,7 +114,6 @@ DELETE FROM m_costs_hw WHERE tenant_id = 1;
     const costs = COSTS_HW[model]
     if (!costs) continue
 
-    const hasColor = MODELS_WITH_COLOR.includes(model)
     const addedPartsTypes = new Set()
 
     for (const menu of REPAIR_MENUS) {
@@ -126,7 +121,7 @@ DELETE FROM m_costs_hw WHERE tenant_id = 1;
       const cost = costs[costKey]
       if (!cost || cost <= 0) continue
 
-      const partsTypes = repairTypeToPartsTypes(menu, model)
+      const partsTypes = repairTypeToPartsTypes(menu)
       for (const partsType of partsTypes) {
         if (addedPartsTypes.has(partsType)) continue
         addedPartsTypes.add(partsType)
@@ -146,7 +141,6 @@ DELETE FROM m_costs_hw WHERE tenant_id = 1;
     const costs = COSTS_AISAPO[model]
     if (!costs) continue
 
-    const hasColor = MODELS_WITH_COLOR.includes(model)
     const addedPartsTypes = new Set()
 
     for (const menu of REPAIR_MENUS) {
@@ -154,7 +148,7 @@ DELETE FROM m_costs_hw WHERE tenant_id = 1;
       const cost = costs[costKey]
       if (!cost || cost <= 0) continue
 
-      const partsTypes = repairTypeToPartsTypes(menu, model)
+      const partsTypes = repairTypeToPartsTypes(menu)
       for (const partsType of partsTypes) {
         if (addedPartsTypes.has(partsType)) continue
         addedPartsTypes.add(partsType)
@@ -185,7 +179,7 @@ DELETE FROM t_parts_inventory WHERE tenant_id = 1;
     for (const menu of REPAIR_MENUS) {
       const price = prices[menu]
       if (price && price > 0) {
-        const partsTypes = repairTypeToPartsTypes(menu, model)
+        const partsTypes = repairTypeToPartsTypes(menu)
         partsTypes.forEach(pt => partsTypesForModel.add(pt))
       }
     }

@@ -33,18 +33,37 @@ type ShortageItem = {
   checked: boolean
 }
 
+// パーツ種別の並び順
+const PARTS_TYPE_ORDER = [
+  'TH', 'TH-黒', 'TH-白',
+  'HG', 'HG-黒', 'HG-白',
+  'バッテリー',
+  'HGバッテリー',
+  'コネクタ',
+  'リアカメラ',
+  'インカメラ',
+  'カメラ窓',
+]
+
 // パーツ種別の表示名
 const partsTypeLabels: { [key: string]: string } = {
-  'TH-F': '標準パネル(白)',
-  'TH-L': '標準パネル(黒)',
-  'HG-F': '有機EL(白)',
-  'HG-L': '有機EL(黒)',
+  'TH-白': 'THパネル(白)',
+  'TH-黒': 'THパネル(黒)',
+  'TH': 'THパネル',
+  'HG-白': 'HGパネル(白)',
+  'HG-黒': 'HGパネル(黒)',
+  'HG': 'HGパネル',
   'バッテリー': 'バッテリー',
   'HGバッテリー': 'HGバッテリー',
   'コネクタ': 'コネクタ',
   'リアカメラ': 'リアカメラ',
   'インカメラ': 'インカメラ',
   'カメラ窓': 'カメラ窓',
+}
+
+// パーツ種別の表示名を取得
+const getPartsTypeLabel = (partsType: string): string => {
+  return partsTypeLabels[partsType] || partsType
 }
 
 export default function OrderPage() {
@@ -141,7 +160,13 @@ export default function OrderPage() {
             if (a.model !== b.model) {
               return a.model.localeCompare(b.model)
             }
-            return a.parts_type.localeCompare(b.parts_type)
+            // パーツ種別はPARTS_TYPE_ORDERの順番でソート
+            const indexA = PARTS_TYPE_ORDER.indexOf(a.parts_type)
+            const indexB = PARTS_TYPE_ORDER.indexOf(b.parts_type)
+            if (indexA === -1 && indexB === -1) return a.parts_type.localeCompare(b.parts_type)
+            if (indexA === -1) return 1
+            if (indexB === -1) return -1
+            return indexA - indexB
           })
 
         setShortageItems(shortages)
@@ -200,7 +225,7 @@ export default function OrderPage() {
     for (const [shopName, items] of Object.entries(byShop)) {
       text += `■ ${shopName}\n`
       for (const item of items) {
-        text += `・${getDisplayName(item.model)} ${partsTypeLabels[item.parts_type] || item.parts_type} ×${item.shortage}\n`
+        text += `・${getDisplayName(item.model)} ${getPartsTypeLabel(item.parts_type)} ×${item.shortage}\n`
       }
       text += '\n'
     }
@@ -333,7 +358,7 @@ export default function OrderPage() {
                       </td>
                       <td>{item.shop_name}</td>
                       <td style={{ fontWeight: 500 }}>{getDisplayName(item.model)}</td>
-                      <td>{partsTypeLabels[item.parts_type] || item.parts_type}</td>
+                      <td>{getPartsTypeLabel(item.parts_type)}</td>
                       <td className="text-center">{item.required_qty}</td>
                       <td className="text-center" style={{ color: 'var(--color-danger)', fontWeight: 500 }}>{item.actual_qty}</td>
                       <td className="text-center">

@@ -48,15 +48,26 @@ type PartsInventory = {
   actual_qty: number
 }
 
-const repairTypesList = [
-  { key: 'screen', label: '画面修理', partsType: 'LCDパネル' },
-  { key: 'screen_oled', label: '画面修理 有機EL', partsType: '有機ELパネル' },
-  { key: 'battery', label: 'バッテリー', partsType: 'バッテリー' },
-  { key: 'connector', label: 'コネクタ', partsType: 'コネクタ' },
-  { key: 'rear_camera', label: 'リアカメラ', partsType: 'リアカメラ' },
-  { key: 'front_camera', label: 'インカメラ', partsType: 'インカメラ' },
-  { key: 'camera_glass', label: 'カメラ窓', partsType: 'カメラ窓' },
-]
+// 色の区別があるモデル（白パネルがあるモデル）
+const MODELS_WITH_COLOR = ['SE', '6s', '7', '7P', '8', '8P']
+
+// 修理に使用するパーツ種別（モデルに応じて表示を切り替え）
+const getRepairTypesList = (model?: string) => {
+  const hasColor = model ? MODELS_WITH_COLOR.includes(model) : false
+
+  return [
+    { key: 'TH-L', label: hasColor ? '標準パネル(黒)' : '標準パネル', partsType: 'TH-L' },
+    { key: 'TH-F', label: '標準パネル(白)', partsType: 'TH-F', onlyWithColor: true },
+    { key: 'HG-L', label: hasColor ? 'HGパネル(黒)' : 'HGパネル', partsType: 'HG-L' },
+    { key: 'HG-F', label: 'HGパネル(白)', partsType: 'HG-F', onlyWithColor: true },
+    { key: 'battery', label: '標準バッテリー', partsType: 'バッテリー' },
+    { key: 'hg_battery', label: 'HGバッテリー', partsType: 'HGバッテリー' },
+    { key: 'connector', label: 'コネクタ', partsType: 'コネクタ' },
+    { key: 'rear_camera', label: 'リアカメラ', partsType: 'リアカメラ' },
+    { key: 'front_camera', label: 'インカメラ', partsType: 'インカメラ' },
+    { key: 'camera_glass', label: 'カメラ窓', partsType: 'カメラ窓' },
+  ].filter(item => !item.onlyWithColor || hasColor)
+}
 
 export default function InventoryPage() {
   const [inventory, setInventory] = useState<UsedInventory[]>([])
@@ -268,6 +279,7 @@ export default function InventoryPage() {
       return
     }
 
+    const repairTypesList = getRepairTypesList(selectedItem.model)
     for (const partKey of selectedParts) {
       const repairType = repairTypesList.find(r => r.key === partKey)
       if (!repairType) continue
@@ -579,7 +591,7 @@ export default function InventoryPage() {
               </div>
               <p style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '10px' }}>使用パーツを選択:</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
-                {repairTypesList.map((repair) => {
+                {getRepairTypesList(selectedItem.model).map((repair) => {
                   const qty = getPartsQty(repair.partsType)
                   const isSelected = selectedParts.includes(repair.key)
                   const willBeNegative = isSelected && qty <= 0
@@ -599,6 +611,7 @@ export default function InventoryPage() {
               </div>
               {/* 在庫0警告 */}
               {selectedParts.some(key => {
+                const repairTypesList = getRepairTypesList(selectedItem.model)
                 const repair = repairTypesList.find(r => r.key === key)
                 return repair && getPartsQty(repair.partsType) <= 0
               }) && (
@@ -606,6 +619,7 @@ export default function InventoryPage() {
                   <p style={{ fontWeight: '600', color: '#92400E', fontSize: '0.85rem', marginBottom: '4px' }}>⚠️ 以下のパーツは在庫が0のためマイナスになります</p>
                   <ul style={{ paddingLeft: '20px', fontSize: '0.8rem', color: '#92400E', margin: 0 }}>
                     {selectedParts.map(key => {
+                      const repairTypesList = getRepairTypesList(selectedItem.model)
                       const repair = repairTypesList.find(r => r.key === key)
                       if (!repair) return null
                       const qty = getPartsQty(repair.partsType)

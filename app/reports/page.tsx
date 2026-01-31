@@ -96,7 +96,7 @@ type MonthlyWeekData = {
   weeks: { week: number; amount: number }[]
 }
 
-// 有機EL対応機種
+// HGパネル（有機EL）対応機種
 const OLED_TARGET_MODELS = [
   'X', 'XS', 'XSMax', '11Pro', '11ProMax',
   '12', '12mini', '12Pro', '12ProMax',
@@ -105,6 +105,12 @@ const OLED_TARGET_MODELS = [
   '15', '15Plus', '15Pro', '15ProMax',
   '16', '16Plus', '16Pro', '16ProMax', '16e'
 ]
+
+// パネル修理の種別（DBの値）
+const SCREEN_REPAIR_TYPES = ['TH-F', 'TH-L', 'HG-F', 'HG-L']
+const STANDARD_SCREEN_TYPES = ['TH-F', 'TH-L']
+const HG_SCREEN_TYPES = ['HG-F', 'HG-L']
+const BATTERY_TYPES = ['バッテリー', 'HGバッテリー']
 
 // =============================================
 // メインコンポーネント
@@ -467,10 +473,10 @@ export default function ReportsPage() {
         const details = detailsBySalesId.get(sale.id) || []
         const hasRepair = details.some(d => d.category === 'iPhone修理' || d.category === 'Android修理')
         const hasUsedSale = details.some(d => d.category === '中古販売')
-        const hasScreenRepair = details.some(d => (d.category === 'iPhone修理' || d.category === 'Android修理') && (d.menu === '画面修理' || d.menu === '画面修理 (有機EL)'))
-        const hasBatteryRepair = details.some(d => (d.category === 'iPhone修理' || d.category === 'Android修理') && d.menu === 'バッテリー')
-        const hasOledScreenRepair = details.some(d => d.category === 'iPhone修理' && d.menu === '画面修理 (有機EL)')
-        const hasOledTargetScreenRepair = details.some(d => d.category === 'iPhone修理' && (d.menu === '画面修理' || d.menu === '画面修理 (有機EL)') && OLED_TARGET_MODELS.includes(d.model))
+        const hasScreenRepair = details.some(d => (d.category === 'iPhone修理' || d.category === 'Android修理') && SCREEN_REPAIR_TYPES.includes(d.menu))
+        const hasBatteryRepair = details.some(d => (d.category === 'iPhone修理' || d.category === 'Android修理') && BATTERY_TYPES.includes(d.menu))
+        const hasOledScreenRepair = details.some(d => d.category === 'iPhone修理' && HG_SCREEN_TYPES.includes(d.menu))
+        const hasOledTargetScreenRepair = details.some(d => d.category === 'iPhone修理' && SCREEN_REPAIR_TYPES.includes(d.menu) && OLED_TARGET_MODELS.includes(d.model))
         const hasFilmSale = details.some(d => d.category === 'アクセサリ' && (d.menu?.includes('フィルム') || d.menu?.includes('HD') || d.menu?.includes('覗き見')))
 
         if (hasOledScreenRepair) oledScreenRepairCount++
@@ -525,14 +531,14 @@ export default function ReportsPage() {
     })
     setModelRanking(Array.from(modelMap.values()).sort((a, b) => b.count - a.count).slice(0, 10))
 
-    detailsData.filter(d => (d.category === 'iPhone修理' || d.category === 'Android修理') && (d.menu === '画面修理' || d.menu === '画面修理 (有機EL)')).forEach(d => {
+    detailsData.filter(d => (d.category === 'iPhone修理' || d.category === 'Android修理') && SCREEN_REPAIR_TYPES.includes(d.menu)).forEach(d => {
       const key = d.model || '不明'
       const existing = screenMap.get(key) || { name: key, count: 0, amount: 0, profit: 0 }
       screenMap.set(key, { ...existing, count: existing.count + 1, amount: existing.amount + (d.amount || 0), profit: existing.profit + (d.profit || 0) })
     })
     setScreenRepairRanking(Array.from(screenMap.values()).sort((a, b) => b.count - a.count).slice(0, 10))
 
-    detailsData.filter(d => (d.category === 'iPhone修理' || d.category === 'Android修理') && d.menu === 'バッテリー').forEach(d => {
+    detailsData.filter(d => (d.category === 'iPhone修理' || d.category === 'Android修理') && BATTERY_TYPES.includes(d.menu)).forEach(d => {
       const key = d.model || '不明'
       const existing = batteryMap.get(key) || { name: key, count: 0, amount: 0, profit: 0 }
       batteryMap.set(key, { ...existing, count: existing.count + 1, amount: existing.amount + (d.amount || 0), profit: existing.profit + (d.profit || 0) })
@@ -784,7 +790,7 @@ export default function ReportsPage() {
                 <div className="card-body">
                   <div className="stat-grid stat-grid-5">
                     <div className="stat-card">
-                      <div className="stat-label">有機EL獲得率</div>
+                      <div className="stat-label">HGパネル獲得率</div>
                       <div className="stat-value" style={{ color: 'var(--color-primary)' }}>{calcRate(overallKPI.oledScreenRepairCount, overallKPI.oledTargetScreenRepairCount)}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{overallKPI.oledScreenRepairCount} / {overallKPI.oledTargetScreenRepairCount}件</div>
                       {overallTarget?.kpi_oled_rate && <div style={{ fontSize: '0.75rem', color: 'var(--color-warning)' }}>目標: {overallTarget.kpi_oled_rate}%</div>}
@@ -821,7 +827,7 @@ export default function ReportsPage() {
                 <div className="card-body" style={{ padding: 0 }}>
                   <div className="table-wrapper" style={{ border: 'none' }}>
                     <table className="data-table">
-                      <thead><tr><th>店舗/スタッフ</th><th className="text-right">有機EL</th><th className="text-right">同時交換</th><th className="text-right">フィルム</th><th className="text-right">中古販売</th><th className="text-right">アクセサリ</th></tr></thead>
+                      <thead><tr><th>店舗/スタッフ</th><th className="text-right">HGパネル</th><th className="text-right">同時交換</th><th className="text-right">フィルム</th><th className="text-right">中古販売</th><th className="text-right">アクセサリ</th></tr></thead>
                       <tbody>
                         {shopSummaries.map(shop => (
                           <>
@@ -870,7 +876,7 @@ export default function ReportsPage() {
                   </div>
                 </div>
                 <div className="card">
-                  <div className="card-header"><h2 className="card-title">画面修理</h2></div>
+                  <div className="card-header"><h2 className="card-title">パネル修理</h2></div>
                   <div className="card-body" style={{ padding: 0 }}>
                     <table className="data-table">
                       <thead><tr><th>機種</th><th className="text-right">件数</th><th className="text-right">売上</th></tr></thead>
@@ -1207,7 +1213,7 @@ export default function ReportsPage() {
                       <div className="form-group mb-md"><label className="form-label">粗利率（%）</label><input type="number" value={editingTarget.profit_rate} onChange={(e) => setEditingTarget({ ...editingTarget, profit_rate: Number(e.target.value) })} className="form-input" style={{ width: '100px' }} /></div>
                       <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '12px' }}>KPI目標（任意）</h4>
                       <div className="form-grid form-grid-3">
-                        <div className="form-group"><label className="form-label">有機EL獲得率（%）</label><input type="number" value={editingTarget.kpi_oled_rate || ''} onChange={(e) => setEditingTarget({ ...editingTarget, kpi_oled_rate: e.target.value ? Number(e.target.value) : null })} className="form-input" /></div>
+                        <div className="form-group"><label className="form-label">HGパネル獲得率（%）</label><input type="number" value={editingTarget.kpi_oled_rate || ''} onChange={(e) => setEditingTarget({ ...editingTarget, kpi_oled_rate: e.target.value ? Number(e.target.value) : null })} className="form-input" /></div>
                         <div className="form-group"><label className="form-label">同時交換率（%）</label><input type="number" value={editingTarget.kpi_battery_combo_rate || ''} onChange={(e) => setEditingTarget({ ...editingTarget, kpi_battery_combo_rate: e.target.value ? Number(e.target.value) : null })} className="form-input" /></div>
                         <div className="form-group"><label className="form-label">フィルム獲得率（%）</label><input type="number" value={editingTarget.kpi_film_rate || ''} onChange={(e) => setEditingTarget({ ...editingTarget, kpi_film_rate: e.target.value ? Number(e.target.value) : null })} className="form-input" /></div>
                         <div className="form-group"><label className="form-label">中古販売率（%）</label><input type="number" value={editingTarget.kpi_used_sales_rate || ''} onChange={(e) => setEditingTarget({ ...editingTarget, kpi_used_sales_rate: e.target.value ? Number(e.target.value) : null })} className="form-input" /></div>

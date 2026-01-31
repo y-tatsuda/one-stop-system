@@ -87,25 +87,45 @@ type AccessoryCategory = {
   name: string
 }
 
-// 修理種別（repair_type = parts_type で統一）
+// 修理種別（repair_type）- 修理価格用（F=軽度、L=重度）
 const REPAIR_TYPES_LIST = [
   'TH-F', 'TH-L', 'HG-F', 'HG-L',
   'バッテリー', 'HGバッテリー',
   'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
 ]
 
-// 修理種別の表示名
-const REPAIR_TYPE_LABELS: { [key: string]: string } = {
-  'TH-F': '標準パネル(白)',
-  'TH-L': '標準パネル(黒)',
-  'HG-F': '有機EL(白)',
-  'HG-L': '有機EL(黒)',
+// 修理種別の表示名を取得（そのまま表示）
+const getRepairTypeLabel = (repairType: string): string => {
+  return repairType
+}
+
+// パーツ種別（parts_type）- 原価/在庫用（THパネル→HGパネル→バッテリー...の順）
+const PARTS_TYPES_LIST = [
+  'TH', 'TH-黒', 'TH-白',
+  'HG', 'HG-黒', 'HG-白',
+  'バッテリー', 'HGバッテリー',
+  'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
+]
+
+// パーツ種別の表示名
+const PARTS_TYPE_LABELS: { [key: string]: string } = {
+  'TH-白': 'THパネル(白)',
+  'TH-黒': 'THパネル(黒)',
+  'TH': 'THパネル',
+  'HG-白': 'HGパネル(白)',
+  'HG-黒': 'HGパネル(黒)',
+  'HG': 'HGパネル',
   'バッテリー': 'バッテリー',
   'HGバッテリー': 'HGバッテリー',
   'コネクタ': 'コネクタ',
   'リアカメラ': 'リアカメラ',
   'インカメラ': 'インカメラ',
   'カメラ窓': 'カメラ窓',
+}
+
+// パーツ種別の表示名を取得
+const getPartsTypeLabel = (partsType: string): string => {
+  return PARTS_TYPE_LABELS[partsType] || partsType
 }
 
 const REPAIR_TYPES = REPAIR_TYPES_LIST
@@ -975,7 +995,7 @@ export default function MasterManagementPage() {
                       return (
                         <tr key={`${item.model}-${item.repairType}-${idx}`}>
                           <td style={{ fontWeight: 500 }}>{getDisplayName(item.model)}</td>
-                          <td>{REPAIR_TYPE_LABELS[item.repairType] || item.repairType}</td>
+                          <td>{getRepairTypeLabel(item.repairType)}</td>
                           <td className="text-right">
                             {isEditingRepair ? (
                               <input type="number" value={editValue} onChange={(e) => setEditValue(parseInt(e.target.value) || 0)} className="form-input" style={{ width: '100px', textAlign: 'right', padding: '4px 8px' }} autoFocus />
@@ -1368,7 +1388,7 @@ export default function MasterManagementPage() {
                   <div className="form-group">
                     <label className="form-label form-label-required">種別</label>
                     <select value={newRepairType} onChange={e => setNewRepairType(e.target.value)} className="form-select">
-                      {REPAIR_TYPES.map(t => <option key={t} value={t}>{REPAIR_TYPE_LABELS[t] || t}</option>)}
+                      {REPAIR_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div className="form-group">

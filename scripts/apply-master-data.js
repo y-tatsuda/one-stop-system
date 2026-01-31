@@ -99,15 +99,14 @@ async function applyMasterData() {
 
     const COSTS_HW = require('../data/costs-hw.js')
     const COSTS_AISAPO = require('../data/costs-aisapo.js')
-    const MODELS_WITH_COLOR = ['SE', '6s', '7', '7P', '8', '8P']
 
-    function repairTypeToPartsTypes(repairType, model) {
-      const hasColor = MODELS_WITH_COLOR.includes(model)
+    // 色区別なし
+    function repairTypeToPartsTypes(repairType) {
       if (repairType === 'TH-F' || repairType === 'TH-L') {
-        return hasColor ? ['TH-黒', 'TH-白'] : ['TH']
+        return ['TH']
       }
       if (repairType === 'HG-F' || repairType === 'HG-L') {
-        return hasColor ? ['HG-黒', 'HG-白'] : ['HG']
+        return ['HG']
       }
       return [repairType]
     }
@@ -131,7 +130,7 @@ async function applyMasterData() {
         const cost = costs[costKey]
         if (!cost || cost <= 0) continue
 
-        const partsTypes = repairTypeToPartsTypes(menu, model)
+        const partsTypes = repairTypeToPartsTypes(menu)
         for (const partsType of partsTypes) {
           if (addedPartsTypes.has(partsType)) continue
           addedPartsTypes.add(partsType)
@@ -158,7 +157,7 @@ async function applyMasterData() {
         const cost = costs[costKey]
         if (!cost || cost <= 0) continue
 
-        const partsTypes = repairTypeToPartsTypes(menu, model)
+        const partsTypes = repairTypeToPartsTypes(menu)
         for (const partsType of partsTypes) {
           if (addedPartsTypes.has(partsType)) continue
           addedPartsTypes.add(partsType)
@@ -207,8 +206,7 @@ async function applyMasterData() {
     console.log(`  対象仕入先: ${Object.keys(supplierMap).length}社`)
 
     const PARTS_TYPE_ORDER = [
-      'TH', 'TH-黒', 'TH-白',
-      'HG', 'HG-黒', 'HG-白',
+      'TH', 'HG',
       'バッテリー', 'HGバッテリー',
       'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
     ]
@@ -222,7 +220,7 @@ async function applyMasterData() {
       for (const menu of REPAIR_MENUS) {
         const price = prices[menu]
         if (price && price > 0) {
-          const partsTypes = repairTypeToPartsTypes(menu, model)
+          const partsTypes = repairTypeToPartsTypes(menu)
           partsTypes.forEach(pt => partsTypesForModel.add(pt))
         }
       }
