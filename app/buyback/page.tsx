@@ -393,13 +393,12 @@ export default function BuybackPage() {
       .eq('rank', rank)
       .single()
 
-    // 販売減額取得
+    // 販売減額取得（storageなし - 機種ごとに定義）
     const { data: salesDeductionData } = await supabase
       .from('m_sales_price_deductions')
       .select('deduction_type, amount')
       .eq('tenant_id', 1)
       .eq('model', model)
-      .eq('storage', parseInt(storage))
       .eq('is_active', true)
 
     const basePrice = priceData?.price || 0
@@ -1186,12 +1185,12 @@ function ItemForm({
     fetchPartsCosts()
   }, [item.model])
 
-  // 価格計算トリガー
+  // 価格計算トリガー（減額項目の変更時も再計算）
   useEffect(() => {
     if (item.model && item.storage && item.rank) {
       onCalculate(item.model, item.storage, item.rank)
     }
-  }, [item.model, item.storage, item.rank])
+  }, [item.model, item.storage, item.rank, item.batteryPercent, item.isServiceState, item.nwStatus, item.cameraStain, item.cameraBroken, item.repairHistory])
 
   // 修理選択
   const handleRepairSelect = (key: string) => {
