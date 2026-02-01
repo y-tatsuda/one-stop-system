@@ -28,6 +28,7 @@ type Accessory = {
   variation: string | null
   price: number
   cost: number
+  category_id: number
   category_name: string
 }
 
@@ -237,14 +238,29 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         ? [...new Set(androidData.map(d => d.model))].map(model => ({ model }))
         : []
 
-      // アクセサリ取得
-      const { data: accessoriesData } = await supabase
+      // アクセサリ取得（カテゴリ名をJOIN）
+      const { data: accessoriesRaw } = await supabase
         .from('m_accessories')
-        .select('id, name, variation, price, cost, category_name')
+        .select(`
+          id, name, variation, price, cost, category_id,
+          category:m_accessory_categories(name)
+        `)
         .eq('tenant_id', 1)
         .eq('is_active', true)
-        .order('category_name')
+        .order('category_id')
         .order('name')
+
+      // カテゴリ名を展開
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const accessoriesData = (accessoriesRaw || []).map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        variation: a.variation,
+        price: a.price,
+        cost: a.cost,
+        category_id: a.category_id,
+        category_name: a.category?.name || 'その他',
+      }))
 
       // 【新規】iPhone機種リストを機種マスタから取得
       const { data: iphoneModelsData } = await supabase

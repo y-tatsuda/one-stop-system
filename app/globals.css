@@ -1254,3 +1254,56 @@ body {
     max-width: 1000px;
   }
 }
+
+/* ============================================
+   iOS PWA 入力フィールド修正
+   ============================================ */
+/* iOS standalone mode (PWA) detection and fixes */
+@media screen and (display-mode: standalone) {
+  /* Ensure inputs are interactive in standalone mode */
+  input, textarea, select {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    -webkit-touch-callout: default !important;
+  }
+
+  /* Fix for iOS keyboard not appearing */
+  input[type="text"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="email"],
+  input[type="search"],
+  textarea {
+    -webkit-appearance: none;
+    appearance: none;
+    font-size: 16px !important;
+    touch-action: manipulation;
+  }
+
+  /* Ensure form elements are focusable */
+  .form-input,
+  .form-select,
+  .form-textarea {
+    -webkit-tap-highlight-color: rgba(0, 74, 173, 0.1);
+    touch-action: manipulation;
+  }
+}
+
+/* Additional iOS Safari fixes */
+@supports (-webkit-overflow-scrolling: touch) {
+  input, textarea, select {
+    font-size: 16px !important;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Fix for virtual keyboard pushing content */
+  body {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+
+  html {
+    height: -webkit-fill-available;
+  }
+}
