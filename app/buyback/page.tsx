@@ -345,11 +345,15 @@ export default function BuybackPage() {
   }, [isKioskMode, kioskShopId])
 
   // =====================================================
-  // フェーズ変更時にページトップにスクロール
+  // フェーズ変更時にページトップにスクロール（キオスクモードではスムーズスクロール）
   // =====================================================
   useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [phase])
+    if (isKioskMode) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      window.scrollTo(0, 0)
+    }
+  }, [phase, isKioskMode])
 
   // =====================================================
   // 合計計算
@@ -1463,7 +1467,11 @@ function ItemForm({
                     <button
                       key={repair.key}
                       type="button"
-                      onClick={() => !isDisabled && handleRepairSelect(repair.key)}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        if (!isDisabled) handleRepairSelect(repair.key)
+                      }}
                       disabled={isDisabled}
                       style={{
                         padding: '16px 12px',
@@ -1474,6 +1482,7 @@ function ItemForm({
                         fontWeight: '600',
                         cursor: isDisabled ? 'not-allowed' : 'pointer',
                         textAlign: 'left',
+                        WebkitTapHighlightColor: 'transparent',
                       }}
                     >
                       <div>{repair.label}</div>
