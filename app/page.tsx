@@ -24,6 +24,7 @@ type TodaySale = {
   shop_name: string
   staff_name: string
   total_amount: number
+  total_profit: number
   details: { category: string; model: string; menu: string }[]
 }
 
@@ -32,6 +33,15 @@ type ShopSummary = {
   shopName: string
   salesCount: number
   salesAmount: number
+  salesProfit: number
+}
+
+type MonthlyData = {
+  salesCount: number
+  salesAmount: number
+  salesProfit: number
+  buybackCount: number
+  buybackAmount: number
 }
 
 export default function Home() {
@@ -43,6 +53,7 @@ export default function Home() {
   const [todaySummary, setTodaySummary] = useState({
     salesCount: 0,
     salesAmount: 0,
+    salesProfit: 0,
     buybackCount: 0,
     buybackAmount: 0,
   })
@@ -50,6 +61,26 @@ export default function Home() {
   const [shopSummaries, setShopSummaries] = useState<ShopSummary[]>([])
   const [selectedSalesShop, setSelectedSalesShop] = useState<number | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
+
+  // タブ: 'today' | 'month'
+  const [activeTab, setActiveTab] = useState<'today' | 'month'>('today')
+
+  // 月間データ
+  const [monthlyData, setMonthlyData] = useState<MonthlyData>({
+    salesCount: 0,
+    salesAmount: 0,
+    salesProfit: 0,
+    buybackCount: 0,
+    buybackAmount: 0,
+  })
+
+  // 目標（将来的にはDBから取得）
+  const [goals, setGoals] = useState({
+    dailySales: 100000,   // 日次売上目標
+    dailyProfit: 30000,   // 日次粗利目標
+    monthlySales: 3000000, // 月次売上目標
+    monthlyProfit: 900000, // 月次粗利目標
+  })
 
   useEffect(() => {
     async function fetchData() {
@@ -261,11 +292,13 @@ export default function Home() {
 
       // 今日の実績
       const today = new Date().toISOString().split('T')[0]
+      const now = new Date()
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
 
       const { data: salesData } = await supabase
         .from('t_sales')
         .select(`
-          id, shop_id, total_amount,
+          id, shop_id, total_amount, total_profit,
           m_shops(name),
           m_staff(name),
           t_sales_details(category, model, menu)
@@ -280,6 +313,31 @@ export default function Home() {
         .eq('tenant_id', 1)
         .eq('buyback_date', today)
 
+      // 月間売上データ
+      const { data: monthlySalesData } = await supabase
+        .from('t_sales')
+        .select('total_amount, total_profit')
+        .eq('tenant_id', 1)
+        .gte('sale_date', monthStart)
+        .lte('sale_date', today)
+
+      // 月間買取データ
+      const { data: monthlyBuybackData } = await supabase
+        .from('t_buyback')
+        .select('final_price')
+        .eq('tenant_id', 1)
+        .gte('buyback_date', monthStart)
+        .lte('buyback_date', today)
+
+      // 月間データ集計
+      setMonthlyData({
+        salesCount: monthlySalesData?.length || 0,
+        salesAmount: monthlySalesData?.reduce((sum, s) => sum + (s.total_amount || 0), 0) || 0,
+        salesProfit: monthlySalesData?.reduce((sum, s) => sum + (s.total_profit || 0), 0) || 0,
+        buybackCount: monthlyBuybackData?.length || 0,
+        buybackAmount: monthlyBuybackData?.reduce((sum, b) => sum + (b.final_price || 0), 0) || 0,
+      })
+
       // 今日の売上一覧
       const salesList: TodaySale[] = (salesData || []).map((s: any) => ({
         id: s.id,
@@ -287,6 +345,7 @@ export default function Home() {
         shop_name: s.m_shops?.name || '',
         staff_name: s.m_staff?.name || '',
         total_amount: s.total_amount,
+        total_profit: s.total_profit || 0,
         details: s.t_sales_details || [],
       }))
       setTodaySales(salesList)
@@ -299,6 +358,7 @@ export default function Home() {
           shopName: shop.name,
           salesCount: shopSales.length,
           salesAmount: shopSales.reduce((sum, s) => sum + s.total_amount, 0),
+          salesProfit: shopSales.reduce((sum, s) => sum + s.total_profit, 0),
         }
       })
       setShopSummaries(summaries)
@@ -306,6 +366,7 @@ export default function Home() {
       setTodaySummary({
         salesCount: salesData?.length || 0,
         salesAmount: salesData?.reduce((sum: number, s: any) => sum + (s.total_amount || 0), 0) || 0,
+        salesProfit: salesData?.reduce((sum: number, s: any) => sum + (s.total_profit || 0), 0) || 0,
         buybackCount: buybackData?.length || 0,
         buybackAmount: buybackData?.reduce((sum, b) => sum + (b.final_price || 0), 0) || 0,
       })
@@ -339,6 +400,7 @@ export default function Home() {
         ...summary,
         salesCount: shopSales.length,
         salesAmount: shopSales.reduce((sum, s) => sum + s.total_amount, 0),
+        salesProfit: shopSales.reduce((sum, s) => sum + s.total_profit, 0),
       }
     })
     setShopSummaries(newSummaries)
@@ -347,6 +409,7 @@ export default function Home() {
       ...prev,
       salesCount: newSales.length,
       salesAmount: newSales.reduce((sum, s) => sum + s.total_amount, 0),
+      salesProfit: newSales.reduce((sum, s) => sum + s.total_profit, 0),
     }))
 
     setShowDeleteConfirm(null)
@@ -601,128 +664,321 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 今日の実績 */}
+      {/* 実績セクション - タブ切り替え */}
       <div className="card mb-lg">
-        <div className="card-header">
-          <h2 className="card-title">今日の実績</h2>
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 className="card-title">実績</h2>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setActiveTab('today')}
+              className={activeTab === 'today' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+            >
+              今日
+            </button>
+            <button
+              onClick={() => setActiveTab('month')}
+              className={activeTab === 'month' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+            >
+              今月
+            </button>
+          </div>
         </div>
         <div className="card-body">
-          {/* 全体集計 */}
-          <div className="stat-grid" style={{ marginBottom: '20px' }}>
-            <div className="stat-card">
-              <div className="stat-label">売上件数（全店）</div>
-              <div className="stat-value">{todaySummary.salesCount}<span style={{ fontSize: '1rem', marginLeft: '4px' }}>件</span></div>
-            </div>
-            <div className="stat-card" style={{ background: 'var(--color-primary-light)' }}>
-              <div className="stat-label">売上金額（全店）</div>
-              <div className="stat-value" style={{ color: 'var(--color-primary)' }}>
-                ¥{todaySummary.salesAmount.toLocaleString()}
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">買取件数</div>
-              <div className="stat-value">{todaySummary.buybackCount}<span style={{ fontSize: '1rem', marginLeft: '4px' }}>件</span></div>
-            </div>
-            <div className="stat-card" style={{ background: 'var(--color-success-light)' }}>
-              <div className="stat-label">買取金額</div>
-              <div className="stat-value" style={{ color: 'var(--color-success)' }}>
-                ¥{todaySummary.buybackAmount.toLocaleString()}
-              </div>
-            </div>
-          </div>
+          {activeTab === 'today' ? (
+            <>
+              {/* 今日の目標・実績 */}
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#6B7280' }}>目標達成状況</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                  {/* 売上目標 */}
+                  <div style={{ padding: '16px', borderRadius: '12px', background: '#F0F9FF', border: '1px solid #BAE6FD' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#0369A1', marginBottom: '8px' }}>売上</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '1.5rem', fontWeight: '700', color: '#0284C7' }}>
+                        ¥{todaySummary.salesAmount.toLocaleString()}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                        / ¥{goals.dailySales.toLocaleString()}
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: '#E0F2FE', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${Math.min(100, (todaySummary.salesAmount / goals.dailySales) * 100)}%`,
+                        height: '100%',
+                        background: todaySummary.salesAmount >= goals.dailySales ? '#22C55E' : '#0284C7',
+                        borderRadius: '4px',
+                        transition: 'width 0.3s',
+                      }} />
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: '#6B7280', marginTop: '4px', textAlign: 'right' }}>
+                      進捗 {Math.round((todaySummary.salesAmount / goals.dailySales) * 100)}%
+                    </div>
+                  </div>
 
-          {/* 店舗別集計 */}
-          <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#6B7280' }}>店舗別売上</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
-              {shopSummaries.map(summary => (
-                <div
-                  key={summary.shopId}
-                  style={{
-                    padding: '12px',
-                    borderRadius: '8px',
-                    background: selectedSalesShop === summary.shopId ? '#E0F2FE' : '#F9FAFB',
-                    border: selectedSalesShop === summary.shopId ? '2px solid #0284C7' : '1px solid #E5E7EB',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => setSelectedSalesShop(selectedSalesShop === summary.shopId ? null : summary.shopId)}
-                >
-                  <div style={{ fontWeight: '600', marginBottom: '4px' }}>{summary.shopName}</div>
-                  <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>{summary.salesCount}件</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0284C7' }}>
-                    ¥{summary.salesAmount.toLocaleString()}
+                  {/* 粗利目標 */}
+                  <div style={{ padding: '16px', borderRadius: '12px', background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#166534', marginBottom: '8px' }}>粗利</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '1.5rem', fontWeight: '700', color: '#22C55E' }}>
+                        ¥{todaySummary.salesProfit.toLocaleString()}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                        / ¥{goals.dailyProfit.toLocaleString()}
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: '#DCFCE7', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${Math.min(100, (todaySummary.salesProfit / goals.dailyProfit) * 100)}%`,
+                        height: '100%',
+                        background: todaySummary.salesProfit >= goals.dailyProfit ? '#22C55E' : '#4ADE80',
+                        borderRadius: '4px',
+                        transition: 'width 0.3s',
+                      }} />
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: '#6B7280', marginTop: '4px', textAlign: 'right' }}>
+                      進捗 {Math.round((todaySummary.salesProfit / goals.dailyProfit) * 100)}%
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
 
-          {/* 売上一覧 */}
-          <div>
-            <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#6B7280' }}>
-              売上一覧 {selectedSalesShop ? `(${shops.find(s => s.id === selectedSalesShop)?.name})` : '(全店)'}
-            </h3>
-            {filteredTodaySales.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#9CA3AF' }}>
-                本日の売上はありません
+              {/* 全体集計 */}
+              <div className="stat-grid" style={{ marginBottom: '20px' }}>
+                <div className="stat-card">
+                  <div className="stat-label">売上件数</div>
+                  <div className="stat-value">{todaySummary.salesCount}<span style={{ fontSize: '1rem', marginLeft: '4px' }}>件</span></div>
+                </div>
+                <div className="stat-card" style={{ background: 'var(--color-primary-light)' }}>
+                  <div className="stat-label">売上金額</div>
+                  <div className="stat-value" style={{ color: 'var(--color-primary)' }}>
+                    ¥{todaySummary.salesAmount.toLocaleString()}
+                  </div>
+                </div>
+                <div className="stat-card" style={{ background: '#F0FDF4' }}>
+                  <div className="stat-label">粗利</div>
+                  <div className="stat-value" style={{ color: '#22C55E' }}>
+                    ¥{todaySummary.salesProfit.toLocaleString()}
+                  </div>
+                </div>
+                <div className="stat-card" style={{ background: 'var(--color-success-light)' }}>
+                  <div className="stat-label">買取金額</div>
+                  <div className="stat-value" style={{ color: 'var(--color-success)' }}>
+                    ¥{todaySummary.buybackAmount.toLocaleString()}
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="table-wrapper">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>店舗</th>
-                      <th>担当</th>
-                      <th>内容</th>
-                      <th className="text-right">金額</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTodaySales.map(sale => (
-                      <tr key={sale.id}>
-                        <td>{sale.id}</td>
-                        <td>{sale.shop_name}</td>
-                        <td>{sale.staff_name}</td>
-                        <td>
-                          {sale.details.slice(0, 2).map((d, i) => (
-                            <div key={i} style={{ fontSize: '0.85rem' }}>
-                              {d.category}: {d.model} {d.menu}
-                            </div>
-                          ))}
-                          {sale.details.length > 2 && (
-                            <div style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>
-                              他{sale.details.length - 2}件
-                            </div>
-                          )}
-                        </td>
-                        <td className="text-right" style={{ fontWeight: '600' }}>
-                          ¥{sale.total_amount.toLocaleString()}
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <a
-                              href={`/sales-history?date=${new Date().toISOString().split('T')[0]}&id=${sale.id}`}
-                              className="btn btn-sm btn-secondary"
-                            >
-                              編集
-                            </a>
-                            <button
-                              className="btn btn-sm btn-danger"
-                              onClick={() => setShowDeleteConfirm(sale.id)}
-                            >
-                              削除
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+              {/* 店舗別集計 */}
+              <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#6B7280' }}>店舗別売上</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+                  {shopSummaries.map(summary => (
+                    <div
+                      key={summary.shopId}
+                      style={{
+                        padding: '12px',
+                        borderRadius: '8px',
+                        background: selectedSalesShop === summary.shopId ? '#E0F2FE' : '#F9FAFB',
+                        border: selectedSalesShop === summary.shopId ? '2px solid #0284C7' : '1px solid #E5E7EB',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => setSelectedSalesShop(selectedSalesShop === summary.shopId ? null : summary.shopId)}
+                    >
+                      <div style={{ fontWeight: '600', marginBottom: '4px' }}>{summary.shopName}</div>
+                      <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>{summary.salesCount}件</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0284C7' }}>
+                        ¥{summary.salesAmount.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#22C55E' }}>
+                        粗利 ¥{summary.salesProfit.toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* 売上一覧 */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: '600', color: '#6B7280' }}>
+                    本日の売上一覧 {selectedSalesShop ? `(${shops.find(s => s.id === selectedSalesShop)?.name})` : '(全店)'}
+                  </h3>
+                  <a href="/sales-correction" className="btn btn-sm btn-secondary">
+                    過去の売上訂正
+                  </a>
+                </div>
+                {filteredTodaySales.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '20px', color: '#9CA3AF' }}>
+                    本日の売上はありません
+                  </div>
+                ) : (
+                  <div className="table-wrapper">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>店舗</th>
+                          <th>担当</th>
+                          <th>内容</th>
+                          <th className="text-right">金額</th>
+                          <th className="text-right">粗利</th>
+                          <th>操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredTodaySales.map(sale => (
+                          <tr key={sale.id}>
+                            <td>{sale.id}</td>
+                            <td>{sale.shop_name}</td>
+                            <td>{sale.staff_name}</td>
+                            <td>
+                              {sale.details.slice(0, 2).map((d, i) => (
+                                <div key={i} style={{ fontSize: '0.85rem' }}>
+                                  {d.category}: {d.model} {d.menu}
+                                </div>
+                              ))}
+                              {sale.details.length > 2 && (
+                                <div style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>
+                                  他{sale.details.length - 2}件
+                                </div>
+                              )}
+                            </td>
+                            <td className="text-right" style={{ fontWeight: '600' }}>
+                              ¥{sale.total_amount.toLocaleString()}
+                            </td>
+                            <td className="text-right" style={{ fontWeight: '600', color: '#22C55E' }}>
+                              ¥{sale.total_profit.toLocaleString()}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <a
+                                  href={`/sales-history?date=${new Date().toISOString().split('T')[0]}&id=${sale.id}`}
+                                  className="btn btn-sm btn-secondary"
+                                >
+                                  編集
+                                </a>
+                                <button
+                                  className="btn btn-sm btn-danger"
+                                  onClick={() => setShowDeleteConfirm(sale.id)}
+                                >
+                                  削除
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* 今月の目標・実績 */}
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#6B7280' }}>月間目標達成状況</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                  {/* 売上目標 */}
+                  <div style={{ padding: '16px', borderRadius: '12px', background: '#F0F9FF', border: '1px solid #BAE6FD' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#0369A1', marginBottom: '8px' }}>売上</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '1.5rem', fontWeight: '700', color: '#0284C7' }}>
+                        ¥{monthlyData.salesAmount.toLocaleString()}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                        / ¥{goals.monthlySales.toLocaleString()}
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: '#E0F2FE', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${Math.min(100, (monthlyData.salesAmount / goals.monthlySales) * 100)}%`,
+                        height: '100%',
+                        background: monthlyData.salesAmount >= goals.monthlySales ? '#22C55E' : '#0284C7',
+                        borderRadius: '4px',
+                        transition: 'width 0.3s',
+                      }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#6B7280', marginTop: '8px' }}>
+                      <span>進捗 {Math.round((monthlyData.salesAmount / goals.monthlySales) * 100)}%</span>
+                      <span>着地予想 ¥{(() => {
+                        const now = new Date()
+                        const dayOfMonth = now.getDate()
+                        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+                        const projected = Math.round((monthlyData.salesAmount / dayOfMonth) * daysInMonth)
+                        return projected.toLocaleString()
+                      })()}</span>
+                    </div>
+                  </div>
+
+                  {/* 粗利目標 */}
+                  <div style={{ padding: '16px', borderRadius: '12px', background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#166534', marginBottom: '8px' }}>粗利</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '1.5rem', fontWeight: '700', color: '#22C55E' }}>
+                        ¥{monthlyData.salesProfit.toLocaleString()}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                        / ¥{goals.monthlyProfit.toLocaleString()}
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: '#DCFCE7', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${Math.min(100, (monthlyData.salesProfit / goals.monthlyProfit) * 100)}%`,
+                        height: '100%',
+                        background: monthlyData.salesProfit >= goals.monthlyProfit ? '#22C55E' : '#4ADE80',
+                        borderRadius: '4px',
+                        transition: 'width 0.3s',
+                      }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#6B7280', marginTop: '8px' }}>
+                      <span>進捗 {Math.round((monthlyData.salesProfit / goals.monthlyProfit) * 100)}%</span>
+                      <span>着地予想 ¥{(() => {
+                        const now = new Date()
+                        const dayOfMonth = now.getDate()
+                        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+                        const projected = Math.round((monthlyData.salesProfit / dayOfMonth) * daysInMonth)
+                        return projected.toLocaleString()
+                      })()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 月間集計 */}
+              <div className="stat-grid" style={{ marginBottom: '20px' }}>
+                <div className="stat-card">
+                  <div className="stat-label">売上件数</div>
+                  <div className="stat-value">{monthlyData.salesCount}<span style={{ fontSize: '1rem', marginLeft: '4px' }}>件</span></div>
+                </div>
+                <div className="stat-card" style={{ background: 'var(--color-primary-light)' }}>
+                  <div className="stat-label">売上金額</div>
+                  <div className="stat-value" style={{ color: 'var(--color-primary)' }}>
+                    ¥{monthlyData.salesAmount.toLocaleString()}
+                  </div>
+                </div>
+                <div className="stat-card" style={{ background: '#F0FDF4' }}>
+                  <div className="stat-label">粗利</div>
+                  <div className="stat-value" style={{ color: '#22C55E' }}>
+                    ¥{monthlyData.salesProfit.toLocaleString()}
+                  </div>
+                </div>
+                <div className="stat-card" style={{ background: 'var(--color-success-light)' }}>
+                  <div className="stat-label">買取金額</div>
+                  <div className="stat-value" style={{ color: 'var(--color-success)' }}>
+                    ¥{monthlyData.buybackAmount.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* 月間詳細リンク */}
+              <div style={{ textAlign: 'center', padding: '16px' }}>
+                <a href="/reports" className="btn btn-primary">
+                  詳細レポートを見る
+                </a>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
