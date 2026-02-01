@@ -624,12 +624,21 @@ ${bankInfo.accountHolder}
       // 同意書画像アップロード（郵送の場合）
       let consentImageUrl = ''
       if (buybackType === 'mail' && consentImageFile) {
-        const fileName = `consent/${Date.now()}_${consentImageFile.name}`
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('buyback-documents')
-          .upload(fileName, consentImageFile)
+        const formData = new FormData()
+        formData.append('file', consentImageFile)
+        formData.append('folder', 'consent')
 
-        if (uploadError) throw uploadError
+        const uploadRes = await fetch('/api/upload-document', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json()
+          throw new Error(errData.error || '画像アップロードに失敗しました')
+        }
+
+        const uploadData = await uploadRes.json()
         consentImageUrl = uploadData.path
       }
 
@@ -847,9 +856,10 @@ ${bankInfo.accountHolder}
       setConsentImageFile(null)
       setConsentImagePreview('')
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('保存エラー:', error)
-      alert('保存に失敗しました')
+      const message = error?.message || '不明なエラー'
+      alert(`保存に失敗しました: ${message}`)
     } finally {
       setSaving(false)
     }
