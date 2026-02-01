@@ -1185,12 +1185,19 @@ function ItemForm({
     fetchPartsCosts()
   }, [item.model])
 
-  // 価格計算トリガー（減額項目の変更時も再計算）
+  // 価格計算トリガー（減額項目の変更時も再計算、batteryPercentはonBlurで処理）
   useEffect(() => {
     if (item.model && item.storage && item.rank) {
       onCalculate(item.model, item.storage, item.rank)
     }
-  }, [item.model, item.storage, item.rank, item.batteryPercent, item.isServiceState, item.nwStatus, item.cameraStain, item.cameraBroken, item.repairHistory])
+  }, [item.model, item.storage, item.rank, item.isServiceState, item.nwStatus, item.cameraStain, item.cameraBroken, item.repairHistory])
+
+  // バッテリー入力完了時の再計算
+  const handleBatteryBlur = () => {
+    if (item.model && item.storage && item.rank) {
+      onCalculate(item.model, item.storage, item.rank)
+    }
+  }
 
   // 修理選択
   const handleRepairSelect = (key: string) => {
@@ -1315,6 +1322,7 @@ function ItemForm({
                 type="number"
                 value={item.batteryPercent}
                 onChange={(e) => onUpdate({ batteryPercent: e.target.value })}
+                onBlur={handleBatteryBlur}
                 className="form-input"
                 style={{ width: '100px' }}
                 min="0"
