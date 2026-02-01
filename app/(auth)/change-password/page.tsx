@@ -12,6 +12,9 @@ export default function ChangePasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   // パスワードの強度チェック
   const validatePassword = (password: string) => {
@@ -107,33 +110,73 @@ export default function ChangePasswordPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               現在のパスワード
             </label>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="現在のパスワード"
-              required
-              disabled={isLoading}
-              autoComplete="current-password"
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showCurrentPassword ? 'text' : 'password'}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                style={{ paddingRight: '48px' }}
+                placeholder="現在のパスワード"
+                required
+                disabled={isLoading}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  fontSize: '14px',
+                }}
+              >
+                {showCurrentPassword ? '非表示' : '表示'}
+              </button>
+            </div>
           </div>
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               新しいパスワード
             </label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="新しいパスワード"
-              required
-              disabled={isLoading}
-              autoComplete="new-password"
-            />
-            
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                style={{ paddingRight: '48px' }}
+                placeholder="新しいパスワード"
+                required
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  fontSize: '14px',
+                }}
+              >
+                {showNewPassword ? '非表示' : '表示'}
+              </button>
+            </div>
+
             {/* パスワード要件 */}
             <div className="mt-2 text-xs space-y-1">
               <p className={`${newPassword.length >= 8 ? 'text-green-600' : 'text-gray-400'}`}>
@@ -155,16 +198,36 @@ export default function ChangePasswordPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               新しいパスワード（確認）
             </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="新しいパスワード（確認）"
-              required
-              disabled={isLoading}
-              autoComplete="new-password"
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                style={{ paddingRight: '48px' }}
+                placeholder="新しいパスワード（確認）"
+                required
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  fontSize: '14px',
+                }}
+              >
+                {showConfirmPassword ? '非表示' : '表示'}
+              </button>
+            </div>
             {confirmPassword && newPassword !== confirmPassword && (
               <p className="mt-1 text-xs text-red-500">パスワードが一致しません</p>
             )}

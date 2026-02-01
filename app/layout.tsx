@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   title: 'ONE STOP',
   description: 'スマホ修理店舗管理システム',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/apple-touch-icon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -30,7 +34,6 @@ export default function RootLayout({
     <html lang="ja">
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body>
         <AuthProvider>
