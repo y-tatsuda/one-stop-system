@@ -112,6 +112,14 @@ const STANDARD_SCREEN_TYPES = ['TH-F', 'TH-L']
 const HG_SCREEN_TYPES = ['HG-F', 'HG-L']
 const BATTERY_TYPES = ['バッテリー', 'HGバッテリー']
 
+// ローカル日付をYYYY-MM-DD形式に変換（タイムゾーン問題を回避）
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 // =============================================
 // メインコンポーネント
 // =============================================
@@ -136,7 +144,7 @@ export default function ReportsPage() {
     const day = now.getDay()
     const diff = now.getDate() - day + (day === 0 ? -6 : 1)
     const monday = new Date(now.setDate(diff))
-    return monday.toISOString().split('T')[0]
+    return formatLocalDate(monday)
   })
 
   // カレンダー用
@@ -201,8 +209,8 @@ export default function ReportsPage() {
         ? Math.min(today.getDate(), endDate.getDate())
         : endDate.getDate()
       return {
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
+        startDate: formatLocalDate(startDate),
+        endDate: formatLocalDate(endDate),
         daysInPeriod: endDate.getDate(),
         daysPassed
       }
@@ -213,8 +221,8 @@ export default function ReportsPage() {
       const today = new Date()
       const daysPassed = Math.max(0, Math.min(7, Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1))
       return {
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
+        startDate: formatLocalDate(startDate),
+        endDate: formatLocalDate(endDate),
         daysInPeriod: 7,
         daysPassed
       }
@@ -228,7 +236,7 @@ export default function ReportsPage() {
     let weekdays = 0, weekends = 0
     const holidayDates = holidayList.filter(h => h.shop_id === null).map(h => h.holiday_date)
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split('T')[0]
+      const dateStr = d.toLocaleDateString('sv-SE')
       if (holidayDates.includes(dateStr)) continue
       const dayOfWeek = d.getDay()
       if (dayOfWeek === 0 || dayOfWeek === 6) weekends++
@@ -304,7 +312,7 @@ export default function ReportsPage() {
     if (yearMonth) {
       const [year, month] = yearMonth.split('-').map(Number)
       const lastYearStart = `${year - 1}-${String(month).padStart(2, '0')}-01`
-      const lastYearEnd = new Date(year - 1, month, 0).toISOString().split('T')[0]
+      const lastYearEnd = new Date(year - 1, month, 0).toLocaleDateString('sv-SE')
       const { data: lastYearData } = await supabase.from('t_sales')
         .select('total_amount, total_cost, total_profit').eq('tenant_id', 1).gte('sale_date', lastYearStart).lte('sale_date', lastYearEnd)
       if (lastYearData && lastYearData.length > 0) {
@@ -324,7 +332,7 @@ export default function ReportsPage() {
   const fetchCalendarData = async () => {
     const [year, month] = calendarMonth.split('-').map(Number)
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const endDate = new Date(year, month, 0).toISOString().split('T')[0]
+    const endDate = new Date(year, month, 0).toLocaleDateString('sv-SE')
 
     const { data: salesData } = await supabase.from('t_sales')
       .select('sale_date, total_amount, total_profit')
@@ -424,7 +432,7 @@ export default function ReportsPage() {
       let weekAmount = 0
       
       for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0]
+        const dateStr = d.toLocaleDateString('sv-SE')
         const daySales = thisYearData?.filter(s => s.sale_date === dateStr) || []
         weekAmount += daySales.reduce((sum, s) => sum + (s.total_amount || 0), 0)
         
@@ -444,7 +452,7 @@ export default function ReportsPage() {
     const { data: targetsData } = await supabase.from('m_sales_targets').select('*').eq('tenant_id', 1).eq('year_month', targetMonth)
     const [year, month] = targetMonth.split('-').map(Number)
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
-    const monthEnd = new Date(year, month, 0).toISOString().split('T')[0]
+    const monthEnd = new Date(year, month, 0).toLocaleDateString('sv-SE')
     const { data: holidaysData } = await supabase.from('m_holidays').select('*').eq('tenant_id', 1).gte('holiday_date', monthStart).lte('holiday_date', monthEnd).order('holiday_date')
     setTargets(targetsData || [])
     setHolidays(holidaysData || [])
@@ -615,7 +623,7 @@ export default function ReportsPage() {
       const monday = new Date(d.setDate(diff))
       const sunday = new Date(monday)
       sunday.setDate(sunday.getDate() + 6)
-      options.push({ value: monday.toISOString().split('T')[0], label: `${monday.getMonth() + 1}/${monday.getDate()} 〜 ${sunday.getMonth() + 1}/${sunday.getDate()}` })
+      options.push({ value: monday.toLocaleDateString('sv-SE'), label: `${monday.getMonth() + 1}/${monday.getDate()} 〜 ${sunday.getMonth() + 1}/${sunday.getDate()}` })
     }
     return options
   }
@@ -970,7 +978,7 @@ export default function ReportsPage() {
                       const date = new Date(day.date)
                       const dayOfWeek = date.getDay()
                       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-                      const isToday = day.date === new Date().toISOString().split('T')[0]
+                      const isToday = day.date === new Date().toLocaleDateString('sv-SE')
                       const isHighAmount = day.amount > maxAmount * 0.8
                       return (
                         <div key={day.date} style={{
