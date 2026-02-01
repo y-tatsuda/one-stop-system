@@ -906,15 +906,24 @@ ${bankInfo.accountHolder}
   // =====================================================
   // 以降のフェーズはパート2で実装
   // =====================================================
-  
+
+  // キオスク用のコンテナスタイル
+  const containerStyle = isKioskMode ? {
+    padding: '20px 24px',
+    maxWidth: '1200px',
+    margin: '0 auto',
+  } : {}
+
   return (
-    <div className="page-container">
-      <h1 className="page-title">
-        買取入力
-        <span style={{ fontSize: '0.9rem', marginLeft: '12px', padding: '4px 12px', background: buybackType === 'store' ? '#004AAD' : '#6B7280', color: 'white', borderRadius: '20px' }}>
-          {buybackType === 'store' ? '店頭買取' : '郵送買取'}
-        </span>
-      </h1>
+    <div className="page-container" style={containerStyle}>
+      {!isKioskMode && (
+        <h1 className="page-title">
+          買取入力
+          <span style={{ fontSize: '0.9rem', marginLeft: '12px', padding: '4px 12px', background: buybackType === 'store' ? '#004AAD' : '#6B7280', color: 'white', borderRadius: '20px' }}>
+            {buybackType === 'store' ? '店頭買取' : '郵送買取'}
+          </span>
+        </h1>
+      )}
 
       {/* フェーズ表示 */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>

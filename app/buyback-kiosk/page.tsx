@@ -61,28 +61,36 @@ export default function KioskBuybackPage() {
       {/* キオスクモード用ヘッダー */}
       <header style={{
         background: 'linear-gradient(135deg, #004AAD 0%, #0066CC 100%)',
-        padding: '12px 20px',
+        padding: '16px 24px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         position: 'sticky',
         top: 0,
-        zIndex: 100
+        zIndex: 100,
+        boxShadow: '0 2px 10px rgba(0,0,0,0.15)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span style={{ color: 'white', fontSize: '1.3rem', fontWeight: '700' }}>ONE STOP 買取</span>
-          <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem' }}>{shopInfo?.shopName}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <span style={{ color: 'white', fontSize: '1.5rem', fontWeight: '700' }}>ONE STOP 買取</span>
+          <span style={{
+            color: 'white',
+            fontSize: '1rem',
+            background: 'rgba(255,255,255,0.2)',
+            padding: '6px 14px',
+            borderRadius: '20px'
+          }}>{shopInfo?.shopName}</span>
         </div>
         <button
           onClick={handleLogout}
           style={{
             background: 'rgba(255,255,255,0.2)',
             color: 'white',
-            border: 'none',
-            padding: '8px 16px',
-            borderRadius: '6px',
+            border: '1px solid rgba(255,255,255,0.3)',
+            padding: '10px 20px',
+            borderRadius: '8px',
             cursor: 'pointer',
-            fontSize: '0.9rem'
+            fontSize: '1rem',
+            fontWeight: '500'
           }}
         >
           ログアウト
@@ -90,7 +98,7 @@ export default function KioskBuybackPage() {
       </header>
 
       {/* 買取コンテンツ */}
-      <main style={{ padding: '20px' }}>
+      <main className="kiosk-container" style={{ padding: '24px' }}>
         {shopInfo && <BuybackContent kioskShopId={shopInfo.shopId} />}
       </main>
     </div>

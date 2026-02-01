@@ -237,13 +237,24 @@ body {
 .form-textarea {
   width: 100%;
   padding: 10px 14px;
-  font-size: 0.95rem;
+  font-size: 16px; /* iOS auto-zoom prevention */
   font-family: inherit;
   color: var(--color-text);
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* iOS PWA input fix */
+@supports (-webkit-touch-callout: none) {
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 16px !important;
+  }
 }
 
 .form-input:focus,
@@ -1222,4 +1233,24 @@ body {
 /* animate-spin utility class */
 .animate-spin {
   animation: spin 1s linear infinite;
+}
+/* ============================================
+   キオスクモード専用スタイル
+   ============================================ */
+.kiosk-container {
+  padding: 20px;
+}
+
+@media (min-width: 768px) {
+  .kiosk-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 32px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .kiosk-container {
+    max-width: 1000px;
+  }
 }

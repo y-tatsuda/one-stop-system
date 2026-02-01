@@ -97,20 +97,47 @@ export default function KioskLoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #004AAD 0%, #0066CC 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ background: 'white', borderRadius: '16px', padding: '40px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#004AAD', marginBottom: '8px' }}>ONE STOP</h1>
-          <p style={{ color: '#6B7280', fontSize: '1rem' }}>買取キオスクモード</p>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #004AAD 0%, #0066CC 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '40px 24px'
+    }}>
+      <div style={{
+        background: 'white',
+        borderRadius: '20px',
+        padding: '48px 40px',
+        width: '100%',
+        maxWidth: '480px',
+        boxShadow: '0 25px 80px rgba(0,0,0,0.35)'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: '700', color: '#004AAD', marginBottom: '12px' }}>ONE STOP</h1>
+          <p style={{ color: '#6B7280', fontSize: '1.1rem' }}>買取キオスクモード</p>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px', color: '#374151' }}>店舗を選択</label>
+          <div style={{ marginBottom: '28px' }}>
+            <label style={{ display: 'block', fontWeight: '600', marginBottom: '10px', color: '#374151', fontSize: '1.1rem' }}>店舗を選択</label>
             <select
               value={shopId}
               onChange={(e) => setShopId(e.target.value)}
-              style={{ width: '100%', padding: '14px', fontSize: '1.1rem', border: '2px solid #E5E7EB', borderRadius: '8px', background: 'white' }}
+              style={{
+                width: '100%',
+                padding: '16px 18px',
+                fontSize: '1.2rem',
+                border: '2px solid #E5E7EB',
+                borderRadius: '12px',
+                background: 'white',
+                WebkitAppearance: 'none',
+                appearance: 'none',
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 16px center',
+                backgroundSize: '20px',
+              }}
               required
             >
               <option value="">選択してください</option>
@@ -120,23 +147,24 @@ export default function KioskLoginPage() {
             </select>
           </div>
 
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px', color: '#374151' }}>パスコード</label>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
+          <div style={{ marginBottom: '28px' }}>
+            <label style={{ display: 'block', fontWeight: '600', marginBottom: '12px', color: '#374151', fontSize: '1.1rem' }}>パスコード</label>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
               {[0, 1, 2, 3, 4, 5].map(i => (
                 <div
                   key={i}
                   style={{
-                    width: '40px',
-                    height: '50px',
+                    width: '48px',
+                    height: '58px',
                     border: '2px solid #E5E7EB',
-                    borderRadius: '8px',
+                    borderRadius: '10px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '1.5rem',
+                    fontSize: '1.8rem',
                     fontWeight: '700',
-                    background: passcode[i] ? '#F3F4F6' : 'white'
+                    background: passcode[i] ? '#EEF2FF' : 'white',
+                    borderColor: passcode[i] ? '#004AAD' : '#E5E7EB',
                   }}
                 >
                   {passcode[i] ? '●' : ''}
@@ -145,7 +173,7 @@ export default function KioskLoginPage() {
             </div>
 
             {/* テンキー */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', maxWidth: '280px', margin: '0 auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', maxWidth: '320px', margin: '0 auto' }}>
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '←'].map(key => (
                 <button
                   key={key}
@@ -156,14 +184,15 @@ export default function KioskLoginPage() {
                     else handlePasscodeInput(key)
                   }}
                   style={{
-                    padding: '16px',
-                    fontSize: '1.5rem',
+                    padding: '20px',
+                    fontSize: '1.8rem',
                     fontWeight: '600',
                     border: 'none',
-                    borderRadius: '8px',
+                    borderRadius: '12px',
                     background: key === 'C' ? '#FEE2E2' : key === '←' ? '#FEF3C7' : '#F3F4F6',
                     color: key === 'C' ? '#DC2626' : key === '←' ? '#D97706' : '#374151',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    transition: 'transform 0.1s',
                   }}
                 >
                   {key}
@@ -183,14 +212,16 @@ export default function KioskLoginPage() {
             disabled={submitting || !shopId || passcode.length < 4}
             style={{
               width: '100%',
-              padding: '16px',
-              fontSize: '1.2rem',
+              padding: '20px',
+              fontSize: '1.3rem',
               fontWeight: '700',
-              background: submitting || !shopId || passcode.length < 4 ? '#9CA3AF' : '#004AAD',
+              background: submitting || !shopId || passcode.length < 4 ? '#9CA3AF' : 'linear-gradient(135deg, #004AAD 0%, #0066CC 100%)',
               color: 'white',
               border: 'none',
-              borderRadius: '8px',
-              cursor: submitting || !shopId || passcode.length < 4 ? 'not-allowed' : 'pointer'
+              borderRadius: '12px',
+              cursor: submitting || !shopId || passcode.length < 4 ? 'not-allowed' : 'pointer',
+              boxShadow: submitting || !shopId || passcode.length < 4 ? 'none' : '0 4px 15px rgba(0, 74, 173, 0.4)',
+              transition: 'transform 0.1s, box-shadow 0.1s',
             }}
           >
             {submitting ? 'ログイン中...' : 'ログイン'}
