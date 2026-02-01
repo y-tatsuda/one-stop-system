@@ -613,12 +613,35 @@ export default function InventoryPage() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>販売価格（税抜で入力）</label>
-                  <input type="number" value={editData.sales_price} onChange={(e) => setEditData({ ...editData, sales_price: parseInt(e.target.value) || 0 })} className="form-input" />
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>販売価格（税込で入力）</label>
+                  <input
+                    type="number"
+                    value={Math.floor(editData.sales_price * 1.1) || ''}
+                    onChange={(e) => {
+                      const taxIncluded = parseInt(e.target.value) || 0
+                      const taxExcluded = Math.floor(taxIncluded / 1.1)
+                      setEditData({ ...editData, sales_price: taxExcluded })
+                    }}
+                    className="form-input"
+                    placeholder="税込価格を入力"
+                    step="100"
+                  />
                   {editData.sales_price > 0 && (
-                    <div style={{ marginTop: '4px', padding: '6px 10px', background: '#E0F2FE', borderRadius: '4px', fontSize: '0.85rem' }}>
-                      <span style={{ color: '#6B7280' }}>税込価格（値札用）:</span>
-                      <span style={{ fontWeight: '700', marginLeft: '8px', color: '#0369A1' }}>¥{Math.floor(editData.sales_price * 1.1).toLocaleString()}</span>
+                    <div style={{ marginTop: '8px', padding: '8px 12px', background: '#F0FDF4', borderRadius: '6px', fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ color: '#6B7280' }}>税抜価格:</span>
+                        <span style={{ fontWeight: '600' }}>¥{editData.sales_price.toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ color: '#6B7280' }}>原価:</span>
+                        <span style={{ fontWeight: '600' }}>¥{selectedItem.total_cost.toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #D1FAE5', paddingTop: '4px' }}>
+                        <span style={{ color: '#059669', fontWeight: '600' }}>粗利:</span>
+                        <span style={{ fontWeight: '700', color: editData.sales_price - selectedItem.total_cost >= 0 ? '#059669' : '#DC2626' }}>
+                          ¥{(editData.sales_price - selectedItem.total_cost).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>

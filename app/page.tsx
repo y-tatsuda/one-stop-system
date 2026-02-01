@@ -18,6 +18,22 @@ type AlertItem = {
   severity: 'high' | 'medium' | 'low'
 }
 
+type TodaySale = {
+  id: number
+  shop_id: number
+  shop_name: string
+  staff_name: string
+  total_amount: number
+  details: { category: string; model: string; menu: string }[]
+}
+
+type ShopSummary = {
+  shopId: number
+  shopName: string
+  salesCount: number
+  salesAmount: number
+}
+
 export default function Home() {
   const [shops, setShops] = useState<Shop[]>([])
   const [alerts, setAlerts] = useState<AlertItem[]>([])
@@ -30,6 +46,10 @@ export default function Home() {
     buybackCount: 0,
     buybackAmount: 0,
   })
+  const [todaySales, setTodaySales] = useState<TodaySale[]>([])
+  const [shopSummaries, setShopSummaries] = useState<ShopSummary[]>([])
+  const [selectedSalesShop, setSelectedSalesShop] = useState<number | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
 
   useEffect(() => {
     async function fetchData() {
@@ -241,12 +261,18 @@ export default function Home() {
 
       // 今日の実績
       const today = new Date().toISOString().split('T')[0]
-      
+
       const { data: salesData } = await supabase
         .from('t_sales')
-        .select('total_amount')
+        .select(`
+          id, shop_id, total_amount,
+          m_shops(name),
+          m_staff(name),
+          t_sales_details(category, model, menu)
+        `)
         .eq('tenant_id', 1)
         .eq('sale_date', today)
+        .order('id', { ascending: false })
 
       const { data: buybackData } = await supabase
         .from('t_buyback')
@@ -254,9 +280,32 @@ export default function Home() {
         .eq('tenant_id', 1)
         .eq('buyback_date', today)
 
+      // 今日の売上一覧
+      const salesList: TodaySale[] = (salesData || []).map((s: any) => ({
+        id: s.id,
+        shop_id: s.shop_id,
+        shop_name: s.m_shops?.name || '',
+        staff_name: s.m_staff?.name || '',
+        total_amount: s.total_amount,
+        details: s.t_sales_details || [],
+      }))
+      setTodaySales(salesList)
+
+      // 店舗別集計
+      const summaries: ShopSummary[] = shopsData.map(shop => {
+        const shopSales = salesList.filter(s => s.shop_id === shop.id)
+        return {
+          shopId: shop.id,
+          shopName: shop.name,
+          salesCount: shopSales.length,
+          salesAmount: shopSales.reduce((sum, s) => sum + s.total_amount, 0),
+        }
+      })
+      setShopSummaries(summaries)
+
       setTodaySummary({
         salesCount: salesData?.length || 0,
-        salesAmount: salesData?.reduce((sum, s) => sum + (s.total_amount || 0), 0) || 0,
+        salesAmount: salesData?.reduce((sum: number, s: any) => sum + (s.total_amount || 0), 0) || 0,
         buybackCount: buybackData?.length || 0,
         buybackAmount: buybackData?.reduce((sum, b) => sum + (b.final_price || 0), 0) || 0,
       })
@@ -266,6 +315,48 @@ export default function Home() {
 
     fetchData()
   }, [])
+
+  // 売上削除
+  const handleDeleteSale = async (saleId: number) => {
+    // 明細削除
+    await supabase.from('t_sales_details').delete().eq('sales_id', saleId)
+    // ヘッダー削除
+    const { error } = await supabase.from('t_sales').delete().eq('id', saleId)
+
+    if (error) {
+      alert('削除に失敗しました: ' + error.message)
+      return
+    }
+
+    // 一覧から削除
+    const newSales = todaySales.filter(s => s.id !== saleId)
+    setTodaySales(newSales)
+
+    // 集計を更新
+    const newSummaries = shopSummaries.map(summary => {
+      const shopSales = newSales.filter(s => s.shop_id === summary.shopId)
+      return {
+        ...summary,
+        salesCount: shopSales.length,
+        salesAmount: shopSales.reduce((sum, s) => sum + s.total_amount, 0),
+      }
+    })
+    setShopSummaries(newSummaries)
+
+    setTodaySummary(prev => ({
+      ...prev,
+      salesCount: newSales.length,
+      salesAmount: newSales.reduce((sum, s) => sum + s.total_amount, 0),
+    }))
+
+    setShowDeleteConfirm(null)
+    alert('売上を削除しました')
+  }
+
+  // 売上フィルター
+  const filteredTodaySales = selectedSalesShop
+    ? todaySales.filter(s => s.shop_id === selectedSalesShop)
+    : todaySales
 
   if (loading) {
     return (
@@ -511,18 +602,19 @@ export default function Home() {
       </div>
 
       {/* 今日の実績 */}
-      <div className="card">
+      <div className="card mb-lg">
         <div className="card-header">
           <h2 className="card-title">今日の実績</h2>
         </div>
         <div className="card-body">
-          <div className="stat-grid">
+          {/* 全体集計 */}
+          <div className="stat-grid" style={{ marginBottom: '20px' }}>
             <div className="stat-card">
-              <div className="stat-label">売上件数</div>
+              <div className="stat-label">売上件数（全店）</div>
               <div className="stat-value">{todaySummary.salesCount}<span style={{ fontSize: '1rem', marginLeft: '4px' }}>件</span></div>
             </div>
             <div className="stat-card" style={{ background: 'var(--color-primary-light)' }}>
-              <div className="stat-label">売上金額</div>
+              <div className="stat-label">売上金額（全店）</div>
               <div className="stat-value" style={{ color: 'var(--color-primary)' }}>
                 ¥{todaySummary.salesAmount.toLocaleString()}
               </div>
@@ -538,8 +630,127 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {/* 店舗別集計 */}
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#6B7280' }}>店舗別売上</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+              {shopSummaries.map(summary => (
+                <div
+                  key={summary.shopId}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    background: selectedSalesShop === summary.shopId ? '#E0F2FE' : '#F9FAFB',
+                    border: selectedSalesShop === summary.shopId ? '2px solid #0284C7' : '1px solid #E5E7EB',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setSelectedSalesShop(selectedSalesShop === summary.shopId ? null : summary.shopId)}
+                >
+                  <div style={{ fontWeight: '600', marginBottom: '4px' }}>{summary.shopName}</div>
+                  <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>{summary.salesCount}件</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0284C7' }}>
+                    ¥{summary.salesAmount.toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 売上一覧 */}
+          <div>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#6B7280' }}>
+              売上一覧 {selectedSalesShop ? `(${shops.find(s => s.id === selectedSalesShop)?.name})` : '(全店)'}
+            </h3>
+            {filteredTodaySales.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#9CA3AF' }}>
+                本日の売上はありません
+              </div>
+            ) : (
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>店舗</th>
+                      <th>担当</th>
+                      <th>内容</th>
+                      <th className="text-right">金額</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTodaySales.map(sale => (
+                      <tr key={sale.id}>
+                        <td>{sale.id}</td>
+                        <td>{sale.shop_name}</td>
+                        <td>{sale.staff_name}</td>
+                        <td>
+                          {sale.details.slice(0, 2).map((d, i) => (
+                            <div key={i} style={{ fontSize: '0.85rem' }}>
+                              {d.category}: {d.model} {d.menu}
+                            </div>
+                          ))}
+                          {sale.details.length > 2 && (
+                            <div style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>
+                              他{sale.details.length - 2}件
+                            </div>
+                          )}
+                        </td>
+                        <td className="text-right" style={{ fontWeight: '600' }}>
+                          ¥{sale.total_amount.toLocaleString()}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <a
+                              href={`/sales-history?date=${new Date().toISOString().split('T')[0]}&id=${sale.id}`}
+                              className="btn btn-sm btn-secondary"
+                            >
+                              編集
+                            </a>
+                            <button
+                              className="btn btn-sm btn-danger"
+                              onClick={() => setShowDeleteConfirm(sale.id)}
+                            >
+                              削除
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* 削除確認モーダル */}
+      {showDeleteConfirm && (
+        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">売上削除確認</h3>
+              <button className="modal-close" onClick={() => setShowDeleteConfirm(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p>この売上を削除しますか？</p>
+              <p style={{ color: '#DC2626', marginTop: '8px', fontSize: '0.9rem' }}>
+                ※ この操作は取り消せません
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(null)}>
+                キャンセル
+              </button>
+              <button className="btn btn-danger" onClick={() => handleDeleteSale(showDeleteConfirm)}>
+                削除する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
