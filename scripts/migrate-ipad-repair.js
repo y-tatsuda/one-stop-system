@@ -39,13 +39,14 @@ const IPAD_REPAIR_TYPES = [
 
 // JavaScriptファイルからオブジェクトを読み込む
 function loadJsData(filename) {
-  const content = fs.readFileSync(path.join(__dirname, '../data', filename), 'utf-8')
-  const match = content.match(/const\s+\w+\s*=\s*(\{[\s\S]*\});?\s*$/)
-  if (match) {
-    let jsonStr = match[1].replace(/;$/, '')
-    return eval('(' + jsonStr + ')')
+  try {
+    // require で直接読み込む
+    const data = require(path.join(__dirname, '../data', filename))
+    return data
+  } catch (e) {
+    console.error('読み込みエラー:', e.message)
+    return null
   }
-  return null
 }
 
 async function main() {

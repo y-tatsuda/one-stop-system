@@ -142,25 +142,9 @@ export default function SalesPage() {
 
   // iPad修理価格データ
   const [ipadRepairPrices, setIpadRepairPrices] = useState<{model: string, repair_type: string, price: number}[]>([])
-  // iPadモデルリスト（価格データから抽出）
-  const ipadModels = [...new Set(ipadRepairPrices.map(p => p.model))]
-  // iPadメニューリスト（選択したモデルの価格が0以上のもの）
-  const ipadMenus = ipadRepairPrices
-    .filter(p => p.model === ipadForm.model && p.price > 0)
-    .map(p => p.repair_type)
 
   // Android修理価格データ
   const [androidRepairPrices, setAndroidRepairPrices] = useState<{model: string, repair_type: string, price: number}[]>([])
-  // Androidメーカーリスト（モデル名の最初の単語から抽出）
-  const androidManufacturers = [...new Set(androidRepairPrices.map(p => p.model.split(' ')[0]))]
-  // Androidモデルリスト（選択したメーカーのもの）
-  const androidFilteredModels = [...new Set(androidRepairPrices
-    .filter(p => p.model.startsWith(androidForm.manufacturer))
-    .map(p => p.model))]
-  // Androidメニューリスト（選択したモデルの価格が0以上のもの）
-  const androidMenus = androidRepairPrices
-    .filter(p => p.model === androidForm.model && p.price > 0)
-    .map(p => p.repair_type)
 
   // フォームの状態
   const [formData, setFormData] = useState({
@@ -195,6 +179,24 @@ export default function SalesPage() {
     unitPrice: 0,
     unitCost: 0,
   })
+
+  // iPadモデルリスト（価格データから抽出）
+  const ipadModels = [...new Set(ipadRepairPrices.map(p => p.model))]
+  // iPadメニューリスト（選択したモデルの価格が0以上のもの）
+  const ipadMenus = ipadRepairPrices
+    .filter(p => p.model === ipadForm.model && p.price > 0)
+    .map(p => p.repair_type)
+
+  // Androidメーカーリスト（モデル名の最初の単語から抽出）
+  const androidManufacturers = [...new Set(androidRepairPrices.map(p => p.model.split(' ')[0]))]
+  // Androidモデルリスト（選択したメーカーのもの）
+  const androidFilteredModels = [...new Set(androidRepairPrices
+    .filter(p => p.model.startsWith(androidForm.manufacturer))
+    .map(p => p.model))]
+  // Androidメニューリスト（選択したモデルの価格が0以上のもの）
+  const androidMenus = androidRepairPrices
+    .filter(p => p.model === androidForm.model && p.price > 0)
+    .map(p => p.repair_type)
 
   // 中古販売フォーム（減額対応版）
   const [usedSalesForm, setUsedSalesForm] = useState({
