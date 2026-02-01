@@ -1238,20 +1238,21 @@ body {
    キオスクモード専用スタイル
    ============================================ */
 .kiosk-container {
-  padding: 20px;
+  padding: 24px;
 }
 
 @media (min-width: 768px) {
   .kiosk-container {
-    max-width: 900px;
+    max-width: 960px;
     margin: 0 auto;
-    padding: 24px 32px;
+    padding: 32px 48px;
   }
 }
 
 @media (min-width: 1024px) {
   .kiosk-container {
     max-width: 1000px;
+    padding: 40px 56px;
   }
 }
 

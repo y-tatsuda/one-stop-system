@@ -103,7 +103,7 @@ export default function KioskLoginPage() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '40px 24px'
+      padding: '48px 40px'
     }}>
       <div style={{
         background: 'white',

@@ -909,8 +909,8 @@ ${bankInfo.accountHolder}
 
   // キオスク用のコンテナスタイル
   const containerStyle = isKioskMode ? {
-    padding: '20px 24px',
-    maxWidth: '1200px',
+    padding: '32px 40px',
+    maxWidth: '1000px',
     margin: '0 auto',
   } : {}
 

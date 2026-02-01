@@ -98,7 +98,7 @@ export default function KioskBuybackPage() {
       </header>
 
       {/* 買取コンテンツ */}
-      <main className="kiosk-container" style={{ padding: '24px' }}>
+      <main className="kiosk-container" style={{ padding: '32px 40px' }}>
         {shopInfo && <BuybackContent kioskShopId={shopInfo.shopId} />}
       </main>
     </div>
