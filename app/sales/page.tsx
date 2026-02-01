@@ -140,11 +140,11 @@ export default function SalesPage() {
   // パーツ原価データ（フィルター用）
   const [partsCosts, setPartsCosts] = useState<{model: string, parts_type: string}[]>([])
 
-  // iPad修理価格データ
-  const [ipadRepairPrices, setIpadRepairPrices] = useState<{model: string, repair_type: string, price: number}[]>([])
+  // iPad修理価格データ（原価含む）
+  const [ipadRepairPrices, setIpadRepairPrices] = useState<{model: string, repair_type: string, price: number, cost: number}[]>([])
 
-  // Android修理価格データ
-  const [androidRepairPrices, setAndroidRepairPrices] = useState<{model: string, repair_type: string, price: number}[]>([])
+  // Android修理価格データ（原価含む）
+  const [androidRepairPrices, setAndroidRepairPrices] = useState<{model: string, repair_type: string, price: number, cost: number}[]>([])
 
   // フォームの状態
   const [formData, setFormData] = useState({
@@ -338,17 +338,17 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         .eq('tenant_id', 1)
         .eq('is_active', true)
 
-      // iPad修理価格データ取得
+      // iPad修理価格データ取得（原価含む）
       const { data: ipadPricesData } = await supabase
         .from('m_repair_prices_ipad')
-        .select('model, repair_type, price')
+        .select('model, repair_type, price, cost')
         .eq('tenant_id', 1)
         .eq('is_active', true)
 
-      // Android修理価格データ取得
+      // Android修理価格データ取得（原価含む）
       const { data: androidPricesData } = await supabase
         .from('m_repair_prices_android')
-        .select('model, repair_type, price')
+        .select('model, repair_type, price, cost')
         .eq('tenant_id', 1)
         .eq('is_active', true)
 
@@ -1335,7 +1335,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                       onChange={(e) => {
                         const menu = e.target.value
                         const priceData = ipadRepairPrices.find(p => p.model === ipadForm.model && p.repair_type === menu)
-                        setIpadForm({ ...ipadForm, menu, unitPrice: priceData?.price || 0 })
+                        setIpadForm({ ...ipadForm, menu, unitPrice: priceData?.price || 0, unitCost: priceData?.cost || 0 })
                       }}
                       className="form-select"
                       disabled={!ipadForm.model}
@@ -1420,7 +1420,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                       onChange={(e) => {
                         const menu = e.target.value
                         const priceData = androidRepairPrices.find(p => p.model === androidForm.model && p.repair_type === menu)
-                        setAndroidForm({ ...androidForm, menu, unitPrice: priceData?.price || 0 })
+                        setAndroidForm({ ...androidForm, menu, unitPrice: priceData?.price || 0, unitCost: priceData?.cost || 0 })
                       }}
                       className="form-select"
                       disabled={!androidForm.model}

@@ -56,11 +56,18 @@ async function main() {
 
   // 価格データ読み込み
   const allPrices = loadJsData('repair-prices-iphone.js')
+  // 原価データ読み込み
+  const allCosts = loadJsData('costs-aisapo.js')
 
   if (!allPrices) {
     console.error('価格データの読み込みに失敗しました')
     return
   }
+  if (!allCosts) {
+    console.error('原価データの読み込みに失敗しました')
+    return
+  }
+  console.log('価格・原価データ読み込み完了')
 
   // 既存データを削除
   console.log('既存データを削除中...')
@@ -82,6 +89,7 @@ async function main() {
 
   for (const model of IPAD_MODELS) {
     const priceData = allPrices[model]
+    const costData = allCosts[model] || {}
     if (!priceData) {
       console.log(`  モデル「${model}」が見つかりません`)
       continue
@@ -89,6 +97,7 @@ async function main() {
 
     for (const repairType of IPAD_REPAIR_TYPES) {
       const price = priceData[repairType]
+      const cost = costData[repairType] || 0
 
       // 価格が0または未設定のものはスキップ
       if (!price || price === 0) continue
@@ -98,6 +107,7 @@ async function main() {
         model: model,
         repair_type: repairType,
         price: price,
+        cost: cost,
         is_active: true,
       })
     }

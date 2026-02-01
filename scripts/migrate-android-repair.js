@@ -71,9 +71,11 @@ async function main() {
 
   for (const model of priceModels) {
     const priceData = prices[model]
+    const costData = costs[model] || {}
 
     for (const repairType of repairTypes) {
       const price = priceData[repairType]
+      const cost = costData[repairType] || 0
 
       // 価格が0または未設定のものはスキップ
       if (!price || price === 0) continue
@@ -83,6 +85,7 @@ async function main() {
         model: model,
         repair_type: repairType,
         price: price,
+        cost: cost,
         is_active: true,
       })
     }
