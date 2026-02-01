@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/app/contexts/AuthContext'
 
 // 認証不要のパス
-const PUBLIC_PATHS = ['/login', '/invite', '/change-password']
+const PUBLIC_PATHS = ['/login', '/invite', '/change-password', '/buyback-kiosk']
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
