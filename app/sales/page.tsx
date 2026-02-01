@@ -140,6 +140,28 @@ export default function SalesPage() {
   // パーツ原価データ（フィルター用）
   const [partsCosts, setPartsCosts] = useState<{model: string, parts_type: string}[]>([])
 
+  // iPad修理価格データ
+  const [ipadRepairPrices, setIpadRepairPrices] = useState<{model: string, repair_type: string, price: number}[]>([])
+  // iPadモデルリスト（価格データから抽出）
+  const ipadModels = [...new Set(ipadRepairPrices.map(p => p.model))]
+  // iPadメニューリスト（選択したモデルの価格が0以上のもの）
+  const ipadMenus = ipadRepairPrices
+    .filter(p => p.model === ipadForm.model && p.price > 0)
+    .map(p => p.repair_type)
+
+  // Android修理価格データ
+  const [androidRepairPrices, setAndroidRepairPrices] = useState<{model: string, repair_type: string, price: number}[]>([])
+  // Androidメーカーリスト（モデル名の最初の単語から抽出）
+  const androidManufacturers = [...new Set(androidRepairPrices.map(p => p.model.split(' ')[0]))]
+  // Androidモデルリスト（選択したメーカーのもの）
+  const androidFilteredModels = [...new Set(androidRepairPrices
+    .filter(p => p.model.startsWith(androidForm.manufacturer))
+    .map(p => p.model))]
+  // Androidメニューリスト（選択したモデルの価格が0以上のもの）
+  const androidMenus = androidRepairPrices
+    .filter(p => p.model === androidForm.model && p.price > 0)
+    .map(p => p.repair_type)
+
   // フォームの状態
   const [formData, setFormData] = useState({
     saleDate: new Date().toISOString().split('T')[0],
@@ -157,8 +179,17 @@ export default function SalesPage() {
     unitCost: 0,
   })
 
-  // Android修理フォーム
+  // iPad修理フォーム
+  const [ipadForm, setIpadForm] = useState({
+    model: '',
+    menu: '',
+    unitPrice: 0,
+    unitCost: 0,
+  })
+
+  // Android修理フォーム（メーカー→モデル選択）
   const [androidForm, setAndroidForm] = useState({
+    manufacturer: '',
     model: '',
     menu: '',
     unitPrice: 0,
@@ -305,6 +336,20 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         .eq('tenant_id', 1)
         .eq('is_active', true)
 
+      // iPad修理価格データ取得
+      const { data: ipadPricesData } = await supabase
+        .from('m_repair_prices_ipad')
+        .select('model, repair_type, price')
+        .eq('tenant_id', 1)
+        .eq('is_active', true)
+
+      // Android修理価格データ取得
+      const { data: androidPricesData } = await supabase
+        .from('m_repair_prices_android')
+        .select('model, repair_type, price')
+        .eq('tenant_id', 1)
+        .eq('is_active', true)
+
       setShops(shopsData || [])
       setStaff(staffData || [])
       setVisitSources(visitSourcesData || [])
@@ -314,6 +359,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       setIphoneRepairMenus(uniqueIphoneMenus)
       setSuppliers(suppliersData || [])
       setPartsCosts(partsCostsData || [])
+      setIpadRepairPrices(ipadPricesData || [])
+      setAndroidRepairPrices(androidPricesData || [])
       setLoading(false)
     }
 
@@ -587,6 +634,38 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     setIphoneForm({ model: '', menu: '', supplierId: '', unitPrice: 0, unitCost: 0 })
   }
 
+  // iPad修理追加
+  const addIpadDetail = () => {
+    if (!ipadForm.model || !ipadForm.menu) {
+      alert('機種とメニューを選択してください')
+      return
+    }
+    const amount = ipadForm.unitPrice
+    const cost = ipadForm.unitCost
+    const profit = amount - cost
+    const newDetail: SalesDetail = {
+      id: Date.now().toString(),
+      category: 'iPad修理',
+      subCategory: 'iPad修理',
+      model: ipadForm.model,
+      menu: ipadForm.menu,
+      storage: null,
+      rank: null,
+      accessoryId: null,
+      usedInventoryId: null,
+      supplierId: null,
+      quantity: 1,
+      unitPrice: ipadForm.unitPrice,
+      unitCost: ipadForm.unitCost,
+      discount: 0,
+      amount,
+      cost,
+      profit,
+    }
+    setDetails([...details, newDetail])
+    setIpadForm({ model: '', menu: '', unitPrice: 0, unitCost: 0 })
+  }
+
   // Android修理追加
   const addAndroidDetail = () => {
     if (!androidForm.model || !androidForm.menu) {
@@ -616,7 +695,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       profit,
     }
     setDetails([...details, newDetail])
-    setAndroidForm({ model: '', menu: '', unitPrice: 0, unitCost: 0 })
+    setAndroidForm({ manufacturer: '', model: '', menu: '', unitPrice: 0, unitCost: 0 })
   }
 
   // 中古販売追加
@@ -1018,21 +1097,42 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
               iPhone修理
             </button>
             <button
-              onClick={() => setSelectedCategory('Android修理')}
+              onClick={() => setSelectedCategory('iPad修理')}
               style={{
                 padding: '20px 16px',
                 borderRadius: '10px',
                 border: 'none',
-                background: selectedCategory === 'Android修理' 
-                  ? 'linear-gradient(135deg, #059669 0%, #10B981 100%)' 
+                background: selectedCategory === 'iPad修理'
+                  ? 'linear-gradient(135deg, #374151 0%, #4B5563 100%)'
                   : 'linear-gradient(135deg, #6B7280 0%, #9CA3AF 100%)',
                 color: 'white',
                 fontWeight: '600',
                 fontSize: '0.95rem',
                 cursor: 'pointer',
                 transition: 'transform 0.2s, box-shadow 0.2s',
-                boxShadow: selectedCategory === 'Android修理' 
-                  ? '0 4px 12px rgba(5, 150, 105, 0.4)' 
+                boxShadow: selectedCategory === 'iPad修理'
+                  ? '0 4px 12px rgba(55, 65, 81, 0.4)'
+                  : '0 2px 8px rgba(0, 0, 0, 0.15)',
+              }}
+            >
+              iPad修理
+            </button>
+            <button
+              onClick={() => setSelectedCategory('Android修理')}
+              style={{
+                padding: '20px 16px',
+                borderRadius: '10px',
+                border: 'none',
+                background: selectedCategory === 'Android修理'
+                  ? 'linear-gradient(135deg, #059669 0%, #10B981 100%)'
+                  : 'linear-gradient(135deg, #6B7280 0%, #9CA3AF 100%)',
+                color: 'white',
+                fontWeight: '600',
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                boxShadow: selectedCategory === 'Android修理'
+                  ? '0 4px 12px rgba(5, 150, 105, 0.4)'
                   : '0 2px 8px rgba(0, 0, 0, 0.15)',
               }}
             >
@@ -1199,6 +1299,79 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         </div>
       )}
 
+      {/* iPad修理フォーム */}
+      {selectedCategory === 'iPad修理' && (
+        <div className="card mb-lg">
+          <div className="card-header">
+            <h2 className="card-title">iPad修理</h2>
+          </div>
+          <div className="card-body">
+            {ipadRepairPrices.length === 0 ? (
+              <p className="text-secondary">iPad修理価格データがありません</p>
+            ) : (
+              <>
+                <div className="form-grid form-grid-4">
+                  <div className="form-group">
+                    <label className="form-label">機種</label>
+                    <select
+                      value={ipadForm.model}
+                      onChange={(e) => {
+                        setIpadForm({ ...ipadForm, model: e.target.value, menu: '', unitPrice: 0, unitCost: 0 })
+                      }}
+                      className="form-select"
+                    >
+                      <option value="">選択してください</option>
+                      {ipadModels.map((model) => (
+                        <option key={model} value={model}>{model}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">メニュー</label>
+                    <select
+                      value={ipadForm.menu}
+                      onChange={(e) => {
+                        const menu = e.target.value
+                        const priceData = ipadRepairPrices.find(p => p.model === ipadForm.model && p.repair_type === menu)
+                        setIpadForm({ ...ipadForm, menu, unitPrice: priceData?.price || 0 })
+                      }}
+                      className="form-select"
+                      disabled={!ipadForm.model}
+                    >
+                      <option value="">選択してください</option>
+                      {ipadMenus.map((menu) => (
+                        <option key={menu} value={menu}>{menu}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">価格（税抜）</label>
+                    <input
+                      type="number"
+                      value={ipadForm.unitPrice}
+                      onChange={(e) => setIpadForm({ ...ipadForm, unitPrice: parseInt(e.target.value) || 0 })}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">原価（税抜）</label>
+                    <input
+                      type="number"
+                      value={ipadForm.unitCost}
+                      onChange={(e) => setIpadForm({ ...ipadForm, unitCost: parseInt(e.target.value) || 0 })}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+                <button onClick={addIpadDetail} className="btn btn-primary">
+                  明細に追加
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Android修理フォーム */}
       {selectedCategory === 'Android修理' && (
         <div className="card mb-lg">
@@ -1206,55 +1379,80 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
             <h2 className="card-title">Android修理</h2>
           </div>
           <div className="card-body">
-            <div className="form-grid form-grid-4">
-              <div className="form-group">
-                <label className="form-label">機種</label>
-                <select
-                  value={androidForm.model}
-                  onChange={(e) => setAndroidForm({ ...androidForm, model: e.target.value, menu: '', unitPrice: 0, unitCost: 0 })}
-                  className="form-select"
-                >
-                  <option value="">選択してください</option>
-                  {androidModels.map((model) => (
-                    <option key={model.model} value={model.model}>{model.model}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">メニュー</label>
-                <select
-                  value={androidForm.menu}
-                  onChange={(e) => setAndroidForm({ ...androidForm, menu: e.target.value })}
-                  className="form-select"
-                >
-                  <option value="">選択してください</option>
-                  {androidRepairMenus.map((menu) => (
-                    <option key={menu.value} value={menu.value}>{menu.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">価格（税抜）</label>
-                <input
-                  type="number"
-                  value={androidForm.unitPrice}
-                  onChange={(e) => setAndroidForm({ ...androidForm, unitPrice: parseInt(e.target.value) || 0 })}
-                  className="form-input"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">原価（税抜）</label>
-                <input
-                  type="number"
-                  value={androidForm.unitCost}
-                  onChange={(e) => setAndroidForm({ ...androidForm, unitCost: parseInt(e.target.value) || 0 })}
-                  className="form-input"
-                />
-              </div>
-            </div>
-            <button onClick={addAndroidDetail} className="btn btn-primary">
-              明細に追加
-            </button>
+            {androidRepairPrices.length === 0 ? (
+              <p className="text-secondary">Android修理価格データがありません</p>
+            ) : (
+              <>
+                <div className="form-grid form-grid-5">
+                  <div className="form-group">
+                    <label className="form-label">メーカー</label>
+                    <select
+                      value={androidForm.manufacturer}
+                      onChange={(e) => setAndroidForm({ ...androidForm, manufacturer: e.target.value, model: '', menu: '', unitPrice: 0, unitCost: 0 })}
+                      className="form-select"
+                    >
+                      <option value="">選択してください</option>
+                      {androidManufacturers.sort().map((mfr) => (
+                        <option key={mfr} value={mfr}>{mfr}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">機種</label>
+                    <select
+                      value={androidForm.model}
+                      onChange={(e) => setAndroidForm({ ...androidForm, model: e.target.value, menu: '', unitPrice: 0, unitCost: 0 })}
+                      className="form-select"
+                      disabled={!androidForm.manufacturer}
+                    >
+                      <option value="">選択してください</option>
+                      {androidFilteredModels.sort().map((model) => (
+                        <option key={model} value={model}>{model}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">メニュー</label>
+                    <select
+                      value={androidForm.menu}
+                      onChange={(e) => {
+                        const menu = e.target.value
+                        const priceData = androidRepairPrices.find(p => p.model === androidForm.model && p.repair_type === menu)
+                        setAndroidForm({ ...androidForm, menu, unitPrice: priceData?.price || 0 })
+                      }}
+                      className="form-select"
+                      disabled={!androidForm.model}
+                    >
+                      <option value="">選択してください</option>
+                      {androidMenus.map((menu) => (
+                        <option key={menu} value={menu}>{menu}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">価格（税抜）</label>
+                    <input
+                      type="number"
+                      value={androidForm.unitPrice}
+                      onChange={(e) => setAndroidForm({ ...androidForm, unitPrice: parseInt(e.target.value) || 0 })}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">原価（税抜）</label>
+                    <input
+                      type="number"
+                      value={androidForm.unitCost}
+                      onChange={(e) => setAndroidForm({ ...androidForm, unitCost: parseInt(e.target.value) || 0 })}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+                <button onClick={addAndroidDetail} className="btn btn-primary">
+                  明細に追加
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
