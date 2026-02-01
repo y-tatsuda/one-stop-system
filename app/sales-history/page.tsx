@@ -14,7 +14,6 @@ type SalesRecord = {
   total_amount: number
   total_cost: number
   total_profit: number
-  discount_amount: number
   shop_name: string
   staff_name: string
   details: SalesDetail[]
@@ -53,7 +52,6 @@ export default function SalesHistoryPage() {
     saleDate: '',
     shopId: '',
     staffId: '',
-    discountAmount: 0,
   })
   const [editDetails, setEditDetails] = useState<SalesDetail[]>([])
 
@@ -79,7 +77,7 @@ export default function SalesHistoryPage() {
     let query = supabase
       .from('t_sales')
       .select(`
-        id, sale_date, shop_id, staff_id, total_amount, total_cost, total_profit, discount_amount,
+        id, sale_date, shop_id, staff_id, total_amount, total_cost, total_profit,
         m_shops(name),
         m_staff(name),
         t_sales_details(id, category, sub_category, model, menu, quantity, unit_price, unit_cost, amount, cost, profit)
@@ -113,7 +111,6 @@ export default function SalesHistoryPage() {
       total_amount: row.total_amount,
       total_cost: row.total_cost,
       total_profit: row.total_profit,
-      discount_amount: row.discount_amount || 0,
       shop_name: row.m_shops?.name || '',
       staff_name: row.m_staff?.name || '',
       details: row.t_sales_details || [],
@@ -128,7 +125,6 @@ export default function SalesHistoryPage() {
       saleDate: sale.sale_date,
       shopId: String(sale.shop_id),
       staffId: String(sale.staff_id),
-      discountAmount: sale.discount_amount || 0,
     })
     setEditDetails([...sale.details])
     setShowEditModal(true)
@@ -159,7 +155,7 @@ export default function SalesHistoryPage() {
   }
 
   const calculateEditTotals = () => {
-    const totalAmount = editDetails.reduce((sum, d) => sum + d.amount, 0) - editForm.discountAmount
+    const totalAmount = editDetails.reduce((sum, d) => sum + d.amount, 0)
     const totalCost = editDetails.reduce((sum, d) => sum + d.cost, 0)
     const totalProfit = totalAmount - totalCost
     return { totalAmount, totalCost, totalProfit }
@@ -177,7 +173,6 @@ export default function SalesHistoryPage() {
         sale_date: editForm.saleDate,
         shop_id: parseInt(editForm.shopId),
         staff_id: parseInt(editForm.staffId),
-        discount_amount: editForm.discountAmount,
         total_amount: totalAmount,
         total_cost: totalCost,
         total_profit: totalProfit,
@@ -361,7 +356,6 @@ export default function SalesHistoryPage() {
                     <th>担当</th>
                     <th>内容</th>
                     <th className="text-right">売上</th>
-                    <th className="text-right">値引</th>
                     <th className="text-right">利益</th>
                     <th>操作</th>
                   </tr>
@@ -381,9 +375,6 @@ export default function SalesHistoryPage() {
                         ))}
                       </td>
                       <td className="text-right">{formatCurrency(sale.total_amount)}</td>
-                      <td className="text-right" style={{ color: sale.discount_amount > 0 ? '#DC2626' : undefined }}>
-                        {sale.discount_amount > 0 ? `-${formatCurrency(sale.discount_amount)}` : '-'}
-                      </td>
                       <td className="text-right">{formatCurrency(sale.total_profit)}</td>
                       <td>
                         <div style={{ display: 'flex', gap: '8px' }}>
@@ -454,17 +445,6 @@ export default function SalesHistoryPage() {
                     ))}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">値引き金額</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={editForm.discountAmount}
-                    onChange={(e) => setEditForm({ ...editForm, discountAmount: parseInt(e.target.value) || 0 })}
-                    min="0"
-                    step="100"
-                  />
-                </div>
               </div>
 
               {/* 明細 */}
@@ -525,14 +505,6 @@ export default function SalesHistoryPage() {
 
               {/* 合計 */}
               <div style={{ textAlign: 'right', marginBottom: '16px' }}>
-                <div style={{ marginBottom: '4px' }}>
-                  小計: {formatCurrency(editDetails.reduce((sum, d) => sum + d.amount, 0))}
-                </div>
-                {editForm.discountAmount > 0 && (
-                  <div style={{ marginBottom: '4px', color: '#DC2626' }}>
-                    値引き: -{formatCurrency(editForm.discountAmount)}
-                  </div>
-                )}
                 <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
                   売上合計: {formatCurrency(editTotalAmount)}
                 </div>

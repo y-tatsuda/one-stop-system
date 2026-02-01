@@ -29,6 +29,7 @@ interface AuthContextType {
   staff: Staff | null
   isAuthenticated: boolean
   isLoading: boolean
+  isKioskMode: boolean
   login: (token: string, staffData: Staff) => void
   logout: () => void
   updatePasswordChanged: () => void
@@ -55,29 +56,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [staff, setStaff] = useState<Staff | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isKioskMode, setIsKioskMode] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // 初期化時にトークンをチェック
+  // キオスクモードかどうかを判定（URLパラメータから）
+  const kioskParam = searchParams.get('kiosk')
+  const isKioskRequest = kioskParam === 'true'
+
+  // 初期認証チェック（一度だけ実行）
   useEffect(() => {
-    const checkAuth = () => {
+    const initAuth = async () => {
+      // キオスクモードの場合
+      if (isKioskRequest) {
+        try {
+          const res = await fetch('/api/kiosk/auth')
+          const data = await res.json()
+          if (data.authenticated) {
+            setIsKioskMode(true)
+            setAuthChecked(true)
+            setIsLoading(false)
+            return
+          } else {
+            // キオスク認証失敗 → キオスクログインへ
+            window.location.href = '/buyback-kiosk/login'
+            return
+          }
+        } catch {
+          window.location.href = '/buyback-kiosk/login'
+          return
+        }
+      }
+
+      // 通常モードの場合
       try {
         const token = localStorage.getItem('auth_token')
-        
+
         if (!token) {
           setStaff(null)
+          setAuthChecked(true)
           setIsLoading(false)
           return
         }
 
         // トークンをデコード（UTF-8対応）
         const tokenData: TokenData = JSON.parse(decodeBase64UTF8(token))
-        
+
         // 有効期限チェック
         if (tokenData.exp < Date.now()) {
           localStorage.removeItem('auth_token')
           setStaff(null)
+          setAuthChecked(true)
           setIsLoading(false)
           return
         }
@@ -96,42 +126,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('auth_token')
         setStaff(null)
       } finally {
+        setAuthChecked(true)
         setIsLoading(false)
       }
     }
 
-    checkAuth()
-  }, [])
-
-  // キオスクモードのチェック
-  useEffect(() => {
-    const kioskParam = searchParams.get('kiosk')
-    if (kioskParam === 'true') {
-      // キオスク認証をチェック
-      const checkKioskAuth = async () => {
-        try {
-          const res = await fetch('/api/kiosk/auth')
-          const data = await res.json()
-          if (data.authenticated) {
-            setIsKioskMode(true)
-            setIsLoading(false)
-          } else {
-            window.location.href = '/buyback-kiosk/login'
-          }
-        } catch {
-          window.location.href = '/buyback-kiosk/login'
-        }
-      }
-      checkKioskAuth()
-    }
-  }, [searchParams])
+    initAuth()
+  }, [isKioskRequest])
 
   // 認証状態に応じたリダイレクト
   useEffect(() => {
-    if (isLoading) return
+    // 認証チェックが完了していない場合は何もしない
+    if (!authChecked || isLoading) return
 
     // キオスクモードの場合はリダイレクトしない
-    if (isKioskMode) return
+    if (isKioskMode || isKioskRequest) return
 
     const isPublicPath = PUBLIC_PATHS.some(path => pathname?.startsWith(path))
 
@@ -151,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // パスワード未変更で他のページにアクセス → パスワード変更画面へ
       router.replace('/change-password')
     }
-  }, [staff, isLoading, pathname, router, isKioskMode])
+  }, [staff, authChecked, isLoading, pathname, router, isKioskMode, isKioskRequest])
 
   // ログイン処理
   const login = (token: string, staffData: Staff) => {
@@ -171,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (staff) {
       const updatedStaff = { ...staff, password_changed: true }
       setStaff(updatedStaff)
-      
+
       // トークンも更新（UTF-8対応）
       const token = localStorage.getItem('auth_token')
       if (token) {
@@ -188,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       staff,
       isAuthenticated: !!staff,
       isLoading,
+      isKioskMode,
       login,
       logout,
       updatePasswordChanged

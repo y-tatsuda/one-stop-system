@@ -61,7 +61,8 @@ type SalesDetail = {
   quantity: number
   unitPrice: number
   unitCost: number
-  amount: number
+  discount: number  // 明細ごとの値引き
+  amount: number    // 値引き後の金額
   cost: number
   profit: number
 }
@@ -144,7 +145,6 @@ export default function SalesPage() {
     shopId: '',
     staffId: '',
     visitSourceId: '',
-    discountAmount: 0,
   })
 
   // iPhone修理フォーム
@@ -562,6 +562,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity: 1,
       unitPrice: iphoneForm.unitPrice,
       unitCost: iphoneForm.unitCost,
+      discount: 0,
       amount,
       cost,
       profit,
@@ -593,6 +594,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity: 1,
       unitPrice: androidForm.unitPrice,
       unitCost: androidForm.unitCost,
+      discount: 0,
       amount,
       cost,
       profit,
@@ -627,6 +629,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity: 1,
       unitPrice: usedSalesForm.unitPrice,
       unitCost: usedSalesForm.unitCost,
+      discount: 0,
       amount,
       cost,
       profit,
@@ -673,6 +676,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity,
       unitPrice: accessoryForm.unitPrice,
       unitCost: accessoryForm.unitCost,
+      discount: 0,
       amount,
       cost,
       profit,
@@ -704,6 +708,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity: 1,
       unitPrice: dataMigrationForm.unitPrice,
       unitCost: 0,
+      discount: 0,
       amount,
       cost: 0,
       profit,
@@ -735,6 +740,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity: 1,
       unitPrice: operationGuideForm.unitPrice,
       unitCost: 0,
+      discount: 0,
       amount,
       cost: 0,
       profit,
@@ -748,9 +754,22 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     setDetails(details.filter(d => d.id !== id))
   }
 
+  // 明細の値引き更新
+  const updateDetailDiscount = (id: string, discount: number) => {
+    setDetails(details.map(d => {
+      if (d.id === id) {
+        const newAmount = (d.unitPrice * d.quantity) - discount
+        const newProfit = newAmount - d.cost
+        return { ...d, discount, amount: newAmount, profit: newProfit }
+      }
+      return d
+    }))
+  }
+
   // 合計計算
-  const subtotal = details.reduce((sum, d) => sum + d.amount, 0)
-  const totalAmount = subtotal - formData.discountAmount
+  const subtotal = details.reduce((sum, d) => sum + (d.unitPrice * d.quantity), 0)
+  const totalDiscount = details.reduce((sum, d) => sum + d.discount, 0)
+  const totalAmount = details.reduce((sum, d) => sum + d.amount, 0)
   const totalCost = details.reduce((sum, d) => sum + d.cost, 0)
   const totalProfit = totalAmount - totalCost
 
@@ -774,7 +793,6 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         staff_id: parseInt(formData.staffId),
         visit_source_id: formData.visitSourceId ? parseInt(formData.visitSourceId) : null,
         sale_date: formData.saleDate,
-        discount_amount: formData.discountAmount,
         total_amount: totalAmount,
         total_cost: totalCost,
         total_profit: totalProfit,
@@ -880,7 +898,6 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     // フォームリセット
     setDetails([])
     setSelectedCategory('')
-    setFormData(prev => ({ ...prev, discountAmount: 0 }))
   }
 
   if (loading) {
@@ -1519,10 +1536,11 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                     <th>機種/商品</th>
                     <th>メニュー</th>
                     <th className="text-right">数量</th>
-                    <th className="text-right">単価（税抜）</th>
-                    <th className="text-right">金額（税抜）</th>
-                    <th className="text-right">原価（税抜）</th>
-                    <th className="text-right">利益（税抜）</th>
+                    <th className="text-right">単価</th>
+                    <th className="text-right">値引</th>
+                    <th className="text-right">金額</th>
+                    <th className="text-right">原価</th>
+                    <th className="text-right">利益</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -1536,6 +1554,18 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                         <td>{detail.menu}</td>
                         <td className="text-right">{detail.quantity}</td>
                         <td className="text-right">¥{detail.unitPrice.toLocaleString()}</td>
+                        <td className="text-right">
+                          <input
+                            type="number"
+                            className="form-input"
+                            style={{ width: '80px', textAlign: 'right', padding: '4px 8px' }}
+                            value={detail.discount || ''}
+                            onChange={(e) => updateDetailDiscount(detail.id, parseInt(e.target.value) || 0)}
+                            placeholder="0"
+                            min="0"
+                            step="100"
+                          />
+                        </td>
                         <td className="text-right">¥{detail.amount.toLocaleString()}</td>
                         <td className="text-right">¥{detail.cost.toLocaleString()}</td>
                         <td className="text-right">
@@ -1557,24 +1587,21 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   })}
                 </tbody>
                 <tfoot>
-                  <tr>
-                    <td colSpan={5} className="font-semibold">小計</td>
-                    <td className="text-right font-semibold">¥{subtotal.toLocaleString()}</td>
-                    <td className="text-right font-semibold">¥{totalCost.toLocaleString()}</td>
-                    <td className="text-right font-semibold">-</td>
-                    <td></td>
-                  </tr>
-                  {formData.discountAmount > 0 && (
-                    <tr style={{ color: '#DC2626' }}>
-                      <td colSpan={5} className="font-semibold">値引き</td>
-                      <td className="text-right font-semibold">-¥{formData.discountAmount.toLocaleString()}</td>
-                      <td className="text-right">-</td>
-                      <td className="text-right">-</td>
+                  {totalDiscount > 0 && (
+                    <tr>
+                      <td colSpan={5} className="font-semibold">小計</td>
+                      <td className="text-right" style={{ color: '#DC2626' }}>-¥{totalDiscount.toLocaleString()}</td>
+                      <td className="text-right font-semibold">¥{subtotal.toLocaleString()}</td>
+                      <td className="text-right font-semibold">¥{totalCost.toLocaleString()}</td>
+                      <td className="text-right font-semibold">-</td>
                       <td></td>
                     </tr>
                   )}
                   <tr style={{ background: '#F3F4F6' }}>
                     <td colSpan={5} className="font-semibold" style={{ fontSize: '1.1rem' }}>合計</td>
+                    <td className="text-right" style={{ color: totalDiscount > 0 ? '#DC2626' : undefined }}>
+                      {totalDiscount > 0 ? `-¥${totalDiscount.toLocaleString()}` : '-'}
+                    </td>
                     <td className="text-right font-semibold" style={{ fontSize: '1.1rem' }}>¥{totalAmount.toLocaleString()}</td>
                     <td className="text-right font-semibold">¥{totalCost.toLocaleString()}</td>
                     <td className="text-right font-semibold">
@@ -1587,22 +1614,6 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   </tr>
                 </tfoot>
               </table>
-            </div>
-
-            {/* 値引き入力 */}
-            <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '16px', justifyContent: 'flex-end' }}>
-              <label className="form-label" style={{ margin: 0 }}>値引き金額:</label>
-              <input
-                type="number"
-                className="form-input"
-                style={{ width: '150px', textAlign: 'right' }}
-                value={formData.discountAmount || ''}
-                onChange={(e) => setFormData({ ...formData, discountAmount: parseInt(e.target.value) || 0 })}
-                placeholder="0"
-                min="0"
-                step="100"
-              />
-              <span>円</span>
             </div>
           </div>
         </div>
