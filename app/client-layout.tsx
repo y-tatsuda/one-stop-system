@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/contexts/AuthContext'
 
 // 認証不要のパス
@@ -10,13 +10,18 @@ const PUBLIC_PATHS = ['/login', '/invite', '/change-password', '/buyback-kiosk']
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { staff, isLoading, isAuthenticated, logout } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  // キオスクモードチェック
+  const isKioskMode = searchParams.get('kiosk') === 'true'
+
   // 公開ページはナビゲーションなしで表示
   const isPublicPath = PUBLIC_PATHS.some(path => pathname?.startsWith(path))
-  
-  if (isPublicPath) {
+
+  // キオスクモードまたは公開ページはナビゲーションなしで表示
+  if (isPublicPath || isKioskMode) {
     return <>{children}</>
   }
 

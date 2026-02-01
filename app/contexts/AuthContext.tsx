@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 
 // スタッフ情報の型定義
 interface Staff {
@@ -54,8 +54,10 @@ function encodeBase64UTF8(str: string): string {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [staff, setStaff] = useState<Staff | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isKioskMode, setIsKioskMode] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   // 初期化時にトークンをチェック
   useEffect(() => {
@@ -101,9 +103,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth()
   }, [])
 
+  // キオスクモードのチェック
+  useEffect(() => {
+    const kioskParam = searchParams.get('kiosk')
+    if (kioskParam === 'true') {
+      // キオスク認証をチェック
+      const checkKioskAuth = async () => {
+        try {
+          const res = await fetch('/api/kiosk/auth')
+          const data = await res.json()
+          if (data.authenticated) {
+            setIsKioskMode(true)
+            setIsLoading(false)
+          } else {
+            window.location.href = '/buyback-kiosk/login'
+          }
+        } catch {
+          window.location.href = '/buyback-kiosk/login'
+        }
+      }
+      checkKioskAuth()
+    }
+  }, [searchParams])
+
   // 認証状態に応じたリダイレクト
   useEffect(() => {
     if (isLoading) return
+
+    // キオスクモードの場合はリダイレクトしない
+    if (isKioskMode) return
 
     const isPublicPath = PUBLIC_PATHS.some(path => pathname?.startsWith(path))
 
@@ -123,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // パスワード未変更で他のページにアクセス → パスワード変更画面へ
       router.replace('/change-password')
     }
-  }, [staff, isLoading, pathname, router])
+  }, [staff, isLoading, pathname, router, isKioskMode])
 
   // ログイン処理
   const login = (token: string, staffData: Staff) => {
