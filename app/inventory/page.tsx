@@ -69,11 +69,14 @@ const getRepairTypesList = (model?: string) => {
   ].filter(item => !item.onlyWithColor || hasColor)
 }
 
+const ITEMS_PER_PAGE = 20
+
 export default function InventoryPage() {
   const [inventory, setInventory] = useState<UsedInventory[]>([])
   const [shops, setShops] = useState<Shop[]>([])
   const [iphoneModels, setIphoneModels] = useState<IphoneModel[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const [filters, setFilters] = useState({
     shopId: '',
@@ -166,6 +169,7 @@ export default function InventoryPage() {
   }, [])
 
   useEffect(() => {
+    setCurrentPage(1)
     fetchInventory()
   }, [filters])
 
@@ -317,6 +321,12 @@ export default function InventoryPage() {
   }
 
   const showRepairingCount = filters.status === ''
+
+  // ページネーション計算
+  const totalPages = Math.ceil(inventory.length / ITEMS_PER_PAGE)
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedInventory = inventory.slice(startIndex, endIndex)
 
   if (loading && inventory.length === 0) {
     return <div className="loading" style={{ height: '100vh' }}><div className="loading-spinner"></div></div>
@@ -488,7 +498,7 @@ export default function InventoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {inventory.map((item) => {
+                {paginatedInventory.map((item) => {
                   const days = calculateDaysInStock(item.arrival_date)
                   return (
                     <tr key={item.id}>
@@ -518,6 +528,56 @@ export default function InventoryPage() {
             </table>
           )}
         </div>
+        {/* ページネーション */}
+        {totalPages > 1 && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '16px',
+            borderTop: '1px solid #E5E7EB'
+          }}>
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="btn btn-sm btn-secondary"
+              style={{ padding: '6px 10px', minWidth: 'auto' }}
+            >
+              «
+            </button>
+            <button
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="btn btn-sm btn-secondary"
+              style={{ padding: '6px 10px', minWidth: 'auto' }}
+            >
+              ‹
+            </button>
+            <span style={{ fontSize: '0.85rem', color: '#6B7280', margin: '0 8px' }}>
+              {currentPage} / {totalPages} ページ
+              <span style={{ marginLeft: '8px', fontSize: '0.75rem' }}>
+                （{startIndex + 1}-{Math.min(endIndex, inventory.length)} / {inventory.length}件）
+              </span>
+            </span>
+            <button
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="btn btn-sm btn-secondary"
+              style={{ padding: '6px 10px', minWidth: 'auto' }}
+            >
+              ›
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="btn btn-sm btn-secondary"
+              style={{ padding: '6px 10px', minWidth: 'auto' }}
+            >
+              »
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 詳細モーダル */}
