@@ -431,11 +431,8 @@ export default function BuybackPage() {
       if (d) totalDeduction += d.amount
     }
     
-    if (item.cameraStain === 'minor') {
-      const d = deductions.find(d => d.deduction_type === 'camera_stain_minor')
-      if (d) totalDeduction += d.amount
-    } else if (item.cameraStain === 'major') {
-      const d = deductions.find(d => d.deduction_type === 'camera_stain_major')
+    if (item.cameraStain === 'minor' || item.cameraStain === 'major') {
+      const d = deductions.find(d => d.deduction_type === 'camera_stain')
       if (d) totalDeduction += d.amount
     }
     
