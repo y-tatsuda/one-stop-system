@@ -194,7 +194,7 @@ const createEmptyItem = (): BuybackItem => ({
   cameraBroken: false,
   repairHistory: false,
   operationCheck: OPERATION_CHECK_ITEMS.reduce((acc, item) => {
-    acc[item.key] = { status: 'normal', detail: '' }
+    acc[item.key] = { status: '', detail: '' }
     return acc
   }, {} as { [key: string]: { status: string; detail: string } }),
   needsRepair: false,
@@ -2654,9 +2654,18 @@ function OperationCheckScreen({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '24px' }}>
             {OPERATION_CHECK_ITEMS.map(checkItem => {
               const check = activeItem?.operationCheck[checkItem.key]
+              const isChecked = check?.status && check.status !== ''
               return (
-                <div key={checkItem.key} style={{ padding: '12px', background: '#F9FAFB', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
-                  <div style={{ fontWeight: '600', marginBottom: '8px', fontSize: '0.9rem' }}>{checkItem.label}</div>
+                <div key={checkItem.key} style={{
+                  padding: '12px',
+                  background: isChecked ? '#F9FAFB' : '#FEF3C7',
+                  borderRadius: '8px',
+                  border: isChecked ? '1px solid #E5E7EB' : '2px solid #F59E0B'
+                }}>
+                  <div style={{ fontWeight: '600', marginBottom: '8px', fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{checkItem.label}</span>
+                    {!isChecked && <span style={{ fontSize: '0.75rem', color: '#D97706', fontWeight: '500' }}>未選択</span>}
+                  </div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     {['normal', 'minor', 'abnormal'].map(status => (
                       <label key={status} className="form-check" style={{ fontSize: '0.85rem' }}>
@@ -2672,7 +2681,7 @@ function OperationCheckScreen({
                           })}
                         />
                         <span style={{ color: status === 'normal' ? '#059669' : status === 'minor' ? '#D97706' : '#DC2626' }}>
-                          {status === 'normal' ? '正常' : status === 'minor' ? '軽度' : '異常'}
+                          {status === 'normal' ? '正常' : status === 'minor' ? '軽度異常' : '異常'}
                         </span>
                       </label>
                     ))}
@@ -2703,7 +2712,7 @@ function OperationCheckScreen({
                           [checkItem.key]: { ...check, detail: e.target.value }
                         }
                       })}
-                      placeholder="詳細を入力"
+                      placeholder="備考を入力"
                       className="form-input"
                       style={{ marginTop: '8px', fontSize: '0.85rem' }}
                     />
