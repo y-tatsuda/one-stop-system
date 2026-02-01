@@ -1,8 +1,8 @@
 {
-  "name": "ONE STOP 買取入力",
-  "short_name": "買取入力",
-  "description": "スマートフォン買取入力システム",
-  "start_url": "/buyback?standalone=true",
+  "name": "ONE STOP DB",
+  "short_name": "ONE STOP DB",
+  "description": "スマホ修理店舗管理システム",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#004AAD",
