@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-type MainTab = 'repair_parts' | 'buyback' | 'sales' | 'accessory'
+type MainTab = 'repair_parts' | 'buyback' | 'sales' | 'accessory' | 'imei_lookup'
 type BuybackSubTab = 'price' | 'deduction' | 'guarantee'
 type SalesSubTab = 'price' | 'deduction'
 
@@ -87,6 +87,46 @@ type AccessoryCategory = {
   name: string
 }
 
+type ImeiSearchResult = {
+  buyback: {
+    id: number
+    buyback_date: string
+    buyback_type: string
+    customer_name: string
+    customer_phone: string
+    customer_address: string
+    id_document_type: string
+    consent_image_url: string | null
+    final_price: number
+    shop_name: string
+    staff_name: string
+  } | null
+  item: {
+    model: string
+    storage: number
+    rank: string
+    imei: string
+    battery_percent: number | null
+    color: string | null
+  } | null
+  inventory: {
+    id: number
+    status: string
+    sales_price: number
+    sold_date: string | null
+  } | null
+  customer: {
+    id: number
+    name: string
+    name_kana: string | null
+    birth_date: string | null
+    phone: string
+    address: string | null
+    id_type: string | null
+    id_number: string | null
+  } | null
+}
+
 // 修理種別（repair_type）- 修理価格用（F=軽度、L=重度）
 const REPAIR_TYPES_LIST = [
   'TH-F', 'TH-L', 'HG-F', 'HG-L',
@@ -160,6 +200,12 @@ export default function MasterManagementPage() {
   const [salesSubTab, setSalesSubTab] = useState<SalesSubTab>('price')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // IMEI照会
+  const [imeiSearch, setImeiSearch] = useState('')
+  const [imeiSearching, setImeiSearching] = useState(false)
+  const [imeiResult, setImeiResult] = useState<ImeiSearchResult | null>(null)
+  const [imeiNotFound, setImeiNotFound] = useState(false)
 
   // マスタデータ
   const [iphoneModels, setIphoneModels] = useState<IphoneModel[]>([])
@@ -764,7 +810,111 @@ export default function MasterManagementPage() {
     { id: 'buyback' as MainTab, label: '買取マスタ' },
     { id: 'sales' as MainTab, label: '販売マスタ' },
     { id: 'accessory' as MainTab, label: 'アクセサリ' },
+    { id: 'imei_lookup' as MainTab, label: 'IMEI照会' },
   ]
+
+  // IMEI検索
+  const searchImei = async () => {
+    if (!imeiSearch.trim()) return
+
+    setImeiSearching(true)
+    setImeiResult(null)
+    setImeiNotFound(false)
+
+    try {
+      // 買取明細からIMEIを検索
+      const { data: itemData } = await supabase
+        .from('t_buyback_items')
+        .select(`
+          model, storage, rank, imei, battery_percent, color,
+          buyback_id, used_inventory_id
+        `)
+        .eq('tenant_id', 1)
+        .eq('imei', imeiSearch.trim())
+        .single()
+
+      if (!itemData) {
+        setImeiNotFound(true)
+        setImeiSearching(false)
+        return
+      }
+
+      // 買取ヘッダー情報を取得
+      const { data: buybackData } = await supabase
+        .from('t_buyback')
+        .select(`
+          id, buyback_date, buyback_type, customer_name, customer_phone,
+          customer_address, customer_address_detail, id_document_type,
+          consent_image_url, final_price, customer_id,
+          m_shops(name),
+          m_staff(name)
+        `)
+        .eq('id', itemData.buyback_id)
+        .single()
+
+      // 在庫情報を取得
+      let inventoryData = null
+      if (itemData.used_inventory_id) {
+        const { data } = await supabase
+          .from('t_used_inventory')
+          .select('id, status, sales_price, sold_date')
+          .eq('id', itemData.used_inventory_id)
+          .single()
+        inventoryData = data
+      }
+
+      // 顧客詳細情報を取得
+      let customerData = null
+      if (buybackData?.customer_id) {
+        const { data } = await supabase
+          .from('t_customers')
+          .select('id, name, name_kana, birth_date, phone, address, id_type, id_number')
+          .eq('id', buybackData.customer_id)
+          .single()
+        customerData = data
+      }
+
+      setImeiResult({
+        buyback: buybackData ? {
+          id: buybackData.id,
+          buyback_date: buybackData.buyback_date,
+          buyback_type: buybackData.buyback_type,
+          customer_name: buybackData.customer_name,
+          customer_phone: buybackData.customer_phone,
+          customer_address: `${buybackData.customer_address || ''} ${buybackData.customer_address_detail || ''}`.trim(),
+          id_document_type: buybackData.id_document_type,
+          consent_image_url: buybackData.consent_image_url,
+          final_price: buybackData.final_price,
+          shop_name: (buybackData.m_shops as any)?.name || '',
+          staff_name: (buybackData.m_staff as any)?.name || '',
+        } : null,
+        item: {
+          model: itemData.model,
+          storage: itemData.storage,
+          rank: itemData.rank,
+          imei: itemData.imei,
+          battery_percent: itemData.battery_percent,
+          color: itemData.color,
+        },
+        inventory: inventoryData,
+        customer: customerData,
+      })
+
+    } catch (error) {
+      console.error('IMEI検索エラー:', error)
+      setImeiNotFound(true)
+    } finally {
+      setImeiSearching(false)
+    }
+  }
+
+  // 同意書画像URLを取得
+  const getConsentImageUrl = async (path: string): Promise<string> => {
+    const { data } = await supabase.storage
+      .from('buyback-documents')
+      .createSignedUrl(path, 3600) // 1時間有効
+    return data?.signedUrl || ''
+  }
 
   if (loading) {
     return <div className="loading"><div className="loading-spinner"></div></div>
@@ -944,33 +1094,35 @@ export default function MasterManagementPage() {
           </div>
         )}
 
-        {/* フィルターと追加ボタン */}
-        <div className="card-body" style={{ borderTop: '1px solid var(--color-border)', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            type="text"
-            placeholder="検索..."
-            value={modelFilter}
-            onChange={(e) => setModelFilter(e.target.value)}
-            className="form-input"
-            style={{ maxWidth: '250px' }}
-          />
-          {activeTab === 'repair_parts' && (
-            <select
-              value={supplierFilter}
-              onChange={(e) => setSupplierFilter(e.target.value)}
-              className="form-select"
-              style={{ maxWidth: '150px' }}
-            >
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          )}
-          <button onClick={openAddModal} className="btn btn-primary">新規追加</button>
-          {((activeTab === 'buyback' && buybackSubTab === 'price') || (activeTab === 'sales' && salesSubTab === 'price')) && (
-            <button onClick={openBulkAddModal} className="btn btn-secondary">一括追加</button>
-          )}
-        </div>
+        {/* フィルターと追加ボタン（IMEI照会タブ以外） */}
+        {activeTab !== 'imei_lookup' && (
+          <div className="card-body" style={{ borderTop: '1px solid var(--color-border)', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="検索..."
+              value={modelFilter}
+              onChange={(e) => setModelFilter(e.target.value)}
+              className="form-input"
+              style={{ maxWidth: '250px' }}
+            />
+            {activeTab === 'repair_parts' && (
+              <select
+                value={supplierFilter}
+                onChange={(e) => setSupplierFilter(e.target.value)}
+                className="form-select"
+                style={{ maxWidth: '150px' }}
+              >
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
+            <button onClick={openAddModal} className="btn btn-primary">新規追加</button>
+            {((activeTab === 'buyback' && buybackSubTab === 'price') || (activeTab === 'sales' && salesSubTab === 'price')) && (
+              <button onClick={openBulkAddModal} className="btn btn-secondary">一括追加</button>
+            )}
+          </div>
+        )}
 
         {/* 修理/パーツ */}
         {activeTab === 'repair_parts' && (
@@ -1367,6 +1519,120 @@ export default function MasterManagementPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* IMEI照会 */}
+        {activeTab === 'imei_lookup' && (
+          <div className="card-body">
+            <div style={{ marginBottom: '24px' }}>
+              <p style={{ marginBottom: '16px', color: 'var(--color-text-secondary)' }}>
+                IMEIを入力して買取履歴・顧客情報を検索します。警察照会対応用。
+              </p>
+              <div style={{ display: 'flex', gap: '12px', maxWidth: '500px' }}>
+                <input
+                  type="text"
+                  placeholder="IMEIを入力（15桁）"
+                  value={imeiSearch}
+                  onChange={(e) => setImeiSearch(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && searchImei()}
+                  className="form-input"
+                  maxLength={15}
+                />
+                <button
+                  onClick={searchImei}
+                  disabled={imeiSearching || !imeiSearch.trim()}
+                  className="btn btn-primary"
+                >
+                  {imeiSearching ? '検索中...' : '検索'}
+                </button>
+              </div>
+            </div>
+
+            {imeiNotFound && (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                該当するIMEIが見つかりませんでした
+              </div>
+            )}
+
+            {imeiResult && (
+              <div style={{ display: 'grid', gap: '24px' }}>
+                {/* 端末情報 */}
+                <div style={{ padding: '20px', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '16px', color: 'var(--color-primary)' }}>端末情報</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+                    <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>IMEI</span><div style={{ fontWeight: 600, fontFamily: 'monospace' }}>{imeiResult.item?.imei}</div></div>
+                    <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>機種</span><div style={{ fontWeight: 500 }}>{imeiResult.item?.model}</div></div>
+                    <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>容量</span><div>{imeiResult.item?.storage}GB</div></div>
+                    <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>ランク</span><div>{imeiResult.item?.rank}</div></div>
+                    <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>バッテリー</span><div>{imeiResult.item?.battery_percent ?? '-'}%</div></div>
+                    <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>カラー</span><div>{imeiResult.item?.color || '-'}</div></div>
+                  </div>
+                </div>
+
+                {/* 買取情報 */}
+                {imeiResult.buyback && (
+                  <div style={{ padding: '20px', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '16px', color: 'var(--color-success)' }}>買取情報</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>買取ID</span><div style={{ fontWeight: 600 }}>#{imeiResult.buyback.id}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>買取日</span><div>{imeiResult.buyback.buyback_date}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>買取種別</span><div>{imeiResult.buyback.buyback_type === 'mail' ? '郵送' : '店頭'}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>買取金額</span><div style={{ fontWeight: 600, color: 'var(--color-primary)' }}>¥{imeiResult.buyback.final_price?.toLocaleString()}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>店舗</span><div>{imeiResult.buyback.shop_name}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>担当</span><div>{imeiResult.buyback.staff_name}</div></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 顧客情報 */}
+                {(imeiResult.buyback || imeiResult.customer) && (
+                  <div style={{ padding: '20px', background: '#FEF3C7', borderRadius: 'var(--radius)', border: '1px solid #F59E0B' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '16px', color: '#B45309' }}>顧客情報（警察照会用）</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>氏名</span><div style={{ fontWeight: 600 }}>{imeiResult.customer?.name || imeiResult.buyback?.customer_name}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>フリガナ</span><div>{imeiResult.customer?.name_kana || '-'}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>生年月日</span><div>{imeiResult.customer?.birth_date || '-'}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>電話番号</span><div style={{ fontFamily: 'monospace' }}>{imeiResult.customer?.phone || imeiResult.buyback?.customer_phone}</div></div>
+                      <div style={{ gridColumn: 'span 2' }}><span style={{ fontSize: '0.8rem', color: '#92400E' }}>住所</span><div>{imeiResult.customer?.address || imeiResult.buyback?.customer_address}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>本人確認書類</span><div>{imeiResult.customer?.id_type || imeiResult.buyback?.id_document_type || '-'}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>書類番号</span><div style={{ fontFamily: 'monospace' }}>{imeiResult.customer?.id_number || '-'}</div></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 同意書画像 */}
+                {imeiResult.buyback?.consent_image_url && (
+                  <div style={{ padding: '20px', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '16px' }}>同意書画像</h3>
+                    <button
+                      onClick={async () => {
+                        const url = await getConsentImageUrl(imeiResult.buyback!.consent_image_url!)
+                        if (url) window.open(url, '_blank')
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      同意書を表示
+                    </button>
+                  </div>
+                )}
+
+                {/* 在庫状況 */}
+                {imeiResult.inventory && (
+                  <div style={{ padding: '20px', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '16px' }}>現在の在庫状況</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>在庫ID</span><div>#{imeiResult.inventory.id}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>ステータス</span><div><span className={`badge ${imeiResult.inventory.status === '在庫' ? 'badge-success' : imeiResult.inventory.status === '販売済み' ? 'badge-gray' : 'badge-warning'}`}>{imeiResult.inventory.status}</span></div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>販売価格</span><div>¥{imeiResult.inventory.sales_price?.toLocaleString()}</div></div>
+                      {imeiResult.inventory.sold_date && (
+                        <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>販売日</span><div>{imeiResult.inventory.sold_date}</div></div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
