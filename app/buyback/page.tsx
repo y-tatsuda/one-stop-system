@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
 // =====================================================
@@ -221,21 +222,50 @@ const createEmptyItem = (): BuybackItem => ({
 // メインコンポーネント
 // =====================================================
 export default function BuybackPage() {
+  // キオスクモードの検出
+  const searchParams = useSearchParams()
+  const isKioskMode = searchParams.get('kiosk') === 'true'
+  const kioskShopId = searchParams.get('shop')
+
+  // キオスクモード用state
+  const [kioskAuth, setKioskAuth] = useState<{ authenticated: boolean; shopName?: string } | null>(null)
+
   // フェーズ管理
   const [phase, setPhase] = useState<'select' | 'assessment' | 'customer-view' | 'operation-check' | 'customer-input' | 'verification' | 'payment'>('select')
   const [buybackType, setBuybackType] = useState<'store' | 'mail'>('store')
-  
+
   // マスタデータ
   const [shops, setShops] = useState<Shop[]>([])
   const [staff, setStaff] = useState<Staff[]>([])
   const [iphoneModels, setIphoneModels] = useState<IphoneModel[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  
+
   // 基本情報
   const [buybackDate, setBuybackDate] = useState(new Date().toISOString().split('T')[0])
   const [shopId, setShopId] = useState('')
   const [staffId, setStaffId] = useState('')
+
+  // キオスク認証チェック
+  useEffect(() => {
+    if (!isKioskMode) return
+
+    const checkKioskAuth = async () => {
+      try {
+        const res = await fetch('/api/kiosk/auth')
+        const data = await res.json()
+        setKioskAuth(data)
+
+        if (!data.authenticated) {
+          window.location.href = '/buyback-kiosk/login'
+        }
+      } catch {
+        window.location.href = '/buyback-kiosk/login'
+      }
+    }
+
+    checkKioskAuth()
+  }, [isKioskMode])
   
   // 買取端末リスト（複数台対応）
   const [items, setItems] = useState<BuybackItem[]>([createEmptyItem()])
@@ -299,14 +329,20 @@ export default function BuybackPage() {
         supabase.from('m_staff').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('id'),
         supabase.from('m_iphone_models').select('model, display_name').eq('tenant_id', 1).eq('is_active', true).not('model', 'in', '(SE,6s,7,7P)').order('sort_order'),
       ])
-      
+
       setShops(shopsRes.data || [])
       setStaff(staffRes.data || [])
       setIphoneModels(modelsRes.data || [])
+
+      // キオスクモードの場合は店舗を自動設定
+      if (isKioskMode && kioskShopId) {
+        setShopId(kioskShopId)
+      }
+
       setLoading(false)
     }
     fetchMasterData()
-  }, [])
+  }, [isKioskMode, kioskShopId])
 
   // =====================================================
   // フェーズ変更時にページトップにスクロール

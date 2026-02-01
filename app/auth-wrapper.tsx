@@ -1,18 +1,23 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-const publicPaths = ['/login', '/invite']
+const publicPaths = ['/login', '/invite', '/buyback-kiosk']
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isKioskMode, setIsKioskMode] = useState(false)
 
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path))
+
+  // キオスクモードの検出
+  const kioskParam = searchParams.get('kiosk')
 
   useEffect(() => {
     if (isPublicPath) {
@@ -20,11 +25,31 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       return
     }
 
+    // キオスクモードの場合はキオスク認証をチェック
+    if (kioskParam === 'true') {
+      const checkKioskAuth = async () => {
+        try {
+          const res = await fetch('/api/kiosk/auth')
+          const data = await res.json()
+          if (data.authenticated) {
+            setIsAuthenticated(true)
+            setIsKioskMode(true)
+          } else {
+            window.location.href = '/buyback-kiosk/login'
+          }
+        } catch {
+          window.location.href = '/buyback-kiosk/login'
+        }
+      }
+      checkKioskAuth()
+      return
+    }
+
     const checkAuth = async () => {
       try {
         const res = await fetch('/api/auth/check', { credentials: 'include' })
         const data = await res.json()
-        
+
         if (data.authenticated) {
           setIsAuthenticated(true)
         } else {
@@ -36,7 +61,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     }
 
     checkAuth()
-  }, [pathname, isPublicPath, router])
+  }, [pathname, isPublicPath, router, kioskParam])
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
@@ -52,6 +77,11 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   }
 
   if (isPublicPath) {
+    return <>{children}</>
+  }
+
+  // キオスクモードの場合はシンプルなレイアウト
+  if (isKioskMode) {
     return <>{children}</>
   }
 
