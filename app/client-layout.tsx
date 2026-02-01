@@ -71,6 +71,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           {/* デスクトップナビゲーション */}
           <nav className="desktop-nav">
             <Link href="/sales" className="desktop-nav-link">売上入力</Link>
+            <Link href="/sales-history" className="desktop-nav-link">売上履歴</Link>
             <Link href="/buyback" className="desktop-nav-link">買取入力</Link>
             
             {/* 在庫ドロップダウン */}
@@ -152,6 +153,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </Link>
         <Link href="/sales" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           売上入力
+        </Link>
+        <Link href="/sales-history" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
+          売上履歴
         </Link>
         <Link href="/buyback" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           買取入力

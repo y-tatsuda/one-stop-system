@@ -144,6 +144,7 @@ export default function SalesPage() {
     shopId: '',
     staffId: '',
     visitSourceId: '',
+    discountAmount: 0,
   })
 
   // iPhone修理フォーム
@@ -748,9 +749,10 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
   }
 
   // 合計計算
-  const totalAmount = details.reduce((sum, d) => sum + d.amount, 0)
+  const subtotal = details.reduce((sum, d) => sum + d.amount, 0)
+  const totalAmount = subtotal - formData.discountAmount
   const totalCost = details.reduce((sum, d) => sum + d.cost, 0)
-  const totalProfit = details.reduce((sum, d) => sum + d.profit, 0)
+  const totalProfit = totalAmount - totalCost
 
   // 売上登録
   const handleSubmit = async () => {
@@ -772,6 +774,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         staff_id: parseInt(formData.staffId),
         visit_source_id: formData.visitSourceId ? parseInt(formData.visitSourceId) : null,
         sale_date: formData.saleDate,
+        discount_amount: formData.discountAmount,
         total_amount: totalAmount,
         total_cost: totalCost,
         total_profit: totalProfit,
@@ -877,6 +880,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     // フォームリセット
     setDetails([])
     setSelectedCategory('')
+    setFormData(prev => ({ ...prev, discountAmount: 0 }))
   }
 
   if (loading) {
@@ -1554,8 +1558,24 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={5} className="font-semibold">合計</td>
-                    <td className="text-right font-semibold">¥{totalAmount.toLocaleString()}</td>
+                    <td colSpan={5} className="font-semibold">小計</td>
+                    <td className="text-right font-semibold">¥{subtotal.toLocaleString()}</td>
+                    <td className="text-right font-semibold">¥{totalCost.toLocaleString()}</td>
+                    <td className="text-right font-semibold">-</td>
+                    <td></td>
+                  </tr>
+                  {formData.discountAmount > 0 && (
+                    <tr style={{ color: '#DC2626' }}>
+                      <td colSpan={5} className="font-semibold">値引き</td>
+                      <td className="text-right font-semibold">-¥{formData.discountAmount.toLocaleString()}</td>
+                      <td className="text-right">-</td>
+                      <td className="text-right">-</td>
+                      <td></td>
+                    </tr>
+                  )}
+                  <tr style={{ background: '#F3F4F6' }}>
+                    <td colSpan={5} className="font-semibold" style={{ fontSize: '1.1rem' }}>合計</td>
+                    <td className="text-right font-semibold" style={{ fontSize: '1.1rem' }}>¥{totalAmount.toLocaleString()}</td>
                     <td className="text-right font-semibold">¥{totalCost.toLocaleString()}</td>
                     <td className="text-right font-semibold">
                       <div>¥{totalProfit.toLocaleString()}</div>
@@ -1568,13 +1588,29 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                 </tfoot>
               </table>
             </div>
+
+            {/* 値引き入力 */}
+            <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '16px', justifyContent: 'flex-end' }}>
+              <label className="form-label" style={{ margin: 0 }}>値引き金額:</label>
+              <input
+                type="number"
+                className="form-input"
+                style={{ width: '150px', textAlign: 'right' }}
+                value={formData.discountAmount || ''}
+                onChange={(e) => setFormData({ ...formData, discountAmount: parseInt(e.target.value) || 0 })}
+                placeholder="0"
+                min="0"
+                step="100"
+              />
+              <span>円</span>
+            </div>
           </div>
         </div>
       )}
 
       {/* 登録ボタン */}
       {details.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex justify-end" style={{ marginTop: '16px' }}>
           <button
             onClick={handleSubmit}
             className="btn btn-success btn-lg"
