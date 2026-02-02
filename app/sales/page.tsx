@@ -702,13 +702,21 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
   }
 
   // 中古販売追加
-  const addUsedSalesDetail = () => {
+  const addUsedSalesDetail = async () => {
     if (!usedSalesForm.inventoryId) {
       alert('在庫を選択してください')
       return
     }
     const inventory = usedInventory.find(i => i.id === parseInt(usedSalesForm.inventoryId))
     if (!inventory) return
+
+    // 価格が変更されていれば中古在庫も更新
+    if (usedSalesForm.unitPrice !== inventory.sales_price) {
+      await supabase
+        .from('t_used_inventory')
+        .update({ sales_price: usedSalesForm.unitPrice })
+        .eq('id', inventory.id)
+    }
 
     const amount = usedSalesForm.unitPrice
     const cost = usedSalesForm.unitCost

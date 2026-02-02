@@ -196,11 +196,10 @@ export default function InventoryPage() {
 
   const openDetailModal = (item: UsedInventory) => {
     setSelectedItem(item)
-    const taxExcluded = item.sales_price || 0
-    const taxIncluded = taxExcluded > 0 ? Math.floor(taxExcluded * 1.1) : ''
+    const salesPrice = item.sales_price || 0
     setEditData({
-      sales_price: taxExcluded,
-      sales_price_tax_included: String(taxIncluded),
+      sales_price: salesPrice,
+      sales_price_tax_included: String(salesPrice),
       ec_status: item.ec_status || '',
       status: item.status,
       memo: item.memo || '',
@@ -618,26 +617,24 @@ export default function InventoryPage() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>販売価格（税込で入力）</label>
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>販売価格（税抜）</label>
                   <input
                     type="tel"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    value={editData.sales_price_tax_included}
+                    value={editData.sales_price || ''}
                     onChange={(e) => {
                       const value = e.target.value.replace(/[^0-9]/g, '')
-                      const taxIncluded = parseInt(value) || 0
-                      const taxExcluded = Math.floor(taxIncluded / 1.1)
-                      setEditData({ ...editData, sales_price: taxExcluded, sales_price_tax_included: value })
+                      setEditData({ ...editData, sales_price: parseInt(value) || 0, sales_price_tax_included: value })
                     }}
                     className="form-input"
-                    placeholder="税込価格を入力"
+                    placeholder="税抜価格を入力"
                   />
                   {editData.sales_price > 0 && (
                     <div style={{ marginTop: '8px', padding: '8px 12px', background: '#F0FDF4', borderRadius: '6px', fontSize: '0.85rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ color: '#6B7280' }}>税抜価格:</span>
-                        <span style={{ fontWeight: '600' }}>¥{editData.sales_price.toLocaleString()}</span>
+                        <span style={{ color: '#6B7280' }}>税込価格:</span>
+                        <span style={{ fontWeight: '600' }}>¥{Math.floor(editData.sales_price * 1.1).toLocaleString()}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                         <span style={{ color: '#6B7280' }}>原価:</span>
