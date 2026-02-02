@@ -501,7 +501,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         .eq('rank', inventory.rank)
         .single()
 
-      const basePrice = priceData?.price || inventory.sales_price || 0
+      // 在庫の販売価格を優先、なければマスタ価格
+      const basePrice = inventory.sales_price || priceData?.price || 0
 
       // 減額マスタを取得
       const { data: deductionData } = await supabase
