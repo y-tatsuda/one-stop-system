@@ -177,6 +177,7 @@ type BankInfo = {
   accountType: string
   accountNumber: string
   accountHolder: string
+  isAlreadyPaid: boolean // 振込済みフラグ
 }
 
 // 初期端末データ
@@ -310,6 +311,7 @@ export default function BuybackPage() {
     accountType: 'ordinary',
     accountNumber: '',
     accountHolder: '',
+    isAlreadyPaid: false,
   })
   
   // 支払方法
@@ -806,8 +808,8 @@ ${bankInfo.accountHolder}
         .update({ used_inventory_id: firstInventoryId })
         .eq('id', buybackId)
 
-      // 振込通知（振込の場合）
-      if (paymentMethod === 'transfer') {
+      // 振込通知（振込の場合、振込済みでなければ）
+      if (paymentMethod === 'transfer' && !bankInfo.isAlreadyPaid) {
         await sendTransferNotification(buybackId)
       }
 
@@ -851,6 +853,7 @@ ${bankInfo.accountHolder}
         accountType: 'ordinary',
         accountNumber: '',
         accountHolder: '',
+        isAlreadyPaid: false,
       })
       setPaymentMethod('cash')
       setConsentImageFile(null)
@@ -2441,7 +2444,7 @@ function PaymentScreen({
   onComplete: () => void
   onBack: () => void
 }) {
-  const canComplete = paymentMethod === 'cash' || (
+  const canComplete = paymentMethod === 'cash' || bankInfo.isAlreadyPaid || (
     bankInfo.bankName &&
     bankInfo.bankBranch &&
     bankInfo.accountNumber &&
@@ -2489,78 +2492,95 @@ function PaymentScreen({
             <h2 className="card-title">振込先情報</h2>
           </div>
           <div className="card-body">
-            <div className="form-grid-2 mb-md">
-              <div className="form-group">
-                <label className="form-label form-label-required">銀行名</label>
-                <input
-                  type="text"
-                  value={bankInfo.bankName}
-                  onChange={(e) => setBankInfo({ ...bankInfo, bankName: e.target.value })}
-                  className="form-input"
-                  placeholder="○○銀行"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label form-label-required">支店名</label>
-                <input
-                  type="text"
-                  value={bankInfo.bankBranch}
-                  onChange={(e) => setBankInfo({ ...bankInfo, bankBranch: e.target.value })}
-                  className="form-input"
-                  placeholder="○○支店"
-                />
-              </div>
-            </div>
-            
+            {/* 振込済みチェックボックス */}
             <div className="form-group mb-md">
-              <label className="form-label form-label-required">口座種別</label>
-              <div style={{ display: 'flex', gap: '20px' }}>
-                <label className="form-check">
-                  <input
-                    type="radio"
-                    name="accountType"
-                    value="ordinary"
-                    checked={bankInfo.accountType === 'ordinary'}
-                    onChange={(e) => setBankInfo({ ...bankInfo, accountType: e.target.value })}
-                  />
-                  <span>普通</span>
-                </label>
-                <label className="form-check">
-                  <input
-                    type="radio"
-                    name="accountType"
-                    value="checking"
-                    checked={bankInfo.accountType === 'checking'}
-                    onChange={(e) => setBankInfo({ ...bankInfo, accountType: e.target.value })}
-                  />
-                  <span>当座</span>
-                </label>
-              </div>
+              <label className="form-check" style={{ display: 'inline-flex', alignItems: 'center', padding: '12px 16px', background: bankInfo.isAlreadyPaid ? '#DCFCE7' : '#F3F4F6', borderRadius: '8px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={bankInfo.isAlreadyPaid}
+                  onChange={(e) => setBankInfo({ ...bankInfo, isAlreadyPaid: e.target.checked })}
+                  style={{ marginRight: '8px' }}
+                />
+                <span style={{ fontWeight: 600, color: bankInfo.isAlreadyPaid ? '#059669' : '#374151' }}>振込済み（既に振込完了している場合）</span>
+              </label>
             </div>
 
-            <div className="form-grid-2">
-              <div className="form-group">
-                <label className="form-label form-label-required">口座番号</label>
-                <input
-                  type="text"
-                  value={bankInfo.accountNumber}
-                  onChange={(e) => setBankInfo({ ...bankInfo, accountNumber: e.target.value.replace(/\D/g, '').slice(0, 7) })}
-                  className="form-input"
-                  placeholder="1234567"
-                  maxLength={7}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label form-label-required">口座名義（カタカナ）</label>
-                <input
-                  type="text"
-                  value={bankInfo.accountHolder}
-                  onChange={(e) => setBankInfo({ ...bankInfo, accountHolder: e.target.value })}
-                  className="form-input"
-                  placeholder="ヤマダ タロウ"
-                />
-              </div>
-            </div>
+            {!bankInfo.isAlreadyPaid && (
+              <>
+                <div className="form-grid-2 mb-md">
+                  <div className="form-group">
+                    <label className="form-label form-label-required">銀行名</label>
+                    <input
+                      type="text"
+                      value={bankInfo.bankName}
+                      onChange={(e) => setBankInfo({ ...bankInfo, bankName: e.target.value })}
+                      className="form-input"
+                      placeholder="○○銀行"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label form-label-required">支店名</label>
+                    <input
+                      type="text"
+                      value={bankInfo.bankBranch}
+                      onChange={(e) => setBankInfo({ ...bankInfo, bankBranch: e.target.value })}
+                      className="form-input"
+                      placeholder="○○支店"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group mb-md">
+                  <label className="form-label form-label-required">口座種別</label>
+                  <div style={{ display: 'flex', gap: '20px' }}>
+                    <label className="form-check">
+                      <input
+                        type="radio"
+                        name="accountType"
+                        value="ordinary"
+                        checked={bankInfo.accountType === 'ordinary'}
+                        onChange={(e) => setBankInfo({ ...bankInfo, accountType: e.target.value })}
+                      />
+                      <span>普通</span>
+                    </label>
+                    <label className="form-check">
+                      <input
+                        type="radio"
+                        name="accountType"
+                        value="checking"
+                        checked={bankInfo.accountType === 'checking'}
+                        onChange={(e) => setBankInfo({ ...bankInfo, accountType: e.target.value })}
+                      />
+                      <span>当座</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label form-label-required">口座番号</label>
+                    <input
+                      type="text"
+                      value={bankInfo.accountNumber}
+                      onChange={(e) => setBankInfo({ ...bankInfo, accountNumber: e.target.value.replace(/\D/g, '').slice(0, 7) })}
+                      className="form-input"
+                      placeholder="1234567"
+                      maxLength={7}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label form-label-required">口座名義（カタカナ）</label>
+                    <input
+                      type="text"
+                      value={bankInfo.accountHolder}
+                      onChange={(e) => setBankInfo({ ...bankInfo, accountHolder: e.target.value })}
+                      className="form-input"
+                      placeholder="ヤマダ タロウ"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -2574,7 +2594,7 @@ function PaymentScreen({
           disabled={!canComplete || saving}
           className="btn btn-success btn-lg"
         >
-          {saving ? '処理中...' : paymentMethod === 'cash' ? '買取を終了する' : '振込依頼を送信して終了'}
+          {saving ? '処理中...' : paymentMethod === 'cash' ? '買取を終了する' : bankInfo.isAlreadyPaid ? '買取を終了する（振込済み）' : '振込依頼を送信して終了'}
         </button>
       </div>
     </div>
