@@ -34,6 +34,7 @@ type UsedInventory = {
   shop: {
     name: string
   }
+  sale_date?: string | null // 販売日（販売済みの場合）
 }
 
 type Shop = {
@@ -109,6 +110,46 @@ export default function InventoryPage() {
     const today = new Date()
     const diffTime = today.getTime() - arrival.getTime()
     return Math.floor(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  // 保証期間の計算
+  const getWarrantyInfo = (saleDate: string | null | undefined) => {
+    if (!saleDate) return null
+
+    const sale = new Date(saleDate)
+    const today = new Date()
+    const diffTime = today.getTime() - sale.getTime()
+    const daysSinceSale = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+    if (daysSinceSale > 360) {
+      return { status: '保証終了', color: '#6B7280', daysLeft: 0 }
+    }
+
+    // 現在の保証段階を計算
+    const stage = Math.floor(daysSinceSale / 60) // 0-5
+    const refundRate = 100 - (stage * 10)
+    const repairRate = stage * 10
+
+    // 次の段階までの日数
+    const nextStageDay = (stage + 1) * 60
+    const daysUntilNextStage = nextStageDay - daysSinceSale
+
+    // 保証終了までの日数
+    const daysUntilExpiry = 360 - daysSinceSale
+
+    let statusText = ''
+    if (stage === 0) {
+      statusText = `全額返金/無償修理（残${daysUntilNextStage}日）`
+    } else if (stage < 6) {
+      statusText = `${refundRate}%返金/${repairRate}%負担（残${daysUntilNextStage}日）`
+    }
+
+    return {
+      status: statusText,
+      color: stage === 0 ? '#059669' : stage < 3 ? '#D97706' : '#DC2626',
+      daysLeft: daysUntilExpiry,
+      daysSinceSale
+    }
   }
 
   const getDaysBadgeClass = (days: number) => {
@@ -189,8 +230,40 @@ export default function InventoryPage() {
     if (filters.managementNumber) query = query.ilike('management_number', `%${filters.managementNumber}%`)
 
     const { data, error } = await query
-    if (error) console.error('Error:', error)
-    else setInventory(data || [])
+    if (error) {
+      console.error('Error:', error)
+      setLoading(false)
+      return
+    }
+
+    // 販売済みの端末の販売日を取得
+    const inventoryWithSaleDate = await Promise.all((data || []).map(async (item) => {
+      if (item.status === '販売済') {
+        // t_sales_detailsからsale_idを取得し、t_salesからsale_dateを取得
+        const { data: detailData } = await supabase
+          .from('t_sales_details')
+          .select('sale_id')
+          .eq('used_inventory_id', item.id)
+          .limit(1)
+          .single()
+
+        if (detailData?.sale_id) {
+          const { data: salesData } = await supabase
+            .from('t_sales')
+            .select('sale_date')
+            .eq('id', detailData.sale_id)
+            .single()
+
+          return {
+            ...item,
+            sale_date: salesData?.sale_date || null
+          }
+        }
+      }
+      return item
+    }))
+
+    setInventory(inventoryWithSaleDate)
     setLoading(false)
   }
 
@@ -308,9 +381,9 @@ export default function InventoryPage() {
   }
 
   // サマリー計算（「在庫」ステータスも含む）
-  const isActiveStock = (status: string) => status === '販売可' || status === '修理中' || status === '在庫'
+  const isActiveStock = (status: string) => status === '販売可' || status === '修理中'
   const totalStock = inventory.filter(i => isActiveStock(i.status)).length
-  const totalInStock = inventory.filter(i => i.status === '販売可' || i.status === '在庫').length
+  const totalInStock = inventory.filter(i => i.status === '販売可').length
   const totalRepairing = inventory.filter(i => i.status === '修理中').length
   const over45Days = inventory.filter(i => isActiveStock(i.status) && calculateDaysInStock(i.arrival_date) >= 45).length
   const over90Days = inventory.filter(i => isActiveStock(i.status) && calculateDaysInStock(i.arrival_date) >= 90).length
@@ -318,7 +391,7 @@ export default function InventoryPage() {
 
   const getShopStats = (shopId: number) => {
     const shopItems = inventory.filter(i => i.shop_id === shopId)
-    const inStock = shopItems.filter(i => i.status === '販売可' || i.status === '在庫').length
+    const inStock = shopItems.filter(i => i.status === '販売可').length
     const repairing = shopItems.filter(i => i.status === '修理中').length
     const noEc = shopItems.filter(i => isActiveStock(i.status) && !i.ec_status).length
     return { total: inStock + repairing, inStock, repairing, noEc }
@@ -504,6 +577,7 @@ export default function InventoryPage() {
               <tbody>
                 {paginatedInventory.map((item) => {
                   const days = calculateDaysInStock(item.arrival_date)
+                  const warranty = item.status === '販売済' ? getWarrantyInfo(item.sale_date) : null
                   return (
                     <tr key={item.id}>
                       <td>{item.shop?.name}</td>
@@ -523,7 +597,14 @@ export default function InventoryPage() {
                         ) : '-'}
                       </td>
                       <td><span className={`badge ${item.ec_status === 'both' ? 'badge-success' : item.ec_status ? 'badge-primary' : 'badge-gray'}`}>{getEcStatusDisplay(item.ec_status)}</span></td>
-                      <td><span className={`badge ${item.status === '修理中' ? 'badge-primary' : item.status === '販売可' ? 'badge-success' : item.status === '販売済' ? 'badge-gray' : 'badge-warning'}`}>{getStatusDisplay(item.status)}</span></td>
+                      <td>
+                        <span className={`badge ${item.status === '修理中' ? 'badge-primary' : item.status === '販売可' ? 'badge-success' : item.status === '販売済' ? 'badge-gray' : 'badge-warning'}`}>{getStatusDisplay(item.status)}</span>
+                        {warranty && (
+                          <div style={{ marginTop: '4px', fontSize: '0.7rem', fontWeight: 600, color: warranty.color }}>
+                            {warranty.status}
+                          </div>
+                        )}
+                      </td>
                       <td className="text-center"><button onClick={() => openDetailModal(item)} className="btn btn-sm btn-secondary">詳細</button></td>
                     </tr>
                   )

@@ -109,6 +109,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 <Link href="/shop-management" className="nav-dropdown-item">店舗管理</Link>
                 <Link href="/master-management" className="nav-dropdown-item">マスタ管理</Link>
                 <Link href="/inventory-settings" className="nav-dropdown-item">棚卸し設定</Link>
+                <Link href="/square-settings" className="nav-dropdown-item">Square連携</Link>
               </div>
             </div>
           </nav>
@@ -198,6 +199,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </Link>
         <Link href="/inventory-settings" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           棚卸し設定
+        </Link>
+        <Link href="/square-settings" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
+          Square連携
         </Link>
 
         <button

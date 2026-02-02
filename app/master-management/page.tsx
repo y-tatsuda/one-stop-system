@@ -1623,7 +1623,7 @@ export default function MasterManagementPage() {
                     <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '16px' }}>現在の在庫状況</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
                       <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>在庫ID</span><div>#{imeiResult.inventory.id}</div></div>
-                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>ステータス</span><div><span className={`badge ${imeiResult.inventory.status === '在庫' ? 'badge-success' : imeiResult.inventory.status === '販売済み' ? 'badge-gray' : 'badge-warning'}`}>{imeiResult.inventory.status}</span></div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>ステータス</span><div><span className={`badge ${imeiResult.inventory.status === '販売可' ? 'badge-success' : imeiResult.inventory.status === '販売済' ? 'badge-gray' : imeiResult.inventory.status === '修理中' ? 'badge-primary' : 'badge-warning'}`}>{imeiResult.inventory.status}</span></div></div>
                       <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>販売価格</span><div>¥{imeiResult.inventory.sales_price?.toLocaleString()}</div></div>
                       {imeiResult.inventory.sold_date && (
                         <div><span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>販売日</span><div>{imeiResult.inventory.sold_date}</div></div>

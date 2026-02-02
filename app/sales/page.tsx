@@ -400,7 +400,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         .select('id, model, storage, rank, sales_price, total_cost, management_number')
         .eq('tenant_id', 1)
         .eq('shop_id', formData.shopId)
-        .in('status', ['販売可', '在庫'])
+        .eq('status', '販売可')
         .order('model')
 
       setUsedInventory(data || [])

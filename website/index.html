@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONE STOP | スマホ修理・買取・販売 福井</title>
+    <meta name="description" content="福井県でiPhone・スマートフォンの修理・買取・販売なら ONE STOP へ。即日修理対応、高価買取実施中。福井店・鯖江店で営業中。">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --dark: #1e293b;
+            --light: #f8fafc;
+            --gray: #64748b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            color: var(--dark);
+            line-height: 1.8;
+        }
+
+        /* Header */
+        header {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .logo span {
+            color: var(--secondary);
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: var(--primary);
+        }
+
+        .header-cta {
+            background: var(--primary);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 700;
+            transition: background 0.3s;
+        }
+
+        .header-cta:hover {
+            background: var(--primary-dark);
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, var(--primary) 0%, #3b82f6 50%, var(--secondary) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding-top: 80px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .hero-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-text {
+            color: white;
+        }
+
+        .hero-text h1 {
+            font-size: 3rem;
+            font-weight: 900;
+            margin-bottom: 1.5rem;
+            line-height: 1.3;
+        }
+
+        .hero-text p {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .btn-white {
+            background: white;
+            color: var(--primary);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+
+        .hero-image {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .phone-mockup {
+            width: 300px;
+            height: 600px;
+            background: linear-gradient(145deg, #1a1a1a 0%, #333 100%);
+            border-radius: 40px;
+            padding: 10px;
+            box-shadow: 0 50px 100px rgba(0,0,0,0.3);
+            position: relative;
+        }
+
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .phone-screen .check {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 6rem 2rem;
+            background: white;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-title h2 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin-bottom: 1rem;
+        }
+
+        .section-title p {
+            color: var(--gray);
+            font-size: 1.1rem;
+        }
+
+        .features-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: var(--light);
+            padding: 2.5rem;
+            border-radius: 20px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .feature-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2.5rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card p {
+            color: var(--gray);
+        }
+
+        /* Services Section */
+        .services {
+            padding: 6rem 2rem;
+            background: linear-gradient(180deg, var(--light) 0%, white 100%);
+        }
+
+        .services-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+
+        .service-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+
+        .service-card:hover {
+            transform: scale(1.02);
+        }
+
+        .service-header {
+            padding: 2rem;
+            color: white;
+            text-align: center;
+        }
+
+        .service-card:nth-child(1) .service-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .service-card:nth-child(2) .service-header {
+            background: linear-gradient(135deg, var(--secondary) 0%, #059669 100%);
+        }
+
+        .service-card:nth-child(3) .service-header {
+            background: linear-gradient(135deg, var(--accent) 0%, #d97706 100%);
+        }
+
+        .service-header h3 {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .service-body {
+            padding: 2rem;
+        }
+
+        .service-body ul {
+            list-style: none;
+        }
+
+        .service-body li {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .service-body li:last-child {
+            border-bottom: none;
+        }
+
+        .service-body li::before {
+            content: '✓';
+            color: var(--secondary);
+            font-weight: bold;
+        }
+
+        .service-cta {
+            display: block;
+            text-align: center;
+            padding: 1rem;
+            background: var(--light);
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 700;
+            transition: background 0.3s;
+        }
+
+        .service-cta:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Price Section */
+        .prices {
+            padding: 6rem 2rem;
+            background: white;
+        }
+
+        .price-table {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .price-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .price-table th {
+            background: var(--primary);
+            color: white;
+            padding: 1.25rem;
+            text-align: left;
+        }
+
+        .price-table td {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .price-table tr:hover {
+            background: var(--light);
+        }
+
+        .price-table .price {
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        /* Stores Section */
+        .stores {
+            padding: 6rem 2rem;
+            background: var(--light);
+        }
+
+        .stores-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+        }
+
+        .store-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .store-map {
+            height: 200px;
+            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray);
+            font-size: 3rem;
+        }
+
+        .store-info {
+            padding: 2rem;
+        }
+
+        .store-info h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        .store-info p {
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .store-info .label {
+            font-weight: 700;
+            min-width: 80px;
+        }
+
+        /* CTA Section */
+        .cta {
+            padding: 6rem 2rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            text-align: center;
+            color: white;
+        }
+
+        .cta h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .cta p {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .cta-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--dark);
+            color: white;
+            padding: 4rem 2rem 2rem;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 3rem;
+        }
+
+        .footer-brand h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .footer-brand p {
+            color: #94a3b8;
+            line-height: 1.8;
+        }
+
+        .footer-links h4 {
+            margin-bottom: 1rem;
+        }
+
+        .footer-links ul {
+            list-style: none;
+        }
+
+        .footer-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            display: block;
+            padding: 0.5rem 0;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 3rem auto 0;
+            padding-top: 2rem;
+            border-top: 1px solid #334155;
+            text-align: center;
+            color: #64748b;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .hero-buttons {
+                justify-content: center;
+            }
+
+            .hero-image {
+                display: none;
+            }
+
+            .features-grid,
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stores-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-inner {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            nav ul {
+                gap: 1rem;
+            }
+
+            .hero-text h1 {
+                font-size: 2rem;
+            }
+
+            .section-title h2 {
+                font-size: 1.75rem;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .phone-mockup {
+            animation: float 6s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-inner">
+            <a href="index.html" class="logo">ONE <span>STOP</span></a>
+            <nav>
+                <ul>
+                    <li><a href="#services">サービス</a></li>
+                    <li><a href="#prices">料金</a></li>
+                    <li><a href="#stores">店舗</a></li>
+                    <li><a href="lp.html">買取査定</a></li>
+                </ul>
+            </nav>
+            <a href="tel:0000000000" class="header-cta">お電話でのお問い合わせ</a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1>スマホのお悩み、<br>すべてここで解決。</h1>
+                <p>iPhone・スマートフォンの修理・買取・販売を<br>ワンストップでご提供。福井県内2店舗で営業中。</p>
+                <div class="hero-buttons">
+                    <a href="lp.html" class="btn btn-white">無料査定はこちら</a>
+                    <a href="#services" class="btn btn-outline">サービスを見る</a>
+                </div>
+            </div>
+            <div class="hero-image">
+                <div class="phone-mockup">
+                    <div class="phone-screen">
+                        <div class="check">✓</div>
+                        <div>修理完了</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <div class="section-title">
+            <h2>選ばれる3つの理由</h2>
+            <p>ONE STOP が多くのお客様に選ばれる理由をご紹介します</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>即日対応</h3>
+                <p>多くの修理は即日完了。お急ぎの方も安心してご利用いただけます。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💰</div>
+                <h3>高価買取</h3>
+                <p>業界最高水準の買取価格をご提示。壊れたスマホも買取可能です。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>安心保証</h3>
+                <p>修理後も安心の保証付き。万が一の際もしっかりサポートします。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section class="services" id="services">
+        <div class="section-title">
+            <h2>サービス一覧</h2>
+            <p>修理・買取・販売まで、スマホに関することはすべてお任せください</p>
+        </div>
+        <div class="services-grid">
+            <div class="service-card">
+                <div class="service-header">
+                    <h3>🔧 修理サービス</h3>
+                    <p>即日対応・安心保証</p>
+                </div>
+                <div class="service-body">
+                    <ul>
+                        <li>画面割れ・液晶修理</li>
+                        <li>バッテリー交換</li>
+                        <li>充電コネクタ修理</li>
+                        <li>カメラ修理・交換</li>
+                        <li>水没復旧</li>
+                        <li>その他各種修理</li>
+                    </ul>
+                </div>
+                <a href="#prices" class="service-cta">料金を見る →</a>
+            </div>
+            <div class="service-card">
+                <div class="service-header">
+                    <h3>💵 買取サービス</h3>
+                    <p>高価買取・即日現金化</p>
+                </div>
+                <div class="service-body">
+                    <ul>
+                        <li>iPhone全モデル対応</li>
+                        <li>Android各種対応</li>
+                        <li>iPad・タブレット</li>
+                        <li>壊れたスマホもOK</li>
+                        <li>郵送買取対応</li>
+                        <li>無料査定実施中</li>
+                    </ul>
+                </div>
+                <a href="lp.html" class="service-cta">無料査定する →</a>
+            </div>
+            <div class="service-card">
+                <div class="service-header">
+                    <h3>📱 中古販売</h3>
+                    <p>品質保証・お手頃価格</p>
+                </div>
+                <div class="service-body">
+                    <ul>
+                        <li>厳選された中古端末</li>
+                        <li>全品動作確認済み</li>
+                        <li>バッテリー状態明記</li>
+                        <li>品質ランク別価格</li>
+                        <li>保証付き販売</li>
+                        <li>ECサイトでも販売中</li>
+                    </ul>
+                </div>
+                <a href="#" class="service-cta">在庫を見る →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Price Section -->
+    <section class="prices" id="prices">
+        <div class="section-title">
+            <h2>修理料金</h2>
+            <p>主要な修理メニューの料金をご案内します</p>
+        </div>
+        <div class="price-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>機種</th>
+                        <th>画面修理</th>
+                        <th>バッテリー交換</th>
+                        <th>コネクタ修理</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>iPhone 16 Pro Max</td>
+                        <td class="price">¥39,800〜</td>
+                        <td class="price">¥12,800〜</td>
+                        <td class="price">¥9,800〜</td>
+                    </tr>
+                    <tr>
+                        <td>iPhone 16 Pro</td>
+                        <td class="price">¥36,800〜</td>
+                        <td class="price">¥12,800〜</td>
+                        <td class="price">¥9,800〜</td>
+                    </tr>
+                    <tr>
+                        <td>iPhone 15 Pro Max</td>
+                        <td class="price">¥34,800〜</td>
+                        <td class="price">¥9,800〜</td>
+                        <td class="price">¥8,800〜</td>
+                    </tr>
+                    <tr>
+                        <td>iPhone 15 Pro</td>
+                        <td class="price">¥32,800〜</td>
+                        <td class="price">¥9,800〜</td>
+                        <td class="price">¥8,800〜</td>
+                    </tr>
+                    <tr>
+                        <td>iPhone 15</td>
+                        <td class="price">¥24,800〜</td>
+                        <td class="price">¥8,800〜</td>
+                        <td class="price">¥7,800〜</td>
+                    </tr>
+                    <tr>
+                        <td>iPhone 14 Pro Max</td>
+                        <td class="price">¥29,800〜</td>
+                        <td class="price">¥8,800〜</td>
+                        <td class="price">¥7,800〜</td>
+                    </tr>
+                    <tr>
+                        <td>iPhone 14 Pro</td>
+                        <td class="price">¥27,800〜</td>
+                        <td class="price">¥8,800〜</td>
+                        <td class="price">¥7,800〜</td>
+                    </tr>
+                    <tr>
+                        <td>iPhone 14</td>
+                        <td class="price">¥19,800〜</td>
+                        <td class="price">¥7,800〜</td>
+                        <td class="price">¥6,800〜</td>
+                    </tr>
+                    <tr>
+                        <td>iPhone 13 Pro Max</td>
+                        <td class="price">¥24,800〜</td>
+                        <td class="price">¥7,800〜</td>
+                        <td class="price">¥6,800〜</td>
+                    </tr>
+                    <tr>
+                        <td>iPhone 13</td>
+                        <td class="price">¥14,800〜</td>
+                        <td class="price">¥6,800〜</td>
+                        <td class="price">¥5,800〜</td>
+                    </tr>
+                    <tr>
+                        <td>iPhone SE (第3世代)</td>
+                        <td class="price">¥8,800〜</td>
+                        <td class="price">¥5,800〜</td>
+                        <td class="price">¥4,800〜</td>
+                    </tr>
+                    <tr>
+                        <td>iPhone 12シリーズ</td>
+                        <td class="price">¥9,800〜</td>
+                        <td class="price">¥5,800〜</td>
+                        <td class="price">¥4,800〜</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p style="text-align: center; margin-top: 2rem; color: var(--gray);">
+            ※料金は税込価格です。機種や状態により変動する場合があります。<br>
+            その他の機種・修理内容についてはお気軽にお問い合わせください。
+        </p>
+    </section>
+
+    <!-- Stores Section -->
+    <section class="stores" id="stores">
+        <div class="section-title">
+            <h2>店舗案内</h2>
+            <p>福井県内2店舗で営業中。お近くの店舗へお気軽にお越しください</p>
+        </div>
+        <div class="stores-grid">
+            <div class="store-card">
+                <div class="store-map">📍</div>
+                <div class="store-info">
+                    <h3>ONE STOP 福井店</h3>
+                    <p><span class="label">住所</span>福井県福井市〇〇町〇-〇-〇</p>
+                    <p><span class="label">電話</span>000-000-0000</p>
+                    <p><span class="label">営業時間</span>10:00〜19:00</p>
+                    <p><span class="label">定休日</span>年中無休</p>
+                </div>
+            </div>
+            <div class="store-card">
+                <div class="store-map">📍</div>
+                <div class="store-info">
+                    <h3>ONE STOP 鯖江店</h3>
+                    <p><span class="label">住所</span>福井県鯖江市〇〇町〇-〇-〇</p>
+                    <p><span class="label">電話</span>000-000-0000</p>
+                    <p><span class="label">営業時間</span>10:00〜19:00</p>
+                    <p><span class="label">定休日</span>年中無休</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+        <h2>スマホのお悩み、今すぐ解決しませんか？</h2>
+        <p>お見積り・ご相談は無料です。お気軽にお問い合わせください。</p>
+        <div class="cta-buttons">
+            <a href="lp.html" class="btn btn-white">無料査定を申し込む</a>
+            <a href="tel:0000000000" class="btn btn-outline">電話で問い合わせる</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-brand">
+                <h3>ONE STOP</h3>
+                <p>福井県でiPhone・スマートフォンの修理・買取・販売を行っています。お客様のスマホライフをワンストップでサポートします。</p>
+            </div>
+            <div class="footer-links">
+                <h4>サービス</h4>
+                <ul>
+                    <li><a href="#services">修理サービス</a></li>
+                    <li><a href="lp.html">買取サービス</a></li>
+                    <li><a href="#">中古販売</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>店舗情報</h4>
+                <ul>
+                    <li><a href="#stores">福井店</a></li>
+                    <li><a href="#stores">鯖江店</a></li>
+                    <li><a href="#">ECサイト</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>その他</h4>
+                <ul>
+                    <li><a href="#">会社概要</a></li>
+                    <li><a href="#">プライバシーポリシー</a></li>
+                    <li><a href="#">お問い合わせ</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 ONE STOP. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

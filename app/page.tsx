@@ -166,7 +166,7 @@ export default function Home() {
         .from('t_used_inventory')
         .select('id, shop_id, arrival_date, model, storage, ec_status')
         .eq('tenant_id', 1)
-        .eq('status', '在庫')
+        .in('status', ['販売可', '修理中'])
 
       if (inventoryData) {
         const today = new Date()
