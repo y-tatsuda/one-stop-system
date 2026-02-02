@@ -13,24 +13,30 @@ export async function POST(request: NextRequest) {
 
     console.log('Square Webhook受信:', event.type)
 
-    // イベントタイプに応じた処理
     switch (event.type) {
       case 'payment.created':
       case 'payment.updated':
         const payment = event.data?.object?.payment
         if (payment?.status === 'COMPLETED') {
-          // 決済完了 → 売上登録
           await handlePaymentCompleted(payment)
         } else if (payment?.status === 'CANCELED' || payment?.status === 'VOIDED') {
-          // 決済取消 → 売上削除
           await handlePaymentCanceled(payment)
         }
         break
+
+      case 'refund.created':
+      case 'refund.updated':
+        const refund = event.data?.object?.refund
+        if (refund?.status === 'COMPLETED') {
+          await handleRefundCompleted(refund)
+        }
+        break
+
       case 'order.created':
       case 'order.updated':
-        // orderイベントは現時点ではログのみ
         console.log('Order event:', event.type, event.data?.object?.order?.id)
         break
+
       default:
         console.log('未処理のイベントタイプ:', event.type)
     }
@@ -38,7 +44,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Square Webhook処理エラー:', error)
-    // エラーでも200を返す（リトライを防ぐ）
     return NextResponse.json({ success: false, error: String(error) })
   }
 }
@@ -53,6 +58,7 @@ async function handlePaymentCompleted(payment: any) {
       .from('t_sales')
       .select('id')
       .eq('square_payment_id', payment.id)
+      .eq('sale_type', 'sale')
       .maybeSingle()
 
     if (existing) {
@@ -66,12 +72,6 @@ async function handlePaymentCompleted(payment: any) {
       .select('id, name')
       .eq('square_location_id', payment.location_id)
       .maybeSingle()
-
-    if (!shop) {
-      console.error('店舗が見つかりません。Location ID:', payment.location_id)
-      // 店舗が見つからない場合はデフォルトで1を使用
-      console.log('デフォルト店舗ID 1 を使用')
-    }
 
     const shopId = shop?.id || 1
 
@@ -91,12 +91,9 @@ async function handlePaymentCompleted(payment: any) {
       .maybeSingle()
 
     const feeRate = parseFloat(feeSettings?.value || '0') / 100
-
-    // 金額計算（Squareは円単位で返す）
     const totalAmount = payment.amount_money?.amount || 0
     const feeAmount = Math.round(totalAmount * feeRate)
 
-    // 売上登録
     const saleDate = new Date(payment.created_at).toISOString().split('T')[0]
 
     const { data: sale, error: saleError } = await supabase
@@ -104,9 +101,10 @@ async function handlePaymentCompleted(payment: any) {
       .insert({
         tenant_id: 1,
         shop_id: shopId,
-        staff_id: 1, // Square連携用デフォルトスタッフ
+        staff_id: 1,
         sale_date: saleDate,
         total_amount: totalAmount,
+        sale_type: 'sale',
         square_payment_id: payment.id,
         square_order_id: payment.order_id || null,
         square_fee_amount: feeAmount,
@@ -125,42 +123,161 @@ async function handlePaymentCompleted(payment: any) {
   }
 }
 
-// 決済取消時の処理
+// 決済取消時の処理（マイナス売上として記録）
 async function handlePaymentCanceled(payment: any) {
   try {
     console.log('決済取消処理開始:', payment.id)
 
-    // 対応する売上を検索
-    const { data: sale } = await supabase
+    // 元の売上を検索
+    const { data: originalSale } = await supabase
       .from('t_sales')
-      .select('id')
+      .select('id, shop_id, total_amount')
       .eq('square_payment_id', payment.id)
+      .eq('sale_type', 'sale')
       .maybeSingle()
 
-    if (!sale) {
+    if (!originalSale) {
       console.log('対応する売上が見つかりません:', payment.id)
       return
     }
 
-    // 売上明細を削除
-    await supabase
-      .from('t_sales_details')
-      .delete()
-      .eq('sale_id', sale.id)
-
-    // 売上を削除
-    const { error: deleteError } = await supabase
+    // 既に取消済みかチェック
+    const { data: existingCancel } = await supabase
       .from('t_sales')
-      .delete()
-      .eq('id', sale.id)
+      .select('id')
+      .eq('original_sale_id', originalSale.id)
+      .eq('sale_type', 'cancel')
+      .maybeSingle()
 
-    if (deleteError) {
-      console.error('売上削除エラー:', deleteError)
+    if (existingCancel) {
+      console.log('既に取消済み:', payment.id)
       return
     }
 
-    console.log('売上削除完了:', sale.id, 'Square ID:', payment.id)
+    const saleDate = new Date().toISOString().split('T')[0]
+
+    // マイナス売上として記録
+    const { data: cancelSale, error: cancelError } = await supabase
+      .from('t_sales')
+      .insert({
+        tenant_id: 1,
+        shop_id: originalSale.shop_id,
+        staff_id: 1,
+        sale_date: saleDate,
+        total_amount: -originalSale.total_amount, // マイナス金額
+        sale_type: 'cancel',
+        original_sale_id: originalSale.id,
+        square_payment_id: payment.id + '_cancel',
+      })
+      .select()
+      .single()
+
+    if (cancelError) {
+      console.error('取消登録エラー:', cancelError)
+      return
+    }
+
+    // 中古在庫があれば販売可に戻す
+    await revertInventoryStatus(originalSale.id)
+
+    console.log('取消登録完了:', cancelSale.id, '元売上:', originalSale.id)
   } catch (error) {
     console.error('handlePaymentCanceled エラー:', error)
+  }
+}
+
+// 返金完了時の処理
+async function handleRefundCompleted(refund: any) {
+  try {
+    console.log('返金処理開始:', refund.id)
+
+    // 返金に対応する決済を検索
+    const paymentId = refund.payment_id
+
+    const { data: originalSale } = await supabase
+      .from('t_sales')
+      .select('id, shop_id, total_amount')
+      .eq('square_payment_id', paymentId)
+      .eq('sale_type', 'sale')
+      .maybeSingle()
+
+    if (!originalSale) {
+      console.log('対応する売上が見つかりません。Payment ID:', paymentId)
+      return
+    }
+
+    // 既に返金済みかチェック
+    const { data: existingRefund } = await supabase
+      .from('t_sales')
+      .select('id')
+      .eq('square_payment_id', refund.id)
+      .maybeSingle()
+
+    if (existingRefund) {
+      console.log('既に返金処理済み:', refund.id)
+      return
+    }
+
+    const refundAmount = refund.amount_money?.amount || 0
+    const saleDate = new Date().toISOString().split('T')[0]
+
+    // マイナス売上として記録
+    const { data: refundSale, error: refundError } = await supabase
+      .from('t_sales')
+      .insert({
+        tenant_id: 1,
+        shop_id: originalSale.shop_id,
+        staff_id: 1,
+        sale_date: saleDate,
+        total_amount: -refundAmount, // マイナス金額
+        sale_type: 'refund',
+        original_sale_id: originalSale.id,
+        square_payment_id: refund.id,
+      })
+      .select()
+      .single()
+
+    if (refundError) {
+      console.error('返金登録エラー:', refundError)
+      return
+    }
+
+    // 全額返金の場合、中古在庫を販売可に戻す
+    if (refundAmount >= originalSale.total_amount) {
+      await revertInventoryStatus(originalSale.id)
+    }
+
+    console.log('返金登録完了:', refundSale.id, '金額:', -refundAmount, '元売上:', originalSale.id)
+  } catch (error) {
+    console.error('handleRefundCompleted エラー:', error)
+  }
+}
+
+// 中古在庫のステータスを販売可に戻す
+async function revertInventoryStatus(saleId: number) {
+  try {
+    // 売上明細から中古在庫IDを取得
+    const { data: details } = await supabase
+      .from('t_sales_details')
+      .select('used_inventory_id')
+      .eq('sale_id', saleId)
+      .not('used_inventory_id', 'is', null)
+
+    if (!details || details.length === 0) {
+      return
+    }
+
+    for (const detail of details) {
+      if (detail.used_inventory_id) {
+        await supabase
+          .from('t_used_inventory')
+          .update({ status: '販売可' })
+          .eq('id', detail.used_inventory_id)
+
+        console.log('在庫ステータス復元:', detail.used_inventory_id, '→ 販売可')
+      }
+    }
+  } catch (error) {
+    console.error('在庫ステータス復元エラー:', error)
   }
 }
