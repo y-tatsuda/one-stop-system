@@ -23,12 +23,6 @@ type UsedInventory = {
   management_number: string | null
 }
 
-type RepairMenu = {
-  model: string
-  menu: string
-  price: number
-}
-
 type SaleDetail = {
   id: string
   type: 'used' | 'repair' | 'accessory'
@@ -51,6 +45,7 @@ export default function SalesContent({ shopId, shopName }: Props) {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [squareLocationId, setSquareLocationId] = useState<string | null>(null)
+  const [showInventoryList, setShowInventoryList] = useState(false)
 
   useEffect(() => {
     async function fetchData() {
@@ -118,6 +113,7 @@ export default function SalesContent({ shopId, shopName }: Props) {
     setDetails([...details, newDetail])
     setSearchedInventory(null)
     setSearchImei('')
+    setShowInventoryList(false)
   }
 
   const removeDetail = (id: string) => {
@@ -141,7 +137,6 @@ export default function SalesContent({ shopId, shopName }: Props) {
     try {
       const saleDate = new Date().toISOString().split('T')[0]
 
-      // 売上ヘッダー登録
       const { data: headerData, error: headerError } = await supabase
         .from('t_sales')
         .insert({
@@ -157,7 +152,6 @@ export default function SalesContent({ shopId, shopName }: Props) {
 
       if (headerError) throw headerError
 
-      // 売上明細登録
       const detailRecords = details.map(d => ({
         sales_id: headerData.id,
         category: d.type === 'used' ? '中古販売' : d.type === 'repair' ? 'iPhone修理' : 'アクセサリ',
@@ -171,7 +165,6 @@ export default function SalesContent({ shopId, shopName }: Props) {
 
       await supabase.from('t_sales_details').insert(detailRecords)
 
-      // 中古在庫のステータス更新
       for (const detail of details) {
         if (detail.usedInventoryId) {
           await supabase
@@ -181,13 +174,11 @@ export default function SalesContent({ shopId, shopName }: Props) {
         }
       }
 
-      // フォームリセット
       setDetails([])
       setSearchImei('')
       setSearchedInventory(null)
 
       if (useSquare) {
-        // Square POSアプリを起動
         const itemDescriptions = details.map(d => d.description).join(', ')
 
         const squareData = {
@@ -202,7 +193,6 @@ export default function SalesContent({ shopId, shopName }: Props) {
 
         const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify(squareData))}`
 
-        // iPadの場合はSquareアプリを起動
         const isMobile = /iPad|iPhone|iPod/.test(navigator.userAgent)
         if (isMobile) {
           window.location.href = squareUrl
@@ -213,7 +203,6 @@ export default function SalesContent({ shopId, shopName }: Props) {
         alert(`売上を登録しました（ID: ${headerData.id}）\n\nエアレジで ¥${totalAmount.toLocaleString()} を会計してください。`)
       }
 
-      // 在庫リストを更新
       const { data: inventoryData } = await supabase
         .from('t_used_inventory')
         .select('id, model, storage, rank, sales_price, total_cost, management_number')
@@ -232,263 +221,170 @@ export default function SalesContent({ shopId, shopName }: Props) {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px' }}>
-        <div style={{ width: '48px', height: '48px', border: '4px solid #E5E7EB', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
+      <div style={styles.loadingContainer}>
+        <div style={styles.spinner}></div>
+        <style jsx>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     )
   }
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-      {/* 担当者選択 */}
-      <div style={{
-        background: 'white',
-        borderRadius: '16px',
-        padding: '24px',
-        marginBottom: '20px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
-      }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '12px' }}>担当者</h3>
-        <select
-          value={selectedStaffId}
-          onChange={(e) => setSelectedStaffId(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '14px',
-            fontSize: '1.1rem',
-            border: '2px solid #E5E7EB',
-            borderRadius: '10px',
-          }}
-        >
-          <option value="">選択してください</option>
-          {staff.map(s => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* 中古在庫検索 */}
-      <div style={{
-        background: 'white',
-        borderRadius: '16px',
-        padding: '24px',
-        marginBottom: '20px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
-      }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '12px' }}>中古iPhone検索</h3>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <input
-            type="text"
-            value={searchImei}
-            onChange={(e) => setSearchImei(e.target.value)}
-            placeholder="管理番号（IMEI下4桁）を入力"
-            style={{
-              flex: 1,
-              padding: '14px',
-              fontSize: '1.1rem',
-              border: '2px solid #E5E7EB',
-              borderRadius: '10px',
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearchImei()}
-          />
-          <button
-            onClick={handleSearchImei}
-            style={{
-              padding: '14px 28px',
-              background: '#004AAD',
-              color: 'white',
-              border: 'none',
-              borderRadius: '10px',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            検索
-          </button>
-        </div>
-
-        {/* 検索結果 */}
-        {searchedInventory && (
-          <div style={{
-            marginTop: '16px',
-            padding: '16px',
-            background: '#F0FDF4',
-            borderRadius: '10px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <div>
-              <p style={{ fontWeight: '600', fontSize: '1.1rem' }}>
-                {searchedInventory.model} {searchedInventory.storage}GB {searchedInventory.rank}
-              </p>
-              <p style={{ color: '#6B7280' }}>管理番号: #{searchedInventory.management_number}</p>
-              <p style={{ fontWeight: '700', color: '#059669', fontSize: '1.2rem' }}>
-                ¥{(searchedInventory.sales_price || 0).toLocaleString()}
-              </p>
-            </div>
-            <button
-              onClick={() => addUsedInventory(searchedInventory)}
-              style={{
-                padding: '12px 24px',
-                background: '#059669',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+    <div style={styles.container}>
+      <div style={styles.mainGrid}>
+        {/* 左側: 商品選択エリア */}
+        <div style={styles.leftPanel}>
+          {/* 担当者選択 */}
+          <div style={styles.card}>
+            <label style={styles.cardLabel}>担当者</label>
+            <select
+              value={selectedStaffId}
+              onChange={(e) => setSelectedStaffId(e.target.value)}
+              style={styles.select}
             >
-              追加
-            </button>
+              <option value="">選択してください</option>
+              {staff.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
           </div>
-        )}
 
-        {/* 在庫一覧（折りたたみ） */}
-        <details style={{ marginTop: '16px' }}>
-          <summary style={{ cursor: 'pointer', color: '#004AAD', fontWeight: '500' }}>
-            販売可能な在庫一覧（{usedInventory.length}件）
-          </summary>
-          <div style={{ marginTop: '12px', maxHeight: '300px', overflowY: 'auto' }}>
-            {usedInventory.map(inv => (
-              <div
-                key={inv.id}
-                style={{
-                  padding: '12px',
-                  borderBottom: '1px solid #E5E7EB',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}
-              >
-                <div>
-                  <span style={{ fontWeight: '500' }}>{inv.model} {inv.storage}GB {inv.rank}</span>
-                  <span style={{ color: '#6B7280', marginLeft: '8px' }}>#{inv.management_number}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontWeight: '600' }}>¥{(inv.sales_price || 0).toLocaleString()}</span>
-                  <button
-                    onClick={() => addUsedInventory(inv)}
-                    style={{
-                      padding: '6px 16px',
-                      background: '#E0E7FF',
-                      color: '#004AAD',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontSize: '0.9rem',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    追加
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </details>
-      </div>
-
-      {/* 明細 */}
-      {details.length > 0 && (
-        <div style={{
-          background: 'white',
-          borderRadius: '16px',
-          padding: '24px',
-          marginBottom: '20px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
-        }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '16px' }}>明細</h3>
-          {details.map(d => (
-            <div
-              key={d.id}
-              style={{
-                padding: '14px',
-                background: '#F9FAFB',
-                borderRadius: '10px',
-                marginBottom: '10px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}
-            >
-              <div>
-                <p style={{ fontWeight: '600' }}>{d.description}</p>
-                <p style={{ color: '#059669', fontWeight: '700', fontSize: '1.1rem' }}>
-                  ¥{d.amount.toLocaleString()}
-                </p>
-              </div>
-              <button
-                onClick={() => removeDetail(d.id)}
-                style={{
-                  padding: '8px 16px',
-                  background: '#FEE2E2',
-                  color: '#DC2626',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                削除
+          {/* 在庫検索 */}
+          <div style={styles.card}>
+            <label style={styles.cardLabel}>商品を検索</label>
+            <div style={styles.searchRow}>
+              <input
+                type="text"
+                value={searchImei}
+                onChange={(e) => setSearchImei(e.target.value)}
+                placeholder="管理番号（IMEI下4桁）"
+                style={styles.searchInput}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchImei()}
+              />
+              <button onClick={handleSearchImei} style={styles.searchBtn}>
+                検索
               </button>
             </div>
-          ))}
 
-          {/* 合計 */}
-          <div style={{
-            marginTop: '20px',
-            padding: '20px',
-            background: '#004AAD',
-            borderRadius: '12px',
-            color: 'white',
-            textAlign: 'center'
-          }}>
-            <p style={{ fontSize: '1rem', marginBottom: '4px' }}>合計金額</p>
-            <p style={{ fontSize: '2rem', fontWeight: '700' }}>¥{totalAmount.toLocaleString()}</p>
-          </div>
+            {/* 検索結果 */}
+            {searchedInventory && (
+              <div style={styles.searchResult}>
+                <div style={styles.searchResultInfo}>
+                  <p style={styles.searchResultModel}>
+                    {searchedInventory.model} {searchedInventory.storage}GB {searchedInventory.rank}
+                  </p>
+                  <p style={styles.searchResultMgmt}>#{searchedInventory.management_number}</p>
+                  <p style={styles.searchResultPrice}>
+                    ¥{(searchedInventory.sales_price || 0).toLocaleString()}
+                  </p>
+                </div>
+                <button onClick={() => addUsedInventory(searchedInventory)} style={styles.addBtn}>
+                  追加
+                </button>
+              </div>
+            )}
 
-          {/* ボタン */}
-          <div style={{ marginTop: '20px', display: 'flex', gap: '12px' }}>
+            {/* 在庫一覧ボタン */}
             <button
-              onClick={() => handleSubmit(false)}
-              disabled={submitting}
-              style={{
-                flex: 1,
-                padding: '18px',
-                background: submitting ? '#9CA3AF' : '#6B7280',
-                color: 'white',
-                border: 'none',
-                borderRadius: '12px',
-                fontSize: '1.1rem',
-                fontWeight: '700',
-                cursor: submitting ? 'not-allowed' : 'pointer'
-              }}
+              onClick={() => setShowInventoryList(!showInventoryList)}
+              style={styles.inventoryListBtn}
             >
-              登録（エアレジで会計）
+              販売可能な在庫一覧（{usedInventory.length}件）
+              <span style={{ marginLeft: '8px' }}>{showInventoryList ? '▲' : '▼'}</span>
             </button>
-            <button
-              onClick={() => handleSubmit(true)}
-              disabled={submitting}
-              style={{
-                flex: 1,
-                padding: '18px',
-                background: submitting ? '#9CA3AF' : '#059669',
-                color: 'white',
-                border: 'none',
-                borderRadius: '12px',
-                fontSize: '1.1rem',
-                fontWeight: '700',
-                cursor: submitting ? 'not-allowed' : 'pointer'
-              }}
-            >
-              Squareで決済
-            </button>
+
+            {/* 在庫一覧 */}
+            {showInventoryList && (
+              <div style={styles.inventoryList}>
+                {usedInventory.length === 0 ? (
+                  <p style={styles.noInventory}>販売可能な在庫がありません</p>
+                ) : (
+                  usedInventory.map(inv => (
+                    <div key={inv.id} style={styles.inventoryItem}>
+                      <div style={styles.inventoryItemInfo}>
+                        <span style={styles.inventoryItemModel}>
+                          {inv.model} {inv.storage}GB {inv.rank}
+                        </span>
+                        <span style={styles.inventoryItemMgmt}>#{inv.management_number}</span>
+                      </div>
+                      <div style={styles.inventoryItemRight}>
+                        <span style={styles.inventoryItemPrice}>
+                          ¥{(inv.sales_price || 0).toLocaleString()}
+                        </span>
+                        <button onClick={() => addUsedInventory(inv)} style={styles.addBtnSmall}>
+                          追加
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </div>
-      )}
+
+        {/* 右側: カート・決済エリア */}
+        <div style={styles.rightPanel}>
+          <div style={styles.cartCard}>
+            <h3 style={styles.cartTitle}>明細</h3>
+
+            {details.length === 0 ? (
+              <div style={styles.emptyCart}>
+                <p>商品を追加してください</p>
+              </div>
+            ) : (
+              <div style={styles.cartItems}>
+                {details.map(d => (
+                  <div key={d.id} style={styles.cartItem}>
+                    <div style={styles.cartItemInfo}>
+                      <p style={styles.cartItemDesc}>{d.description}</p>
+                      <p style={styles.cartItemPrice}>¥{d.amount.toLocaleString()}</p>
+                    </div>
+                    <button onClick={() => removeDetail(d.id)} style={styles.removeBtn}>
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 合計 */}
+            <div style={styles.totalSection}>
+              <span style={styles.totalLabel}>合計金額</span>
+              <span style={styles.totalAmount}>¥{totalAmount.toLocaleString()}</span>
+            </div>
+
+            {/* 決済ボタン */}
+            <div style={styles.actionButtons}>
+              <button
+                onClick={() => handleSubmit(false)}
+                disabled={submitting || details.length === 0}
+                style={{
+                  ...styles.actionBtn,
+                  ...styles.actionBtnAirRegi,
+                  opacity: (submitting || details.length === 0) ? 0.5 : 1,
+                }}
+              >
+                登録（エアレジで会計）
+              </button>
+              <button
+                onClick={() => handleSubmit(true)}
+                disabled={submitting || details.length === 0}
+                style={{
+                  ...styles.actionBtn,
+                  ...styles.actionBtnSquare,
+                  opacity: (submitting || details.length === 0) ? 0.5 : 1,
+                }}
+              >
+                Squareで決済
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <style jsx>{`
         @keyframes spin {
@@ -497,4 +393,296 @@ export default function SalesContent({ shopId, shopName }: Props) {
       `}</style>
     </div>
   )
+}
+
+const styles: { [key: string]: React.CSSProperties } = {
+  container: {
+    width: '100%',
+  },
+  loadingContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '60px',
+  },
+  spinner: {
+    width: '48px',
+    height: '48px',
+    border: '4px solid #E5E7EB',
+    borderTopColor: '#004AAD',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
+
+  mainGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 400px',
+    gap: '24px',
+    alignItems: 'start',
+  },
+
+  // 左パネル
+  leftPanel: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+  },
+  card: {
+    background: 'white',
+    borderRadius: '16px',
+    padding: '24px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+  },
+  cardLabel: {
+    display: 'block',
+    fontSize: '0.95rem',
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: '12px',
+  },
+  select: {
+    width: '100%',
+    padding: '14px 16px',
+    fontSize: '1.1rem',
+    border: '2px solid #E5E7EB',
+    borderRadius: '10px',
+    background: 'white',
+    cursor: 'pointer',
+  },
+
+  // 検索
+  searchRow: {
+    display: 'flex',
+    gap: '12px',
+  },
+  searchInput: {
+    flex: 1,
+    padding: '14px 16px',
+    fontSize: '1.1rem',
+    border: '2px solid #E5E7EB',
+    borderRadius: '10px',
+  },
+  searchBtn: {
+    padding: '14px 28px',
+    background: '#004AAD',
+    color: 'white',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '1rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+
+  // 検索結果
+  searchResult: {
+    marginTop: '16px',
+    padding: '16px',
+    background: '#F0FDF4',
+    borderRadius: '12px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    border: '2px solid #059669',
+  },
+  searchResultInfo: {},
+  searchResultModel: {
+    fontWeight: '600',
+    fontSize: '1.1rem',
+    color: '#1F2937',
+    margin: 0,
+  },
+  searchResultMgmt: {
+    color: '#6B7280',
+    fontSize: '0.9rem',
+    margin: '4px 0',
+  },
+  searchResultPrice: {
+    fontWeight: '700',
+    color: '#059669',
+    fontSize: '1.2rem',
+    margin: 0,
+  },
+  addBtn: {
+    padding: '12px 28px',
+    background: '#059669',
+    color: 'white',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '1rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+
+  // 在庫一覧
+  inventoryListBtn: {
+    width: '100%',
+    marginTop: '16px',
+    padding: '14px',
+    background: '#F3F4F6',
+    color: '#374151',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '1rem',
+    fontWeight: '500',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  inventoryList: {
+    marginTop: '12px',
+    maxHeight: '300px',
+    overflowY: 'auto',
+    border: '1px solid #E5E7EB',
+    borderRadius: '10px',
+  },
+  noInventory: {
+    padding: '20px',
+    textAlign: 'center',
+    color: '#6B7280',
+  },
+  inventoryItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '14px 16px',
+    borderBottom: '1px solid #E5E7EB',
+  },
+  inventoryItemInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  inventoryItemModel: {
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  inventoryItemMgmt: {
+    fontSize: '0.85rem',
+    color: '#6B7280',
+  },
+  inventoryItemRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+  },
+  inventoryItemPrice: {
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  addBtnSmall: {
+    padding: '8px 20px',
+    background: '#E0E7FF',
+    color: '#004AAD',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+
+  // 右パネル（カート）
+  rightPanel: {},
+  cartCard: {
+    background: 'white',
+    borderRadius: '16px',
+    padding: '24px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+    position: 'sticky',
+    top: '100px',
+  },
+  cartTitle: {
+    fontSize: '1.1rem',
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: '16px',
+    paddingBottom: '12px',
+    borderBottom: '2px solid #E5E7EB',
+  },
+  emptyCart: {
+    padding: '40px 20px',
+    textAlign: 'center',
+    color: '#9CA3AF',
+  },
+  cartItems: {
+    maxHeight: '250px',
+    overflowY: 'auto',
+  },
+  cartItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '14px',
+    background: '#F9FAFB',
+    borderRadius: '10px',
+    marginBottom: '10px',
+  },
+  cartItemInfo: {},
+  cartItemDesc: {
+    fontWeight: '500',
+    color: '#1F2937',
+    fontSize: '0.95rem',
+    margin: 0,
+  },
+  cartItemPrice: {
+    fontWeight: '700',
+    color: '#059669',
+    fontSize: '1.1rem',
+    margin: '4px 0 0 0',
+  },
+  removeBtn: {
+    width: '36px',
+    height: '36px',
+    background: '#FEE2E2',
+    color: '#DC2626',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '1.2rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+
+  // 合計
+  totalSection: {
+    marginTop: '20px',
+    padding: '20px',
+    background: 'linear-gradient(135deg, #004AAD 0%, #0052CC 100%)',
+    borderRadius: '12px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  totalLabel: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: '1rem',
+    fontWeight: '500',
+  },
+  totalAmount: {
+    color: 'white',
+    fontSize: '1.8rem',
+    fontWeight: '700',
+  },
+
+  // アクションボタン
+  actionButtons: {
+    marginTop: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  actionBtn: {
+    width: '100%',
+    padding: '16px',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '1.05rem',
+    fontWeight: '700',
+    cursor: 'pointer',
+  },
+  actionBtnAirRegi: {
+    background: '#6B7280',
+    color: 'white',
+  },
+  actionBtnSquare: {
+    background: '#059669',
+    color: 'white',
+  },
 }
