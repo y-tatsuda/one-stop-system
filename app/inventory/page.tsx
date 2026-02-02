@@ -308,19 +308,20 @@ export default function InventoryPage() {
     fetchInventory()
   }
 
-  // サマリー計算
-  const totalStock = inventory.filter(i => i.status === '販売可' || i.status === '修理中').length
-  const totalInStock = inventory.filter(i => i.status === '販売可').length
+  // サマリー計算（「在庫」ステータスも含む）
+  const isActiveStock = (status: string) => status === '販売可' || status === '修理中' || status === '在庫'
+  const totalStock = inventory.filter(i => isActiveStock(i.status)).length
+  const totalInStock = inventory.filter(i => i.status === '販売可' || i.status === '在庫').length
   const totalRepairing = inventory.filter(i => i.status === '修理中').length
-  const over45Days = inventory.filter(i => (i.status === '販売可' || i.status === '修理中') && calculateDaysInStock(i.arrival_date) >= 45).length
-  const over90Days = inventory.filter(i => (i.status === '販売可' || i.status === '修理中') && calculateDaysInStock(i.arrival_date) >= 90).length
-  const totalNoEc = inventory.filter(i => (i.status === '販売可' || i.status === '修理中') && !i.ec_status).length
-  
+  const over45Days = inventory.filter(i => isActiveStock(i.status) && calculateDaysInStock(i.arrival_date) >= 45).length
+  const over90Days = inventory.filter(i => isActiveStock(i.status) && calculateDaysInStock(i.arrival_date) >= 90).length
+  const totalNoEc = inventory.filter(i => isActiveStock(i.status) && !i.ec_status).length
+
   const getShopStats = (shopId: number) => {
     const shopItems = inventory.filter(i => i.shop_id === shopId)
-    const inStock = shopItems.filter(i => i.status === '販売可').length
+    const inStock = shopItems.filter(i => i.status === '販売可' || i.status === '在庫').length
     const repairing = shopItems.filter(i => i.status === '修理中').length
-    const noEc = shopItems.filter(i => (i.status === '販売可' || i.status === '修理中') && !i.ec_status).length
+    const noEc = shopItems.filter(i => isActiveStock(i.status) && !i.ec_status).length
     return { total: inStock + repairing, inStock, repairing, noEc }
   }
 
