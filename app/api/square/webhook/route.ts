@@ -72,21 +72,19 @@ async function handlePaymentCompleted(payment: any) {
 
     const shopId = shop?.id || 1
 
-    // 決済方法の判定
-    let paymentMethod = 'cash'
+    // 決済方法の判定（手数料計算用）
+    let feeRateKey = 'cash'
     if (payment.card_details) {
-      paymentMethod = 'card'
+      feeRateKey = 'card'
     } else if (payment.wallet_details) {
-      paymentMethod = 'electronic'
-    } else if (payment.cash_details) {
-      paymentMethod = 'cash'
+      feeRateKey = 'electronic'
     }
 
     // 手数料率を取得
     const { data: feeSettings } = await supabase
       .from('m_system_settings')
       .select('value')
-      .eq('key', `square_fee_rate_${paymentMethod}`)
+      .eq('key', `square_fee_rate_${feeRateKey}`)
       .maybeSingle()
 
     const feeRate = parseFloat(feeSettings?.value || '0') / 100
@@ -103,9 +101,9 @@ async function handlePaymentCompleted(payment: any) {
       .insert({
         tenant_id: 1,
         shop_id: shopId,
+        staff_id: 1, // Square連携用デフォルトスタッフ
         sale_date: saleDate,
         total_amount: totalAmount,
-        payment_method: paymentMethod,
         square_payment_id: payment.id,
         square_order_id: payment.order_id || null,
         square_fee_amount: feeAmount,
