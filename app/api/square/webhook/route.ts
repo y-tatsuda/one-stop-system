@@ -17,10 +17,13 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'payment.created':
       case 'payment.updated':
-        // 決済が完了した場合のみ処理
         const payment = event.data?.object?.payment
         if (payment?.status === 'COMPLETED') {
+          // 決済完了 → 売上登録
           await handlePaymentCompleted(payment)
+        } else if (payment?.status === 'CANCELED' || payment?.status === 'VOIDED') {
+          // 決済取消 → 売上削除
+          await handlePaymentCanceled(payment)
         }
         break
       case 'order.created':
@@ -119,5 +122,45 @@ async function handlePaymentCompleted(payment: any) {
     console.log('売上登録完了:', sale.id, '金額:', totalAmount, '店舗:', shop?.name || 'デフォルト')
   } catch (error) {
     console.error('handlePaymentCompleted エラー:', error)
+  }
+}
+
+// 決済取消時の処理
+async function handlePaymentCanceled(payment: any) {
+  try {
+    console.log('決済取消処理開始:', payment.id)
+
+    // 対応する売上を検索
+    const { data: sale } = await supabase
+      .from('t_sales')
+      .select('id')
+      .eq('square_payment_id', payment.id)
+      .maybeSingle()
+
+    if (!sale) {
+      console.log('対応する売上が見つかりません:', payment.id)
+      return
+    }
+
+    // 売上明細を削除
+    await supabase
+      .from('t_sales_details')
+      .delete()
+      .eq('sale_id', sale.id)
+
+    // 売上を削除
+    const { error: deleteError } = await supabase
+      .from('t_sales')
+      .delete()
+      .eq('id', sale.id)
+
+    if (deleteError) {
+      console.error('売上削除エラー:', deleteError)
+      return
+    }
+
+    console.log('売上削除完了:', sale.id, 'Square ID:', payment.id)
+  } catch (error) {
+    console.error('handlePaymentCanceled エラー:', error)
   }
 }
