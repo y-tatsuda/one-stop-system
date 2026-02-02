@@ -68,12 +68,44 @@ async function handlePaymentCompleted(payment: any) {
     }
 
     // 決済方法の判定（手数料計算用）
+    // card: クレジットカード（2.5%）
+    // electronic: 電子マネー - 交通系IC, iD, QUICPay（3.25%）
+    // qr: QRコード - PayPay, d払い等（3.25%）
+    // cash: 現金（0%）
     let feeRateKey = 'cash'
-    if (payment.card_details) {
-      feeRateKey = 'card'
+    let paymentMethod = '現金'
+
+    if (payment.external_details) {
+      // PayPay, d払い, 楽天ペイ等のQRコード決済
+      feeRateKey = 'qr'
+      paymentMethod = 'QRコード'
     } else if (payment.wallet_details) {
+      // Apple Pay, Google Pay等のデジタルウォレット
       feeRateKey = 'electronic'
+      paymentMethod = '電子マネー'
+    } else if (payment.card_details) {
+      // クレジットカード/デビットカード
+      // entry_method で電子マネーとカードを区別
+      const entryMethod = payment.card_details.entry_method
+      const cardBrand = payment.card_details.card?.card_brand
+
+      // 電子マネー（iD, QUICPay, 交通系IC）の判定
+      // これらは通常 CONTACTLESS で、特定のブランド
+      if (entryMethod === 'CONTACTLESS' &&
+          (cardBrand === 'FELICA' || cardBrand === 'ID' || cardBrand === 'QUICPAY' ||
+           cardBrand === 'SUICA' || cardBrand === 'PASMO' || !cardBrand)) {
+        feeRateKey = 'electronic'
+        paymentMethod = '電子マネー'
+      } else {
+        feeRateKey = 'card'
+        paymentMethod = 'クレジットカード'
+      }
+    } else if (payment.cash_details) {
+      feeRateKey = 'cash'
+      paymentMethod = '現金'
     }
+
+    console.log('決済方法:', paymentMethod, 'feeRateKey:', feeRateKey)
 
     // 手数料率を取得
     const { data: feeSettings } = await supabase

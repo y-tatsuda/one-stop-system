@@ -23,8 +23,9 @@ export default function SquareSettingsPage() {
     applicationId: '',
     accessToken: '',
     webhookSignatureKey: '',
-    feeRateCard: '3.25',
+    feeRateCard: '2.5',
     feeRateElectronic: '3.25',
+    feeRateQr: '3.25',
     feeRateCash: '0',
   })
   const [locationIds, setLocationIds] = useState<{ [shopId: number]: string }>({})
@@ -63,6 +64,7 @@ export default function SquareSettingsPage() {
         'square_webhook_signature_key',
         'square_fee_rate_card',
         'square_fee_rate_electronic',
+        'square_fee_rate_qr',
         'square_fee_rate_cash',
       ])
 
@@ -75,8 +77,9 @@ export default function SquareSettingsPage() {
       applicationId: settingsMap['square_application_id'] || '',
       accessToken: settingsMap['square_access_token'] || '',
       webhookSignatureKey: settingsMap['square_webhook_signature_key'] || '',
-      feeRateCard: settingsMap['square_fee_rate_card'] || '3.25',
+      feeRateCard: settingsMap['square_fee_rate_card'] || '2.5',
       feeRateElectronic: settingsMap['square_fee_rate_electronic'] || '3.25',
+      feeRateQr: settingsMap['square_fee_rate_qr'] || '3.25',
       feeRateCash: settingsMap['square_fee_rate_cash'] || '0',
     })
 
@@ -94,6 +97,7 @@ export default function SquareSettingsPage() {
         { key: 'square_webhook_signature_key', value: settings.webhookSignatureKey },
         { key: 'square_fee_rate_card', value: settings.feeRateCard },
         { key: 'square_fee_rate_electronic', value: settings.feeRateElectronic },
+        { key: 'square_fee_rate_qr', value: settings.feeRateQr },
         { key: 'square_fee_rate_cash', value: settings.feeRateCash },
       ]
 
@@ -285,7 +289,10 @@ export default function SquareSettingsPage() {
           <h2 className="card-title">決済手数料率</h2>
         </div>
         <div className="card-body">
-          <div className="form-grid form-grid-3">
+          <p style={{ fontSize: '0.85rem', color: '#6B7280', marginBottom: '16px' }}>
+            2025年1月〜 中小企業（年間決済3,000万円以下）はカード2.5%、電子マネー・QR3.25%
+          </p>
+          <div className="form-grid form-grid-4">
             <div className="form-group">
               <label className="form-label">クレジットカード（%）</label>
               <input
@@ -293,8 +300,11 @@ export default function SquareSettingsPage() {
                 value={settings.feeRateCard}
                 onChange={(e) => setSettings({ ...settings, feeRateCard: e.target.value })}
                 className="form-input"
-                placeholder="3.25"
+                placeholder="2.5"
               />
+              <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '4px' }}>
+                Visa, Mastercard, JCB, Amex等
+              </p>
             </div>
             <div className="form-group">
               <label className="form-label">電子マネー（%）</label>
@@ -305,6 +315,22 @@ export default function SquareSettingsPage() {
                 className="form-input"
                 placeholder="3.25"
               />
+              <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '4px' }}>
+                交通系IC, iD, QUICPay
+              </p>
+            </div>
+            <div className="form-group">
+              <label className="form-label">QRコード（%）</label>
+              <input
+                type="text"
+                value={settings.feeRateQr}
+                onChange={(e) => setSettings({ ...settings, feeRateQr: e.target.value })}
+                className="form-input"
+                placeholder="3.25"
+              />
+              <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '4px' }}>
+                PayPay, d払い, 楽天ペイ等
+              </p>
             </div>
             <div className="form-group">
               <label className="form-label">現金（%）</label>
