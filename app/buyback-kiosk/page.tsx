@@ -5,10 +5,9 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
 
-const BuybackContent = dynamic(() => import('./buyback-content'), { ssr: false })
 const SalesContent = dynamic(() => import('./sales-content'), { ssr: false })
 
-type Screen = 'menu' | 'buyback' | 'sales' | 'settings'
+type Screen = 'menu' | 'sales' | 'settings'
 
 export default function KioskPage() {
   const router = useRouter()
@@ -135,9 +134,9 @@ export default function KioskPage() {
           <h2 style={styles.menuTitle}>メニューを選択してください</h2>
 
           <div style={styles.menuGrid}>
-            {/* 買取ボタン */}
+            {/* 買取ボタン - 通常の買取ページに直接遷移 */}
             <button
-              onClick={() => setCurrentScreen('buyback')}
+              onClick={() => router.push(`/buyback?kiosk=true&shop=${shopInfo?.shopId}`)}
               style={styles.menuCard}
             >
               <div style={styles.menuIconBuyback}>
@@ -254,25 +253,6 @@ export default function KioskPage() {
               </div>
             </div>
           </div>
-        </main>
-      </div>
-    )
-  }
-
-  // 買取画面
-  if (currentScreen === 'buyback') {
-    return (
-      <div style={styles.container}>
-        <header style={styles.subHeader}>
-          <button onClick={() => setCurrentScreen('menu')} style={styles.backBtn}>
-            ← メニューに戻る
-          </button>
-          <h1 style={styles.subHeaderTitle}>買取登録</h1>
-          <div style={{ width: '160px' }}></div>
-        </header>
-
-        <main style={styles.contentArea}>
-          {shopInfo && <BuybackContent kioskShopId={shopInfo.shopId} />}
         </main>
       </div>
     )
