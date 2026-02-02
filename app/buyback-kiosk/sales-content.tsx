@@ -106,6 +106,8 @@ export default function SalesContent({ shopId, shopName }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [squareLocationId, setSquareLocationId] = useState<string | null>(null)
   const [squareApplicationId, setSquareApplicationId] = useState<string | null>(null)
+  const [testMode, setTestMode] = useState(false)
+  const [testModeReduceInventory, setTestModeReduceInventory] = useState(false)
 
   const [iphoneModels, setIphoneModels] = useState<{model: string, display_name: string}[]>([])
   const [iphoneRepairMenus, setIphoneRepairMenus] = useState<string[]>([])
@@ -396,6 +398,12 @@ export default function SalesContent({ shopId, shopName }: Props) {
       // Square決済の場合、仮のsquare_payment_idを設定（Webhookで更新される）
       const pendingPaymentId = useSquare ? `PENDING_${Date.now()}` : null
 
+      // テストモード対応: memoに【テスト】を追加
+      let memo = useSquare ? 'Square決済予定' : null
+      if (testMode) {
+        memo = memo ? `【テスト】${memo}` : '【テスト】'
+      }
+
       const { data: headerData, error: headerError } = await supabase
         .from('t_sales')
         .insert({
@@ -403,7 +411,7 @@ export default function SalesContent({ shopId, shopName }: Props) {
           visit_source_id: formData.visitSourceId ? parseInt(formData.visitSourceId) : null,
           sale_date: saleDate, total_amount: totalAmount, total_cost: totalCost, total_profit: totalProfit,
           sale_type: 'sale',
-          memo: useSquare ? 'Square決済予定' : null,
+          memo,
           square_payment_id: pendingPaymentId,
         })
         .select('id').single()
@@ -418,20 +426,22 @@ export default function SalesContent({ shopId, shopName }: Props) {
       }))
       await supabase.from('t_sales_details').insert(detailRecords)
 
-      // 中古在庫のステータス更新
-      for (const detail of details) {
-        if (detail.usedInventoryId) {
-          await supabase.from('t_used_inventory').update({ status: '販売済' }).eq('id', detail.usedInventoryId)
+      // 中古在庫のステータス更新（テストモードで在庫減らさない場合はスキップ）
+      if (!testMode || testModeReduceInventory) {
+        for (const detail of details) {
+          if (detail.usedInventoryId) {
+            await supabase.from('t_used_inventory').update({ status: '販売済' }).eq('id', detail.usedInventoryId)
+          }
         }
-      }
 
-      // パーツ在庫減算
-      for (const detail of details) {
-        if (detail.category === 'iPhone修理' && detail.model && detail.menu && detail.supplierId && isPartsRepairMenu(detail.menu)) {
-          const partsType = getPartsTypeFromMenu(detail.menu)
-          const { data: invData } = await supabase.from('t_parts_inventory').select('id, actual_qty').eq('tenant_id', 1).eq('shop_id', shopId).eq('model', detail.model).eq('parts_type', partsType).eq('supplier_id', detail.supplierId).single()
-          if (invData) {
-            await supabase.from('t_parts_inventory').update({ actual_qty: Math.max(0, (invData.actual_qty || 0) - detail.quantity) }).eq('id', invData.id)
+        // パーツ在庫減算
+        for (const detail of details) {
+          if (detail.category === 'iPhone修理' && detail.model && detail.menu && detail.supplierId && isPartsRepairMenu(detail.menu)) {
+            const partsType = getPartsTypeFromMenu(detail.menu)
+            const { data: invData } = await supabase.from('t_parts_inventory').select('id, actual_qty').eq('tenant_id', 1).eq('shop_id', shopId).eq('model', detail.model).eq('parts_type', partsType).eq('supplier_id', detail.supplierId).single()
+            if (invData) {
+              await supabase.from('t_parts_inventory').update({ actual_qty: Math.max(0, (invData.actual_qty || 0) - detail.quantity) }).eq('id', invData.id)
+            }
           }
         }
       }
@@ -511,6 +521,45 @@ export default function SalesContent({ shopId, shopName }: Props) {
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+      {/* テストモード */}
+      <div style={{
+        background: testMode ? '#FEF3C7' : 'white',
+        border: testMode ? '2px solid #F59E0B' : '1px solid #E5E7EB',
+        borderRadius: '12px',
+        padding: '12px 16px',
+        marginBottom: '16px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={testMode}
+              onChange={(e) => setTestMode(e.target.checked)}
+              style={{ width: '18px', height: '18px' }}
+            />
+            <span style={{ fontWeight: '600', color: testMode ? '#B45309' : '#374151' }}>
+              テストモード {testMode && '(有効)'}
+            </span>
+          </label>
+          {testMode && (
+            <>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                <input
+                  type="checkbox"
+                  checked={testModeReduceInventory}
+                  onChange={(e) => setTestModeReduceInventory(e.target.checked)}
+                  style={{ width: '16px', height: '16px' }}
+                />
+                <span>在庫も減らす</span>
+              </label>
+              <span style={{ fontSize: '0.85rem', color: '#92400E' }}>
+                ※テストデータは後で一括削除可能
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* 担当者・来店経路 */}
       <div style={cardStyle}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
