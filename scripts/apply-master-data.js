@@ -38,11 +38,12 @@ async function applyMasterData() {
       '13mini', '13', '13Pro', '13ProMax',
       '14', '14Plus', '14Pro', '14ProMax',
       '15', '15Plus', '15Pro', '15ProMax',
-      '16', '16Plus', '16Pro', '16ProMax', '16e'
+      '16', '16Plus', '16Pro', '16ProMax', '16e',
+      '17', '17Pro', '17ProMax', 'iPAir'
     ]
     const REPAIR_MENUS = [
       'TH-F', 'TH-L', 'HG-F', 'HG-L',
-      'バッテリー', 'HGバッテリー',
+      'バッテリー', 'HGバッテリー', '販売バッテリー',
       'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
     ]
 

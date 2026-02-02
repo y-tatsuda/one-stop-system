@@ -1278,18 +1278,28 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
               <div className="form-group">
                 <label className="form-label">価格（税抜）</label>
                 <input
-                  type="number"
-                  value={iphoneForm.unitPrice}
-                  onChange={(e) => setIphoneForm({ ...iphoneForm, unitPrice: parseInt(e.target.value) || 0 })}
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={iphoneForm.unitPrice || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '')
+                    setIphoneForm({ ...iphoneForm, unitPrice: parseInt(value) || 0 })
+                  }}
                   className="form-input"
                 />
               </div>
               <div className="form-group">
                 <label className="form-label">原価（税抜）</label>
                 <input
-                  type="number"
-                  value={iphoneForm.unitCost}
-                  onChange={(e) => setIphoneForm({ ...iphoneForm, unitCost: parseInt(e.target.value) || 0 })}
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={iphoneForm.unitCost || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '')
+                    setIphoneForm({ ...iphoneForm, unitCost: parseInt(value) || 0 })
+                  }}
                   className="form-input"
                 />
               </div>
@@ -1349,18 +1359,28 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   <div className="form-group">
                     <label className="form-label">価格（税抜）</label>
                     <input
-                      type="number"
-                      value={ipadForm.unitPrice}
-                      onChange={(e) => setIpadForm({ ...ipadForm, unitPrice: parseInt(e.target.value) || 0 })}
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={ipadForm.unitPrice || ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '')
+                        setIpadForm({ ...ipadForm, unitPrice: parseInt(value) || 0 })
+                      }}
                       className="form-input"
                     />
                   </div>
                   <div className="form-group">
                     <label className="form-label">原価（税抜）</label>
                     <input
-                      type="number"
-                      value={ipadForm.unitCost}
-                      onChange={(e) => setIpadForm({ ...ipadForm, unitCost: parseInt(e.target.value) || 0 })}
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={ipadForm.unitCost || ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '')
+                        setIpadForm({ ...ipadForm, unitCost: parseInt(value) || 0 })
+                      }}
                       className="form-input"
                     />
                   </div>
@@ -1434,18 +1454,28 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   <div className="form-group">
                     <label className="form-label">価格（税抜）</label>
                     <input
-                      type="number"
-                      value={androidForm.unitPrice}
-                      onChange={(e) => setAndroidForm({ ...androidForm, unitPrice: parseInt(e.target.value) || 0 })}
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={androidForm.unitPrice || ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '')
+                        setAndroidForm({ ...androidForm, unitPrice: parseInt(value) || 0 })
+                      }}
                       className="form-input"
                     />
                   </div>
                   <div className="form-group">
                     <label className="form-label">原価（税抜）</label>
                     <input
-                      type="number"
-                      value={androidForm.unitCost}
-                      onChange={(e) => setAndroidForm({ ...androidForm, unitCost: parseInt(e.target.value) || 0 })}
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={androidForm.unitCost || ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '')
+                        setAndroidForm({ ...androidForm, unitCost: parseInt(value) || 0 })
+                      }}
                       className="form-input"
                     />
                   </div>
@@ -1476,11 +1506,16 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                 <div className="form-group">
                   <label className="form-label">管理番号で検索（IMEI下4桁）</label>
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="例: 2345"
                     maxLength={4}
                     value={usedSalesForm.searchNumber || ''}
-                    onChange={(e) => setUsedSalesForm({ ...usedSalesForm, searchNumber: e.target.value, inventoryId: '' })}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '')
+                      setUsedSalesForm({ ...usedSalesForm, searchNumber: value, inventoryId: '' })
+                    }}
                     className="form-input"
                   />
                 </div>
@@ -1495,7 +1530,11 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   >
                     <option value="">選択してください</option>
                     {usedInventory
-                      .filter(inv => !usedSalesForm.searchNumber || inv.management_number?.includes(usedSalesForm.searchNumber))
+                      .filter(inv => {
+                        if (!usedSalesForm.searchNumber) return true
+                        const mgmtNum = inv.management_number || ''
+                        return mgmtNum.includes(usedSalesForm.searchNumber)
+                      })
                       .map((inv) => (
                         <option key={inv.id} value={inv.id}>
                           [{inv.management_number || '----'}] {inv.model} {inv.storage}GB {inv.rank}
@@ -1569,9 +1608,14 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                           <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: '600' }}>税込 ¥{Math.floor(usedSalesForm.unitPrice * 1.1).toLocaleString()}</div>
                         </div>
                         <input
-                          type="number"
-                          value={usedSalesForm.unitPrice}
-                          onChange={(e) => setUsedSalesForm({ ...usedSalesForm, unitPrice: parseInt(e.target.value) || 0 })}
+                          type="tel"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={usedSalesForm.unitPrice || ''}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^0-9]/g, '')
+                            setUsedSalesForm({ ...usedSalesForm, unitPrice: parseInt(value) || 0 })
+                          }}
                           className="form-input"
                           placeholder="手動調整可"
                           style={{ fontSize: '0.85rem', marginTop: '6px' }}
@@ -1627,27 +1671,37 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
               <div className="form-group">
                 <label className="form-label">数量</label>
                 <input
-                  type="number"
-                  min="1"
-                  value={accessoryForm.quantity}
-                  onChange={(e) => setAccessoryForm({ ...accessoryForm, quantity: parseInt(e.target.value) || 1 })}
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={accessoryForm.quantity || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '')
+                    setAccessoryForm({ ...accessoryForm, quantity: parseInt(value) || 1 })
+                  }}
                   className="form-input"
                 />
               </div>
               <div className="form-group">
                 <label className="form-label">単価（税抜）</label>
                 <input
-                  type="number"
-                  value={accessoryForm.unitPrice}
-                  onChange={(e) => setAccessoryForm({ ...accessoryForm, unitPrice: parseInt(e.target.value) || 0 })}
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={accessoryForm.unitPrice || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '')
+                    setAccessoryForm({ ...accessoryForm, unitPrice: parseInt(value) || 0 })
+                  }}
                   className="form-input"
                 />
               </div>
               <div className="form-group">
                 <label className="form-label">原価（税抜）</label>
                 <input
-                  type="number"
-                  value={accessoryForm.unitCost}
+                  type="tel"
+                  inputMode="numeric"
+                  value={accessoryForm.unitCost || ''}
                   readOnly
                   className="form-input"
                   style={{ background: 'var(--color-bg)' }}
@@ -1685,9 +1739,14 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
               <div className="form-group">
                 <label className="form-label">価格（税抜）</label>
                 <input
-                  type="number"
-                  value={dataMigrationForm.unitPrice}
-                  onChange={(e) => setDataMigrationForm({ ...dataMigrationForm, unitPrice: parseInt(e.target.value) || 0 })}
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={dataMigrationForm.unitPrice || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '')
+                    setDataMigrationForm({ ...dataMigrationForm, unitPrice: parseInt(value) || 0 })
+                  }}
                   className="form-input"
                 />
               </div>
@@ -1723,9 +1782,14 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
               <div className="form-group">
                 <label className="form-label">価格（税抜）</label>
                 <input
-                  type="number"
-                  value={operationGuideForm.unitPrice}
-                  onChange={(e) => setOperationGuideForm({ ...operationGuideForm, unitPrice: parseInt(e.target.value) || 0 })}
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={operationGuideForm.unitPrice || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '')
+                    setOperationGuideForm({ ...operationGuideForm, unitPrice: parseInt(value) || 0 })
+                  }}
                   className="form-input"
                 />
               </div>
@@ -1772,14 +1836,17 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                         <td className="text-right">¥{detail.unitPrice.toLocaleString()}</td>
                         <td className="text-right">
                           <input
-                            type="number"
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             className="form-input"
                             style={{ width: '80px', textAlign: 'right', padding: '4px 8px' }}
                             value={detail.discount || ''}
-                            onChange={(e) => updateDetailDiscount(detail.id, parseInt(e.target.value) || 0)}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/[^0-9]/g, '')
+                              updateDetailDiscount(detail.id, parseInt(value) || 0)
+                            }}
                             placeholder="0"
-                            min="0"
-                            step="100"
                           />
                         </td>
                         <td className="text-right">¥{detail.amount.toLocaleString()}</td>

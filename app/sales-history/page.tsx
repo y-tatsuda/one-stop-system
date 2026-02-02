@@ -470,22 +470,30 @@ export default function SalesHistoryPage() {
                         <td>{d.menu}</td>
                         <td className="text-right">
                           <input
-                            type="number"
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             className="form-input"
                             style={{ width: '60px', textAlign: 'right' }}
-                            value={d.quantity}
-                            onChange={(e) => handleDetailChange(i, 'quantity', parseInt(e.target.value) || 1)}
-                            min="1"
+                            value={d.quantity || ''}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/[^0-9]/g, '')
+                              handleDetailChange(i, 'quantity', parseInt(value) || 1)
+                            }}
                           />
                         </td>
                         <td className="text-right">
                           <input
-                            type="number"
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             className="form-input"
                             style={{ width: '100px', textAlign: 'right' }}
-                            value={d.unit_price}
-                            onChange={(e) => handleDetailChange(i, 'unit_price', parseInt(e.target.value) || 0)}
-                            step="100"
+                            value={d.unit_price || ''}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/[^0-9]/g, '')
+                              handleDetailChange(i, 'unit_price', parseInt(value) || 0)
+                            }}
                           />
                         </td>
                         <td className="text-right">{formatCurrency(d.amount)}</td>

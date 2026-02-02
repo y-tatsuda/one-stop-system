@@ -89,6 +89,7 @@ export default function InventoryPage() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [editData, setEditData] = useState({
     sales_price: 0,
+    sales_price_tax_included: '', // 入力用の税込価格（文字列）
     ec_status: '',
     status: '',
     memo: '',
@@ -195,8 +196,11 @@ export default function InventoryPage() {
 
   const openDetailModal = (item: UsedInventory) => {
     setSelectedItem(item)
+    const taxExcluded = item.sales_price || 0
+    const taxIncluded = taxExcluded > 0 ? Math.floor(taxExcluded * 1.1) : ''
     setEditData({
-      sales_price: item.sales_price || 0,
+      sales_price: taxExcluded,
+      sales_price_tax_included: String(taxIncluded),
       ec_status: item.ec_status || '',
       status: item.status,
       memo: item.memo || '',
@@ -615,16 +619,18 @@ export default function InventoryPage() {
                 <div>
                   <label className="form-label" style={{ fontSize: '0.8rem' }}>販売価格（税込で入力）</label>
                   <input
-                    type="number"
-                    value={Math.floor(editData.sales_price * 1.1) || ''}
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={editData.sales_price_tax_included}
                     onChange={(e) => {
-                      const taxIncluded = parseInt(e.target.value) || 0
+                      const value = e.target.value.replace(/[^0-9]/g, '')
+                      const taxIncluded = parseInt(value) || 0
                       const taxExcluded = Math.floor(taxIncluded / 1.1)
-                      setEditData({ ...editData, sales_price: taxExcluded })
+                      setEditData({ ...editData, sales_price: taxExcluded, sales_price_tax_included: value })
                     }}
                     className="form-input"
                     placeholder="税込価格を入力"
-                    step="100"
                   />
                   {editData.sales_price > 0 && (
                     <div style={{ marginTop: '8px', padding: '8px 12px', background: '#F0FDF4', borderRadius: '6px', fontSize: '0.85rem' }}>

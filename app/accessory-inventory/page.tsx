@@ -293,10 +293,14 @@ export default function AccessoryInventoryPage() {
                             {editingId === item.id ? (
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                 <input
-                                  type="number"
-                                  min="0"
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(parseInt(e.target.value) || 0)}
+                                  type="tel"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  value={editValue || ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(/[^0-9]/g, '')
+                                    setEditValue(parseInt(value) || 0)
+                                  }}
                                   className="form-input"
                                   style={{ width: '70px', textAlign: 'center', padding: '4px 8px' }}
                                   autoFocus

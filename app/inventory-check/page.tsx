@@ -346,13 +346,17 @@ export default function InventoryCheckPage() {
                         <td className="text-center" style={{ fontWeight: 500 }}>{item.actual_qty}</td>
                         <td className="text-center">
                           <input
-                            type="number"
-                            min="0"
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={item.input_qty ?? ''}
-                            onChange={(e) => updatePartsInput(
-                              item.id, 
-                              e.target.value === '' ? null : parseInt(e.target.value)
-                            )}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/[^0-9]/g, '')
+                              updatePartsInput(
+                                item.id,
+                                value === '' ? null : parseInt(value)
+                              )
+                            }}
                             placeholder="-"
                             className="form-input"
                             style={{ width: '80px', textAlign: 'center', padding: '4px 8px' }}
@@ -396,8 +400,8 @@ export default function InventoryCheckPage() {
                   {filteredAccessoryItems.map((item) => {
                     const diff = item.input_qty !== null ? item.input_qty - item.actual_qty : null
                     const hasDiff = diff !== null && diff !== 0
-                    const displayName = item.accessory_variation 
-                      ? item.accessory_name + ' ' + item.accessory_variation 
+                    const displayName = item.accessory_variation
+                      ? item.accessory_name + ' ' + item.accessory_variation
                       : item.accessory_name
 
                     return (
@@ -407,13 +411,17 @@ export default function InventoryCheckPage() {
                         <td className="text-center" style={{ fontWeight: 500 }}>{item.actual_qty}</td>
                         <td className="text-center">
                           <input
-                            type="number"
-                            min="0"
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={item.input_qty ?? ''}
-                            onChange={(e) => updateAccessoryInput(
-                              item.id,
-                              e.target.value === '' ? null : parseInt(e.target.value)
-                            )}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/[^0-9]/g, '')
+                              updateAccessoryInput(
+                                item.id,
+                                value === '' ? null : parseInt(value)
+                              )
+                            }}
                             placeholder="-"
                             className="form-input"
                             style={{ width: '80px', textAlign: 'center', padding: '4px 8px' }}

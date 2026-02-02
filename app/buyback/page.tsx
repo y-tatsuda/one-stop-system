@@ -1378,14 +1378,17 @@ function ItemForm({
             <label className="form-label form-label-required">バッテリー残量</label>
             <div className="flex items-center gap-sm">
               <input
-                type="number"
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={item.batteryPercent}
-                onChange={(e) => onUpdate({ batteryPercent: e.target.value })}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9]/g, '')
+                  onUpdate({ batteryPercent: value })
+                }}
                 onBlur={handleBatteryBlur}
                 className="form-input"
                 style={{ width: '100px' }}
-                min="0"
-                max="100"
               />
               <span>%</span>
               <label className="form-check" style={{ marginLeft: '16px' }}>
@@ -1529,12 +1532,15 @@ function ItemForm({
                 <div className="form-group">
                   <label className="form-label form-label-required">対抗価格</label>
                   <input
-                    type="number"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={item.specialPrice}
                     onChange={(e) => {
-                      const newPrice = parseInt(e.target.value) || 0
+                      const value = e.target.value.replace(/[^0-9]/g, '')
+                      const newPrice = parseInt(value) || 0
                       const newProfit = item.salesPrice - (newPrice + item.repairCost)
-                      onUpdate({ specialPrice: e.target.value, finalPrice: newPrice, expectedProfit: newProfit })
+                      onUpdate({ specialPrice: value, finalPrice: newPrice, expectedProfit: newProfit })
                     }}
                     className="form-input"
                     placeholder="買取価格を入力"

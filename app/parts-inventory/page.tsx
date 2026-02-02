@@ -656,10 +656,14 @@ export default function PartsInventoryPage() {
                             {isEditingRequired ? (
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                                 <input
-                                  type="number"
-                                  min="0"
-                                  value={editRequiredValue}
-                                  onChange={(e) => setEditRequiredValue(parseInt(e.target.value) || 0)}
+                                  type="tel"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  value={editRequiredValue || ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(/[^0-9]/g, '')
+                                    setEditRequiredValue(parseInt(value) || 0)
+                                  }}
                                   className="form-input"
                                   style={{ width: '70px', textAlign: 'center', padding: '4px 8px' }}
                                   autoFocus
@@ -702,10 +706,14 @@ export default function PartsInventoryPage() {
                             {isEditingActual ? (
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                                 <input
-                                  type="number"
-                                  min="0"
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(parseInt(e.target.value) || 0)}
+                                  type="tel"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  value={editValue || ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(/[^0-9]/g, '')
+                                    setEditValue(parseInt(value) || 0)
+                                  }}
                                   className="form-input"
                                   style={{ width: '70px', textAlign: 'center', padding: '4px 8px' }}
                                   autoFocus
