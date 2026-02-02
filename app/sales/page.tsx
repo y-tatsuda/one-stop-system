@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 type Shop = {
   id: number
   name: string
+  square_location_id: string | null
 }
 
 type Staff = {
@@ -239,7 +240,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     async function fetchMasterData() {
       const { data: shopsData } = await supabase
         .from('m_shops')
-        .select('id, name')
+        .select('id, name, square_location_id')
         .eq('tenant_id', 1)
         .eq('is_active', true)
         .order('id')
@@ -878,6 +879,142 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
   const totalAmount = details.reduce((sum, d) => sum + d.amount, 0)
   const totalCost = details.reduce((sum, d) => sum + d.cost, 0)
   const totalProfit = totalAmount - totalCost
+
+  // Squareで決済
+  const handleSquareCheckout = async () => {
+    if (!formData.shopId || !formData.staffId) {
+      alert('店舗と担当者を選択してください')
+      return
+    }
+    if (details.length === 0) {
+      alert('明細を追加してください')
+      return
+    }
+
+    // 店舗のLocation IDを取得
+    const shop = shops.find(s => s.id === parseInt(formData.shopId))
+
+    // 明細の説明を作成
+    const itemDescriptions = details.map(d => {
+      if (d.category === '中古販売') {
+        return `${d.model} ${d.storage}GB ${d.rank}`
+      } else if (d.category === 'iPhone修理') {
+        return `${d.model} ${d.menu}`
+      } else {
+        return d.subCategory || d.category
+      }
+    }).join(', ')
+
+    // Square Point of Sale URL Scheme
+    // https://developer.squareup.com/docs/pos-api/build-on-ios
+    const callbackUrl = encodeURIComponent(window.location.origin + '/sales')
+    const amount = totalAmount
+    const currencyCode = 'JPY'
+    const note = encodeURIComponent(itemDescriptions.substring(0, 500))
+
+    // Square POS URLスキーム（iOS）
+    const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify({
+      amount_money: {
+        amount: amount,
+        currency_code: currencyCode
+      },
+      callback_url: callbackUrl,
+      note: itemDescriptions.substring(0, 500),
+      location_id: shop?.square_location_id || ''
+    }))}`
+
+    // まず売上をDBに登録（Square決済前に仮登録）
+    const { data: headerData, error: headerError } = await supabase
+      .from('t_sales')
+      .insert({
+        tenant_id: 1,
+        shop_id: parseInt(formData.shopId),
+        staff_id: parseInt(formData.staffId),
+        visit_source_id: formData.visitSourceId ? parseInt(formData.visitSourceId) : null,
+        sale_date: formData.saleDate,
+        total_amount: totalAmount,
+        total_cost: totalCost,
+        total_profit: totalProfit,
+        sale_type: 'sale',
+        memo: 'Square決済予定',
+      })
+      .select('id')
+      .single()
+
+    if (headerError) {
+      alert('売上登録に失敗しました: ' + headerError.message)
+      return
+    }
+
+    // 明細登録
+    const detailRecords = details.map(d => ({
+      sales_id: headerData.id,
+      category: d.category,
+      sub_category: d.subCategory,
+      model: d.model,
+      menu: d.menu,
+      storage: d.storage,
+      rank: d.rank,
+      accessory_id: d.accessoryId,
+      used_inventory_id: d.usedInventoryId,
+      supplier_id: d.supplierId,
+      quantity: d.quantity,
+      unit_price: d.unitPrice,
+      unit_cost: d.unitCost,
+      amount: d.amount,
+      cost: d.cost,
+      profit: d.profit,
+    }))
+
+    await supabase.from('t_sales_details').insert(detailRecords)
+
+    // 中古在庫のステータス更新
+    for (const detail of details) {
+      if (detail.usedInventoryId) {
+        await supabase
+          .from('t_used_inventory')
+          .update({ status: '販売済' })
+          .eq('id', detail.usedInventoryId)
+      }
+    }
+
+    // iPhone修理のパーツ在庫を減算
+    for (const detail of details) {
+      if (detail.category === 'iPhone修理' && detail.model && detail.menu && detail.supplierId) {
+        if (!isPartsRepairMenu(detail.menu)) continue
+        const partsType = getPartsTypeFromMenu(detail.menu)
+        const { data: invData } = await supabase
+          .from('t_parts_inventory')
+          .select('id, actual_qty')
+          .eq('tenant_id', 1)
+          .eq('shop_id', parseInt(formData.shopId))
+          .eq('model', detail.model)
+          .eq('parts_type', partsType)
+          .eq('supplier_id', detail.supplierId)
+          .single()
+        if (invData) {
+          const newQty = Math.max(0, (invData.actual_qty || 0) - detail.quantity)
+          await supabase
+            .from('t_parts_inventory')
+            .update({ actual_qty: newQty })
+            .eq('id', invData.id)
+        }
+      }
+    }
+
+    // フォームリセット
+    setDetails([])
+    setSelectedCategory('')
+
+    // Square POSアプリを起動（iPadの場合）
+    // Webの場合はアラートを表示
+    const isMobile = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    if (isMobile) {
+      window.location.href = squareUrl
+    } else {
+      alert(`売上を登録しました（ID: ${headerData.id}）\n\n合計金額: ¥${totalAmount.toLocaleString()}\n\nSquare POSアプリで決済してください。\n（iPadからアクセスするとSquareアプリが自動で開きます）`)
+    }
+  }
 
   // 売上登録
   const handleSubmit = async () => {
@@ -1913,12 +2050,20 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
 
       {/* 登録ボタン */}
       {details.length > 0 && (
-        <div className="flex justify-end" style={{ marginTop: '16px' }}>
+        <div style={{ marginTop: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button
             onClick={handleSubmit}
-            className="btn btn-success btn-lg"
+            className="btn btn-primary btn-lg"
+            style={{ minWidth: '200px' }}
           >
-            売上を登録
+            登録（エアレジで会計）
+          </button>
+          <button
+            onClick={handleSquareCheckout}
+            className="btn btn-success btn-lg"
+            style={{ minWidth: '200px' }}
+          >
+            Squareで決済
           </button>
         </div>
       )}
