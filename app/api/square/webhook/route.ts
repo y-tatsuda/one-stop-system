@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
 async function handlePaymentCompleted(payment: any) {
   try {
     console.log('決済完了処理開始:', payment.id)
+    console.log('Payment note:', payment.note)
 
     // 既に処理済みかチェック
     const { data: existing } = await supabase
@@ -65,15 +66,6 @@ async function handlePaymentCompleted(payment: any) {
       console.log('既に処理済みの決済:', payment.id)
       return
     }
-
-    // Location IDから店舗を特定
-    const { data: shop } = await supabase
-      .from('m_shops')
-      .select('id, name')
-      .eq('square_location_id', payment.location_id)
-      .maybeSingle()
-
-    const shopId = shop?.id || 1
 
     // 決済方法の判定（手数料計算用）
     let feeRateKey = 'cash'
@@ -94,6 +86,72 @@ async function handlePaymentCompleted(payment: any) {
     const totalAmount = payment.amount_money?.amount || 0
     const feeAmount = Math.round(totalAmount * feeRate)
 
+    // noteから売上IDを抽出（KIOSKから登録した場合）
+    const noteMatch = payment.note?.match(/\[SALE:(\d+)\]/)
+    const existingSaleId = noteMatch ? parseInt(noteMatch[1]) : null
+
+    if (existingSaleId) {
+      // KIOSKから登録済みの売上を更新
+      const { error: updateError } = await supabase
+        .from('t_sales')
+        .update({
+          square_payment_id: payment.id,
+          square_order_id: payment.order_id || null,
+          square_fee_amount: feeAmount,
+          memo: 'Square決済完了',
+        })
+        .eq('id', existingSaleId)
+
+      if (updateError) {
+        console.error('売上更新エラー:', updateError)
+        return
+      }
+
+      console.log('既存売上を更新:', existingSaleId, '金額:', totalAmount, '手数料:', feeAmount)
+      return
+    }
+
+    // PENDING_xxxで登録された売上を検索（金額とタイミングで紐付け）
+    const { data: pendingSale } = await supabase
+      .from('t_sales')
+      .select('id')
+      .like('square_payment_id', 'PENDING_%')
+      .eq('total_amount', totalAmount)
+      .eq('sale_type', 'sale')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (pendingSale) {
+      // PENDING状態の売上を更新
+      const { error: updateError } = await supabase
+        .from('t_sales')
+        .update({
+          square_payment_id: payment.id,
+          square_order_id: payment.order_id || null,
+          square_fee_amount: feeAmount,
+          memo: 'Square決済完了',
+        })
+        .eq('id', pendingSale.id)
+
+      if (updateError) {
+        console.error('売上更新エラー:', updateError)
+        return
+      }
+
+      console.log('PENDING売上を更新:', pendingSale.id, '金額:', totalAmount, '手数料:', feeAmount)
+      return
+    }
+
+    // 該当する既存売上がない場合は新規作成（Square単体での決済）
+    // Location IDから店舗を特定
+    const { data: shop } = await supabase
+      .from('m_shops')
+      .select('id, name')
+      .eq('square_location_id', payment.location_id)
+      .maybeSingle()
+
+    const shopId = shop?.id || 1
     const saleDate = new Date(payment.created_at).toISOString().split('T')[0]
 
     const { data: sale, error: saleError } = await supabase
@@ -108,6 +166,7 @@ async function handlePaymentCompleted(payment: any) {
         square_payment_id: payment.id,
         square_order_id: payment.order_id || null,
         square_fee_amount: feeAmount,
+        memo: 'Square単体決済',
       })
       .select()
       .single()
@@ -117,7 +176,7 @@ async function handlePaymentCompleted(payment: any) {
       return
     }
 
-    console.log('売上登録完了:', sale.id, '金額:', totalAmount, '店舗:', shop?.name || 'デフォルト')
+    console.log('新規売上登録:', sale.id, '金額:', totalAmount, '店舗:', shop?.name || 'デフォルト', '手数料:', feeAmount)
   } catch (error) {
     console.error('handlePaymentCompleted エラー:', error)
   }

@@ -134,6 +134,9 @@ export default function SalesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [details, setDetails] = useState<SalesDetail[]>([])
 
+  // Square Application ID
+  const [squareApplicationId, setSquareApplicationId] = useState<string | null>(null)
+
   // 【新規】iPhone機種リスト（機種マスタから取得）
   const [iphoneModels, setIphoneModels] = useState<{model: string, display_name: string}[]>([])
   // 【新規】iPhone修理メニュー（DBから取得）
@@ -353,6 +356,14 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         .eq('tenant_id', 1)
         .eq('is_active', true)
 
+      // Square Application ID取得
+      const { data: squareAppIdData } = await supabase
+        .from('m_system_settings')
+        .select('value')
+        .eq('key', 'square_application_id')
+        .single()
+
+      setSquareApplicationId(squareAppIdData?.value || null)
       setShops(shopsData || [])
       setStaff(staffData || [])
       setVisitSources(visitSourcesData || [])
@@ -890,9 +901,17 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       alert('明細を追加してください')
       return
     }
+    if (!squareApplicationId) {
+      alert('Square Application IDが設定されていません。システム設定を確認してください。')
+      return
+    }
 
     // 店舗のLocation IDを取得
     const shop = shops.find(s => s.id === parseInt(formData.shopId))
+    if (!shop?.square_location_id) {
+      alert('この店舗にはSquare Location IDが設定されていません。')
+      return
+    }
 
     // 明細の説明を作成
     const itemDescriptions = details.map(d => {
@@ -905,23 +924,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       }
     }).join(', ')
 
-    // Square Point of Sale URL Scheme
-    // https://developer.squareup.com/docs/pos-api/build-on-ios
-    const callbackUrl = encodeURIComponent(window.location.origin + '/sales')
-    const amount = totalAmount
-    const currencyCode = 'JPY'
-    const note = encodeURIComponent(itemDescriptions.substring(0, 500))
-
-    // Square POS URLスキーム（iOS）
-    const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify({
-      amount_money: {
-        amount: amount,
-        currency_code: currencyCode
-      },
-      callback_url: callbackUrl,
-      note: itemDescriptions.substring(0, 500),
-      location_id: shop?.square_location_id || ''
-    }))}`
+    // PENDING payment ID（Webhook紐付け用）
+    const pendingPaymentId = `PENDING_${Date.now()}`
 
     // まず売上をDBに登録（Square決済前に仮登録）
     const { data: headerData, error: headerError } = await supabase
@@ -936,6 +940,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         total_cost: totalCost,
         total_profit: totalProfit,
         sale_type: 'sale',
+        square_payment_id: pendingPaymentId,
         memo: 'Square決済予定',
       })
       .select('id')
@@ -1005,6 +1010,19 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     // フォームリセット
     setDetails([])
     setSelectedCategory('')
+
+    // Square POS URLを作成（client_id必須、noteにSALE IDを含める）
+    const squareData = {
+      client_id: squareApplicationId,
+      amount_money: {
+        amount: totalAmount,
+        currency_code: 'JPY'
+      },
+      callback_url: `${window.location.origin}/sales`,
+      location_id: shop.square_location_id,
+      notes: `[SALE:${headerData.id}] ${itemDescriptions}`.substring(0, 500),
+    }
+    const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify(squareData))}`
 
     // Square POSアプリを起動（iPadの場合）
     // Webの場合はアラートを表示

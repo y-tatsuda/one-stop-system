@@ -105,6 +105,7 @@ export default function SalesContent({ shopId, shopName }: Props) {
   const [details, setDetails] = useState<SalesDetail[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [squareLocationId, setSquareLocationId] = useState<string | null>(null)
+  const [squareApplicationId, setSquareApplicationId] = useState<string | null>(null)
 
   const [iphoneModels, setIphoneModels] = useState<{model: string, display_name: string}[]>([])
   const [iphoneRepairMenus, setIphoneRepairMenus] = useState<string[]>([])
@@ -151,7 +152,7 @@ export default function SalesContent({ shopId, shopName }: Props) {
 
   useEffect(() => {
     async function fetchMasterData() {
-      const [staffRes, visitRes, accRes, iphoneModelsRes, iphoneMenusRes, suppliersRes, partsCostsRes, ipadPricesRes, androidPricesRes, shopRes, inventoryRes] = await Promise.all([
+      const [staffRes, visitRes, accRes, iphoneModelsRes, iphoneMenusRes, suppliersRes, partsCostsRes, ipadPricesRes, androidPricesRes, shopRes, inventoryRes, squareSettingsRes] = await Promise.all([
         supabase.from('m_staff').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('id'),
         supabase.from('m_visit_sources').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('sort_order'),
         supabase.from('m_accessories').select('id, name, variation, price, cost, category_id, category:m_accessory_categories(name)').eq('tenant_id', 1).eq('is_active', true).order('category_id').order('name'),
@@ -163,6 +164,7 @@ export default function SalesContent({ shopId, shopName }: Props) {
         supabase.from('m_repair_prices_android').select('model, repair_type, price, cost').eq('tenant_id', 1).eq('is_active', true),
         supabase.from('m_shops').select('square_location_id').eq('id', shopId).single(),
         supabase.from('t_used_inventory').select('id, model, storage, rank, sales_price, total_cost, management_number').eq('tenant_id', 1).eq('shop_id', shopId).eq('status', '販売可').order('model'),
+        supabase.from('m_system_settings').select('value').eq('key', 'square_application_id').single(),
       ])
 
       const accessoriesData = (accRes.data || []).map((a: any) => ({
@@ -191,6 +193,7 @@ export default function SalesContent({ shopId, shopName }: Props) {
       setIpadRepairPrices(ipadPricesRes.data || [])
       setAndroidRepairPrices(androidPricesRes.data || [])
       setSquareLocationId(shopRes.data?.square_location_id || null)
+      setSquareApplicationId(squareSettingsRes.data?.value || null)
       setUsedInventory(inventoryRes.data || [])
       setLoading(false)
     }
@@ -382,9 +385,16 @@ export default function SalesContent({ shopId, shopName }: Props) {
     if (!formData.staffId) { alert('担当者を選択してください'); return }
     if (details.length === 0) { alert('明細を追加してください'); return }
 
+    if (useSquare && !squareApplicationId) {
+      alert('Square Application IDが設定されていません。\n管理画面のSquare連携設定を確認してください。')
+      return
+    }
+
     setSubmitting(true)
     try {
       const saleDate = new Date().toISOString().split('T')[0]
+      // Square決済の場合、仮のsquare_payment_idを設定（Webhookで更新される）
+      const pendingPaymentId = useSquare ? `PENDING_${Date.now()}` : null
 
       const { data: headerData, error: headerError } = await supabase
         .from('t_sales')
@@ -392,7 +402,9 @@ export default function SalesContent({ shopId, shopName }: Props) {
           tenant_id: 1, shop_id: shopId, staff_id: parseInt(formData.staffId),
           visit_source_id: formData.visitSourceId ? parseInt(formData.visitSourceId) : null,
           sale_date: saleDate, total_amount: totalAmount, total_cost: totalCost, total_profit: totalProfit,
-          sale_type: 'sale', memo: useSquare ? 'Square決済予定' : null,
+          sale_type: 'sale',
+          memo: useSquare ? 'Square決済予定' : null,
+          square_payment_id: pendingPaymentId,
         })
         .select('id').single()
 
@@ -428,18 +440,33 @@ export default function SalesContent({ shopId, shopName }: Props) {
       setSelectedCategory('')
 
       if (useSquare) {
+        // Square POSアプリ起動用のデータ
         const itemDescriptions = details.map(d => d.category === '中古販売' ? `${d.model} ${d.storage}GB ${d.rank}` : d.category === 'iPhone修理' ? `${d.model} ${d.menu}` : d.subCategory || d.category).join(', ')
-        const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify({
-          amount_money: { amount: totalAmount, currency_code: 'JPY' },
-          callback_url: window.location.href,
-          note: itemDescriptions.substring(0, 500),
-          location_id: squareLocationId || ''
-        }))}`
+
+        // noteにsale_idを含めてWebhookで紐付けできるようにする
+        const noteWithId = `[SALE:${headerData.id}] ${itemDescriptions}`.substring(0, 500)
+
+        const squareData = {
+          client_id: squareApplicationId,
+          amount_money: {
+            amount: totalAmount,
+            currency_code: 'JPY'
+          },
+          callback_url: `${window.location.origin}/buyback-kiosk`,
+          location_id: squareLocationId || '',
+          notes: noteWithId,
+        }
+
+        const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify(squareData))}`
+
+        console.log('Square POS URL:', squareUrl)
+        console.log('Square Data:', squareData)
+
         const isMobile = /iPad|iPhone|iPod/.test(navigator.userAgent)
         if (isMobile) {
           window.location.href = squareUrl
         } else {
-          alert(`売上を登録しました（ID: ${headerData.id}）\n\n合計金額: ¥${totalAmount.toLocaleString()}\n\nSquare POSアプリで決済してください。`)
+          alert(`売上を登録しました（ID: ${headerData.id}）\n\n合計金額: ¥${totalAmount.toLocaleString()}\n\nSquare POSアプリで決済してください。\n（iPadからアクセスするとSquareアプリが自動で開きます）`)
         }
       } else {
         alert(`売上を登録しました（ID: ${headerData.id}）\n\nエアレジで ¥${totalAmount.toLocaleString()} を会計してください。`)
