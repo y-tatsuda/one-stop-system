@@ -109,7 +109,6 @@ async function handlePaymentCompleted(payment: any) {
         square_payment_id: payment.id,
         square_order_id: payment.order_id || null,
         square_fee_amount: feeAmount,
-        note: `Square決済`,
       })
       .select()
       .single()
