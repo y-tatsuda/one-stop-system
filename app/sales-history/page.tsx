@@ -17,6 +17,9 @@ type SalesRecord = {
   shop_name: string
   staff_name: string
   details: SalesDetail[]
+  sale_type: string
+  square_payment_id?: string
+  original_sale_id?: number
 }
 
 type SalesDetail = {
@@ -31,6 +34,7 @@ type SalesDetail = {
   amount: number
   cost: number
   profit: number
+  used_inventory_id?: number
 }
 
 export default function SalesHistoryPage() {
@@ -41,6 +45,13 @@ export default function SalesHistoryPage() {
   const [selectedSale, setSelectedSale] = useState<SalesRecord | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+
+  // 取り消し/返金用
+  const [cancelType, setCancelType] = useState<'cancel' | 'refund'>('cancel')
+  const [restoreInventory, setRestoreInventory] = useState(true)
+  const [inventoryStatus, setInventoryStatus] = useState('販売可')
+  const [cancelProcessing, setCancelProcessing] = useState(false)
 
   // フィルター
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0])
@@ -78,9 +89,10 @@ export default function SalesHistoryPage() {
       .from('t_sales')
       .select(`
         id, sale_date, shop_id, staff_id, total_amount, total_cost, total_profit,
+        sale_type, square_payment_id, original_sale_id,
         m_shops(name),
         m_staff(name),
-        t_sales_details(id, category, sub_category, model, menu, quantity, unit_price, unit_cost, amount, cost, profit)
+        t_sales_details(id, category, sub_category, model, menu, quantity, unit_price, unit_cost, amount, cost, profit, used_inventory_id)
       `)
       .eq('tenant_id', 1)
       .order('sale_date', { ascending: false })
@@ -114,6 +126,9 @@ export default function SalesHistoryPage() {
       shop_name: row.m_shops?.name || '',
       staff_name: row.m_staff?.name || '',
       details: row.t_sales_details || [],
+      sale_type: row.sale_type || 'sale',
+      square_payment_id: row.square_payment_id,
+      original_sale_id: row.original_sale_id,
     }))
 
     setSalesRecords(records)
@@ -133,6 +148,83 @@ export default function SalesHistoryPage() {
   const openDeleteConfirm = (sale: SalesRecord) => {
     setSelectedSale(sale)
     setShowDeleteConfirm(true)
+  }
+
+  const openCancelModal = (sale: SalesRecord) => {
+    setSelectedSale(sale)
+    setCancelType('cancel')
+    setRestoreInventory(true)
+    setInventoryStatus('販売可')
+    setShowCancelModal(true)
+  }
+
+  const handleCancelSale = async () => {
+    if (!selectedSale) return
+
+    setCancelProcessing(true)
+
+    try {
+      const saleDate = new Date().toISOString().split('T')[0]
+
+      // マイナス売上として記録
+      const { data: cancelSale, error: cancelError } = await supabase
+        .from('t_sales')
+        .insert({
+          tenant_id: 1,
+          shop_id: selectedSale.shop_id,
+          staff_id: selectedSale.staff_id,
+          sale_date: saleDate,
+          total_amount: -selectedSale.total_amount,
+          total_cost: selectedSale.total_cost ? -selectedSale.total_cost : 0,
+          total_profit: selectedSale.total_profit ? -selectedSale.total_profit : 0,
+          sale_type: cancelType,
+          original_sale_id: selectedSale.id,
+        })
+        .select()
+        .single()
+
+      if (cancelError) throw cancelError
+
+      // 明細も登録（マイナス金額で）
+      if (selectedSale.details.length > 0) {
+        const cancelDetails = selectedSale.details.map(d => ({
+          sales_id: cancelSale.id,
+          category: d.category,
+          sub_category: d.sub_category,
+          model: d.model,
+          menu: d.menu,
+          quantity: -d.quantity,
+          unit_price: d.unit_price,
+          unit_cost: d.unit_cost,
+          amount: -d.amount,
+          cost: d.cost ? -d.cost : 0,
+          profit: d.profit ? -d.profit : 0,
+        }))
+
+        await supabase.from('t_sales_details').insert(cancelDetails)
+      }
+
+      // 在庫を戻す場合
+      if (restoreInventory) {
+        for (const detail of selectedSale.details) {
+          if (detail.used_inventory_id) {
+            // 中古在庫を指定したステータスに戻す
+            await supabase
+              .from('t_used_inventory')
+              .update({ status: inventoryStatus })
+              .eq('id', detail.used_inventory_id)
+          }
+        }
+      }
+
+      alert(`${cancelType === 'cancel' ? '取り消し' : '返金'}を登録しました（ID: ${cancelSale.id}）`)
+      setShowCancelModal(false)
+      fetchSales()
+    } catch (error: any) {
+      alert(`${cancelType === 'cancel' ? '取り消し' : '返金'}登録に失敗しました: ` + error.message)
+    } finally {
+      setCancelProcessing(false)
+    }
   }
 
   const handleDetailChange = (index: number, field: string, value: number) => {
@@ -351,6 +443,7 @@ export default function SalesHistoryPage() {
                 <thead>
                   <tr>
                     <th>ID</th>
+                    <th>種別</th>
                     <th>日付</th>
                     <th>店舗</th>
                     <th>担当</th>
@@ -362,8 +455,27 @@ export default function SalesHistoryPage() {
                 </thead>
                 <tbody>
                   {salesRecords.map(sale => (
-                    <tr key={sale.id}>
+                    <tr key={sale.id} style={{
+                      background: sale.sale_type === 'cancel' ? '#FEF2F2' :
+                                  sale.sale_type === 'refund' ? '#FFF7ED' : 'inherit'
+                    }}>
                       <td>{sale.id}</td>
+                      <td>
+                        {sale.sale_type === 'sale' && (
+                          <span className="badge badge-success">売上</span>
+                        )}
+                        {sale.sale_type === 'cancel' && (
+                          <span className="badge badge-danger">取消</span>
+                        )}
+                        {sale.sale_type === 'refund' && (
+                          <span className="badge badge-warning">返金</span>
+                        )}
+                        {sale.original_sale_id && (
+                          <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                            元: #{sale.original_sale_id}
+                          </div>
+                        )}
+                      </td>
                       <td>{sale.sale_date}</td>
                       <td>{sale.shop_name}</td>
                       <td>{sale.staff_name}</td>
@@ -374,23 +486,42 @@ export default function SalesHistoryPage() {
                           </div>
                         ))}
                       </td>
-                      <td className="text-right">{formatCurrency(sale.total_amount)}</td>
-                      <td className="text-right">{formatCurrency(sale.total_profit)}</td>
+                      <td className="text-right" style={{
+                        color: sale.total_amount < 0 ? '#DC2626' : 'inherit'
+                      }}>
+                        {formatCurrency(sale.total_amount)}
+                      </td>
+                      <td className="text-right" style={{
+                        color: (sale.total_profit || 0) < 0 ? '#DC2626' : 'inherit'
+                      }}>
+                        {formatCurrency(sale.total_profit || 0)}
+                      </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            className="btn btn-sm btn-secondary"
-                            onClick={() => openEditModal(sale)}
-                          >
-                            編集
-                          </button>
-                          <button
-                            className="btn btn-sm btn-danger"
-                            onClick={() => openDeleteConfirm(sale)}
-                          >
-                            削除
-                          </button>
-                        </div>
+                        {sale.sale_type === 'sale' && (
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => openEditModal(sale)}
+                            >
+                              編集
+                            </button>
+                            <button
+                              className="btn btn-sm btn-warning"
+                              onClick={() => openCancelModal(sale)}
+                            >
+                              取消/返金
+                            </button>
+                            <button
+                              className="btn btn-sm btn-danger"
+                              onClick={() => openDeleteConfirm(sale)}
+                            >
+                              削除
+                            </button>
+                          </div>
+                        )}
+                        {(sale.sale_type === 'cancel' || sale.sale_type === 'refund') && (
+                          <span style={{ color: '#6B7280', fontSize: '0.85rem' }}>-</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -558,7 +689,7 @@ export default function SalesHistoryPage() {
                 </div>
               </div>
               <p style={{ color: '#DC2626', marginTop: '16px' }}>
-                ※ この操作は取り消せません
+                ※ この操作は取り消せません。通常は「取消/返金」ボタンを使用してください。
               </p>
             </div>
             <div className="modal-footer">
@@ -567,6 +698,121 @@ export default function SalesHistoryPage() {
               </button>
               <button className="btn btn-danger" onClick={handleDelete}>
                 削除する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 取り消し/返金モーダル */}
+      {showCancelModal && selectedSale && (
+        <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">取り消し / 返金</h3>
+              <button className="modal-close" onClick={() => setShowCancelModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ background: '#F3F4F6', padding: '16px', borderRadius: '8px', marginBottom: '20px' }}>
+                <div><strong>ID:</strong> {selectedSale.id}</div>
+                <div><strong>日付:</strong> {selectedSale.sale_date}</div>
+                <div><strong>店舗:</strong> {selectedSale.shop_name}</div>
+                <div><strong>金額:</strong> {formatCurrency(selectedSale.total_amount)}</div>
+                <div style={{ marginTop: '8px' }}>
+                  <strong>明細:</strong>
+                  {selectedSale.details.map((d, i) => (
+                    <div key={i} style={{ marginLeft: '16px', fontSize: '0.9rem' }}>
+                      ・{d.category}: {d.model} {d.menu}
+                      {d.used_inventory_id && (
+                        <span style={{ color: '#6B7280', marginLeft: '8px' }}>
+                          (在庫ID: {d.used_inventory_id})
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 取り消しタイプ選択 */}
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">処理タイプ</label>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="cancelType"
+                      checked={cancelType === 'cancel'}
+                      onChange={() => setCancelType('cancel')}
+                    />
+                    取り消し
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="cancelType"
+                      checked={cancelType === 'refund'}
+                      onChange={() => setCancelType('refund')}
+                    />
+                    返金
+                  </label>
+                </div>
+              </div>
+
+              {/* 在庫復元オプション */}
+              {selectedSale.details.some(d => d.used_inventory_id || d.category === '中古販売') && (
+                <div style={{ background: '#EFF6FF', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
+                  <h4 style={{ marginBottom: '12px', fontSize: '1rem' }}>在庫オプション</h4>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '12px' }}>
+                    <input
+                      type="checkbox"
+                      checked={restoreInventory}
+                      onChange={(e) => setRestoreInventory(e.target.checked)}
+                    />
+                    中古在庫をデータベースに戻す
+                  </label>
+
+                  {restoreInventory && (
+                    <div className="form-group" style={{ marginLeft: '24px' }}>
+                      <label className="form-label">ステータス</label>
+                      <select
+                        className="form-select"
+                        value={inventoryStatus}
+                        onChange={(e) => setInventoryStatus(e.target.value)}
+                        style={{ maxWidth: '200px' }}
+                      >
+                        <option value="販売可">販売可</option>
+                        <option value="修理中">修理中</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ background: '#FEF3C7', padding: '12px', borderRadius: '8px', fontSize: '0.9rem' }}>
+                <strong>処理内容:</strong>
+                <ul style={{ margin: '8px 0 0 16px', paddingLeft: '0' }}>
+                  <li>マイナス売上（{formatCurrency(-selectedSale.total_amount)}）を登録します</li>
+                  {restoreInventory && selectedSale.details.some(d => d.used_inventory_id) && (
+                    <li>中古在庫を「{inventoryStatus}」に戻します</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowCancelModal(false)}
+                disabled={cancelProcessing}
+              >
+                キャンセル
+              </button>
+              <button
+                className="btn btn-warning"
+                onClick={handleCancelSale}
+                disabled={cancelProcessing}
+              >
+                {cancelProcessing ? '処理中...' : `${cancelType === 'cancel' ? '取り消し' : '返金'}を実行`}
               </button>
             </div>
           </div>
