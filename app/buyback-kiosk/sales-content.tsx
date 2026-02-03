@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { BATTERY_DEDUCTION_RATE, BATTERY_THRESHOLD } from '../lib/pricing'
 
 type Props = {
   shopId: number
@@ -242,11 +243,16 @@ export default function SalesContent({ shopId, shopName }: Props) {
 
   // 販売価格の減額計算
   useEffect(() => {
-    if (salesDeductionMaster.length === 0 || !usedSalesForm.basePrice) return
+    if (!usedSalesForm.basePrice) return
     const getDeduction = (type: string): number => salesDeductionMaster.find(d => d.deduction_type === type)?.amount || 0
     let total = 0
-    if (usedSalesForm.batteryStatus === '80_89') total += getDeduction('battery_80_89')
-    else if (usedSalesForm.batteryStatus === '79') total += getDeduction('battery_79')
+
+    // バッテリー減額（90%未満で10%減額）
+    if (usedSalesForm.batteryStatus === '80_89' || usedSalesForm.batteryStatus === '79') {
+      total += Math.round(usedSalesForm.basePrice * BATTERY_DEDUCTION_RATE)
+    }
+
+    // その他の減額（固定金額）
     if (usedSalesForm.cameraStain === 'minor') total += getDeduction('camera_stain_minor')
     else if (usedSalesForm.cameraStain === 'major') total += getDeduction('camera_stain_major')
     if (usedSalesForm.nwStatus === 'triangle') total += getDeduction('nw_triangle')

@@ -3,6 +3,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import {
+  calculateBuybackDeduction,
+  calculateSalesDeduction,
+  BATTERY_DEDUCTION_RATE,
+  BATTERY_THRESHOLD,
+  type DeductionData
+} from '../lib/pricing'
 
 // =====================================================
 // 型定義
@@ -10,7 +17,6 @@ import { supabase } from '../lib/supabase'
 type Shop = { id: number; name: string }
 type Staff = { id: number; name: string }
 type IphoneModel = { model: string; display_name: string }
-type DeductionData = { deduction_type: string; amount: number }
 type CostData = { parts_type: string; cost: number }
 
 // 動作チェック項目
@@ -451,54 +457,36 @@ export default function BuybackPage() {
     const item = items[index]
     const deductions = deductionData || []
     const salesDeductions = salesDeductionData || []
-    
-    // 買取減額計算
-    let totalDeduction = 0
     const batteryPercent = parseInt(item.batteryPercent) || 100
-    
-    if (item.isServiceState || batteryPercent <= 79) {
-      const d = deductions.find(d => d.deduction_type === 'battery_79')
-      if (d) totalDeduction += d.amount
-    } else if (batteryPercent <= 89) {
-      const d = deductions.find(d => d.deduction_type === 'battery_80_89')
-      if (d) totalDeduction += d.amount
-    }
-    
-    if (item.nwStatus === 'triangle') {
-      const d = deductions.find(d => d.deduction_type === 'nw_checking')
-      if (d) totalDeduction += d.amount
-    } else if (item.nwStatus === 'cross') {
-      const d = deductions.find(d => d.deduction_type === 'nw_ng')
-      if (d) totalDeduction += d.amount
-    }
-    
-    if (item.cameraStain === 'minor' || item.cameraStain === 'major') {
-      const d = deductions.find(d => d.deduction_type === 'camera_stain')
-      if (d) totalDeduction += d.amount
-    }
-    
-    if (item.cameraBroken) {
-      const d = deductions.find(d => d.deduction_type === 'camera_broken')
-      if (d) totalDeduction += d.amount
-    }
-    
-    if (item.repairHistory) {
-      const d = deductions.find(d => d.deduction_type === 'repair_history')
-      if (d) totalDeduction += d.amount
-    }
+
+    // 買取減額計算（共有ユーティリティ使用）
+    const totalDeduction = calculateBuybackDeduction(
+      basePrice,
+      {
+        batteryPercent,
+        isServiceState: item.isServiceState,
+        nwStatus: item.nwStatus as 'ok' | 'triangle' | 'cross',
+        cameraStain: item.cameraStain as 'none' | 'minor' | 'major',
+        cameraBroken: item.cameraBroken,
+        repairHistory: item.repairHistory,
+      },
+      deductions
+    )
 
     const calculatedPrice = basePrice - totalDeduction
     const finalPrice = Math.max(calculatedPrice, guaranteePrice)
 
-    // 販売価格減額計算
-    let salesDeductionTotal = 0
-    if (item.isServiceState || batteryPercent <= 79) {
-      const d = salesDeductions.find(d => d.deduction_type === 'battery_79')
-      if (d) salesDeductionTotal += d.amount
-    } else if (batteryPercent <= 89) {
-      const d = salesDeductions.find(d => d.deduction_type === 'battery_80_89')
-      if (d) salesDeductionTotal += d.amount
-    }
+    // 販売価格減額計算（共有ユーティリティ使用）
+    const salesDeductionTotal = calculateSalesDeduction(
+      salesBasePrice,
+      {
+        batteryPercent,
+        isServiceState: item.isServiceState,
+        cameraStain: item.cameraStain as 'none' | 'minor',
+        nwStatus: 'ok',
+      },
+      salesDeductions
+    )
 
     const salesPrice = salesBasePrice - salesDeductionTotal
     const totalCost = finalPrice + item.repairCost
@@ -1667,15 +1655,10 @@ function CustomerViewScreen({
                 
                 {item.totalDeduction > 0 && (
                   <>
-                    {item.isServiceState || (parseInt(item.batteryPercent) <= 89) ? (
+                    {item.isServiceState || (parseInt(item.batteryPercent) < BATTERY_THRESHOLD) ? (
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#DC2626' }}>
-                        <span>バッテリー減額（{item.batteryPercent}%）</span>
-                        <span>-¥{(() => {
-                          const bp = parseInt(item.batteryPercent) || 100
-                          if (item.isServiceState || bp <= 79) return item.totalDeduction
-                          if (bp <= 89) return item.totalDeduction
-                          return 0
-                        })().toLocaleString()}</span>
+                        <span>バッテリー減額（{item.isServiceState ? 'サービス' : item.batteryPercent + '%'}・10%減）</span>
+                        <span>-¥{Math.round(item.basePrice * BATTERY_DEDUCTION_RATE).toLocaleString()}</span>
                       </div>
                     ) : null}
                   </>
