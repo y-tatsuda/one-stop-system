@@ -83,11 +83,19 @@ export async function POST(request: NextRequest) {
       return `${num} ${item.modelDisplayName} ${item.storage}GB ${item.rank} → ¥${item.estimatedPrice.toLocaleString()}`
     }).join('\n')
 
+    const addressLine = [
+      postalCode ? `〒${postalCode}` : '',
+      address || '',
+      addressDetail || '',
+    ].filter(Boolean).join(' ')
+
     const slackMessage = [
       '📦 郵送買取申込',
       `申込番号: ${requestNumber}`,
       `お客様: ${customerName} 様`,
       `電話: ${phone}`,
+      ...(email ? [`メール: ${email}`] : []),
+      ...(addressLine ? [`住所: ${addressLine}`] : []),
       `端末数: ${items.length}台`,
       `合計見積金額: ¥${totalEstimatedPrice.toLocaleString()}`,
       '---',
