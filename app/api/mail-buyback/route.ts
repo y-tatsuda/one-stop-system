@@ -78,10 +78,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Slack通知を送信
-    const itemLines = items.map((item: { modelDisplayName: string; storage: string; rank: string; estimatedPrice: number }, i: number) => {
+    const cameraStainLabel = (v: string) => v === 'none' ? 'なし' : v === 'minor' ? '小' : '大'
+
+    const itemLines = items.map((item: {
+      modelDisplayName: string; storage: string; rank: string;
+      batteryPercent: number; imei: string;
+      cameraStain: string; cameraBroken: boolean; repairHistory: boolean;
+      estimatedPrice: number
+    }, i: number) => {
       const num = String.fromCodePoint(0x2460 + i) // ①②③...
-      return `${num} ${item.modelDisplayName} ${item.storage}GB ${item.rank} → ¥${item.estimatedPrice.toLocaleString()}`
-    }).join('\n')
+      const details = [
+        `機種: ${item.modelDisplayName} ${item.storage}GB`,
+        `ランク: ${item.rank}`,
+        `バッテリー: ${item.batteryPercent}%`,
+        `IMEI: ${item.imei || '未入力'}`,
+        `カメラ染み: ${cameraStainLabel(item.cameraStain)}`,
+        `カメラ窓破損: ${item.cameraBroken ? 'あり' : 'なし'}`,
+        `非正規修理歴: ${item.repairHistory ? 'あり' : 'なし'}`,
+        `査定金額: ¥${item.estimatedPrice.toLocaleString()}`,
+      ]
+      return `${num}\n${details.join('\n')}`
+    }).join('\n\n')
 
     const addressLine = [
       postalCode ? `〒${postalCode}` : '',
@@ -92,14 +109,18 @@ export async function POST(request: NextRequest) {
     const slackMessage = [
       '📦 郵送買取申込',
       `申込番号: ${requestNumber}`,
-      `お客様: ${customerName} 様`,
+      '',
+      '【お客様情報】',
+      `氏名: ${customerName} 様`,
+      ...(customerNameKana ? [`フリガナ: ${customerNameKana}`] : []),
       `電話: ${phone}`,
       ...(email ? [`メール: ${email}`] : []),
       ...(addressLine ? [`住所: ${addressLine}`] : []),
-      `端末数: ${items.length}台`,
-      `合計見積金額: ¥${totalEstimatedPrice.toLocaleString()}`,
-      '---',
+      '',
+      '【端末情報】',
       itemLines,
+      '',
+      `合計査定金額: ¥${totalEstimatedPrice.toLocaleString()}`,
     ].join('\n')
 
     // Slack通知（失敗しても申込自体は成功とする）
