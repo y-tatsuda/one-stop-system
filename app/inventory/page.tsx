@@ -123,6 +123,19 @@ export default function InventoryPage() {
     return '-'
   }
 
+  const toWareki = (dateStr: string): string => {
+    if (!dateStr) return ''
+    const date = new Date(dateStr)
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    if (year >= 2019) return `令和${year - 2018}年${month}月${day}日`
+    if (year >= 1989) return `平成${year - 1988}年${month}月${day}日`
+    if (year >= 1926) return `昭和${year - 1925}年${month}月${day}日`
+    if (year >= 1912) return `大正${year - 1911}年${month}月${day}日`
+    return `明治${year - 1867}年${month}月${day}日`
+  }
+
   const getEcStatusDisplay = (status: string | null) => {
     if (!status) return '未出品'
     if (status === 'shopify') return 'Shopify'
@@ -169,7 +182,7 @@ export default function InventoryPage() {
 
     let query = supabase
       .from('t_used_inventory')
-      .select(`*, shop:m_shops(name)`)
+      .select(`*, shop:m_shops(name), buyback:t_buyback(customer_name, customer_birth_date, customer_age, customer_address, customer_address_detail, customer_postal_code, customer_occupation, customer_phone)`)
       .eq('tenant_id', DEFAULT_TENANT_ID)
       .order('arrival_date', { ascending: false })
 
@@ -590,6 +603,7 @@ export default function InventoryPage() {
                   <th>容量</th>
                   <th>ランク</th>
                   <th>管理番号</th>
+                  <th>売却者</th>
                   <th className="text-right">原価</th>
                   <th className="text-right">販売価格</th>
                   <th>EC</th>
@@ -620,6 +634,7 @@ export default function InventoryPage() {
                       <td>{item.storage === 1000 ? '1TB' : `${item.storage}GB`}</td>
                       <td>{item.rank}</td>
                       <td style={{ fontFamily: 'monospace' }}>{item.management_number ? String(item.management_number).padStart(4, '0') : '-'}</td>
+                      <td>{(item as any).buyback?.customer_name || '-'}</td>
                       <td className="text-right">¥{item.total_cost.toLocaleString()}</td>
                       <td className="text-right">
                         {item.sales_price ? (
@@ -728,6 +743,21 @@ export default function InventoryPage() {
                   <div><span style={{ color: '#6B7280' }}>修理費:</span> <span style={{ fontWeight: '500' }}>¥{selectedItem.repair_cost.toLocaleString()}</span></div>
                   <div><span style={{ color: '#6B7280' }}>原価合計:</span> <span style={{ fontWeight: '700' }}>¥{selectedItem.total_cost.toLocaleString()}</span><span style={{ fontSize: '0.7rem', color: '#6B7280', marginLeft: '4px' }}>(税込¥{Math.floor(selectedItem.total_cost * 1.1).toLocaleString()})</span></div>
                 </div>
+              </div>
+              <div style={{ background: '#FFF7ED', borderRadius: '6px', padding: '12px', marginBottom: '12px', border: '1px solid #FED7AA' }}>
+                <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px', color: '#9A3412' }}>売却者情報（古物商法）</h3>
+                {(selectedItem as any).buyback ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '0.8rem' }}>
+                    <div><span style={{ color: '#6B7280' }}>氏名:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_name || '-'}</span></div>
+                    <div><span style={{ color: '#6B7280' }}>生年月日:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_birth_date ? `${(selectedItem as any).buyback.customer_birth_date}（${toWareki((selectedItem as any).buyback.customer_birth_date)}）` : '-'}</span></div>
+                    <div><span style={{ color: '#6B7280' }}>年齢:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_age != null ? `${(selectedItem as any).buyback.customer_age}歳` : '-'}</span></div>
+                    <div><span style={{ color: '#6B7280' }}>住所:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_postal_code || (selectedItem as any).buyback.customer_address ? `〒${(selectedItem as any).buyback.customer_postal_code || ''} ${(selectedItem as any).buyback.customer_address || ''} ${(selectedItem as any).buyback.customer_address_detail || ''}` : '-'}</span></div>
+                    <div><span style={{ color: '#6B7280' }}>職業:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_occupation || '-'}</span></div>
+                    <div><span style={{ color: '#6B7280' }}>電話番号:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_phone || '-'}</span></div>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '0.8rem', color: '#6B7280' }}>売却者情報なし</p>
+                )}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                 <div>

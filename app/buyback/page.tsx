@@ -90,6 +90,20 @@ const STORE_CONSENT_ITEMS = [
   '買い取ったスマートフォンのネットワーク利用制限が「×」になる場合、売却者は買取業者に全額返金するものとします。',
 ]
 
+// 和暦変換
+const toWareki = (dateStr: string): string => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  if (year >= 2019) return `令和${year - 2018}年${month}月${day}日`
+  if (year >= 1989) return `平成${year - 1988}年${month}月${day}日`
+  if (year >= 1926) return `昭和${year - 1925}年${month}月${day}日`
+  if (year >= 1912) return `大正${year - 1911}年${month}月${day}日`
+  return `明治${year - 1867}年${month}月${day}日`
+}
+
 // 買取端末の型定義
 type BuybackItem = {
   id: string
@@ -317,7 +331,7 @@ export default function BuybackPage() {
       const [shopsRes, staffRes, modelsRes] = await Promise.all([
         supabase.from('m_shops').select('id, name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).order('id'),
         supabase.from('m_staff').select('id, name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).order('id'),
-        supabase.from('m_iphone_models').select('model, display_name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).not('model', 'in', '(SE,6s,7,7P)').order('sort_order'),
+        supabase.from('m_iphone_models').select('model, display_name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).not('model', 'in', '(SE,6s,7,7P)').order('sort_order', { ascending: false }),
       ])
 
       setShops(shopsRes.data || [])
@@ -1315,19 +1329,35 @@ function ItemForm({
         )}
       </div>
       <div className="card-body">
-        {/* 基本情報 */}
-        <div className="form-grid-4 mb-lg">
-          <div className="form-group">
-            <label className="form-label form-label-required">機種</label>
-            <select
-              value={item.model}
-              onChange={(e) => onUpdate({ model: e.target.value, storage: '', rank: '' })}
-              className="form-select"
-            >
-              <option value="">選択</option>
-              {iphoneModels.map(m => <option key={m.model} value={m.model}>{m.display_name}</option>)}
-            </select>
+        {/* 機種選択（ボタングリッド） */}
+        <div className="form-group mb-lg">
+          <label className="form-label form-label-required">機種</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+            {iphoneModels.map(m => (
+              <button
+                key={m.model}
+                type="button"
+                onClick={() => onUpdate({ model: m.model, storage: '', rank: '' })}
+                style={{
+                  padding: '10px 4px',
+                  borderRadius: '8px',
+                  border: item.model === m.model ? '2px solid #004AAD' : '1px solid #D1D5DB',
+                  background: item.model === m.model ? '#E8F0FE' : '#FFFFFF',
+                  color: item.model === m.model ? '#004AAD' : '#374151',
+                  fontWeight: item.model === m.model ? '700' : '500',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {m.display_name}
+              </button>
+            ))}
           </div>
+        </div>
+
+        {/* 基本情報 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
           <div className="form-group">
             <label className="form-label form-label-required">容量</label>
             <select
@@ -2016,8 +2046,13 @@ function CustomerInputScreen({
               }}
               className="form-input"
             />
+            {customerInfo.birthDate && (
+              <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#6B7280' }}>
+                {toWareki(customerInfo.birthDate)}
+              </div>
+            )}
             {customerInfo.age !== null && (
-              <div style={{ marginTop: '8px', fontSize: '0.9rem', color: customerInfo.isMinor ? '#DC2626' : '#374151', fontWeight: customerInfo.isMinor ? '600' : '400' }}>
+              <div style={{ marginTop: '4px', fontSize: '0.9rem', color: customerInfo.isMinor ? '#DC2626' : '#374151', fontWeight: customerInfo.isMinor ? '600' : '400' }}>
                 年齢: {customerInfo.age}歳
                 {customerInfo.isMinor && ' （18歳未満）'}
               </div>
@@ -2340,7 +2375,7 @@ function VerificationScreen({
               {customerInfo.nameKana && (
                 <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>フリガナ</td><td style={{ fontWeight: '600' }}>{customerInfo.nameKana}</td></tr>
               )}
-              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>生年月日</td><td style={{ fontWeight: '600' }}>{customerInfo.birthDate}（{customerInfo.age}歳{customerInfo.isMinor && <span style={{ color: '#DC2626' }}> ※18歳未満</span>}）</td></tr>
+              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>生年月日</td><td style={{ fontWeight: '600' }}>{customerInfo.birthDate}（{toWareki(customerInfo.birthDate)}）{customerInfo.age}歳{customerInfo.isMinor && <span style={{ color: '#DC2626' }}> ※18歳未満</span>}</td></tr>
               <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>住所</td><td style={{ fontWeight: '600' }}>〒{customerInfo.postalCode} {customerInfo.address} {customerInfo.addressDetail}</td></tr>
               <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>職業</td><td style={{ fontWeight: '600' }}>{customerInfo.occupation}</td></tr>
               <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>電話番号</td><td style={{ fontWeight: '600' }}>{customerInfo.phone}</td></tr>
