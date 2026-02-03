@@ -878,10 +878,41 @@ ${bankInfo.accountHolder}
   // 買取方法選択画面
   // =====================================================
   if (phase === 'select') {
+    // KIOSKモード用のスタイル
+    const selectContainerStyle = isKioskMode ? {
+      padding: '32px 40px',
+      maxWidth: '1000px',
+      margin: '0 auto',
+    } : {}
+
     return (
-      <div className="page-container">
-        <h1 className="page-title">買取入力</h1>
-        
+      <div className="page-container" style={selectContainerStyle}>
+        {/* KIOSKモード時のヘッダー */}
+        {isKioskMode && (
+          <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <button
+              onClick={() => window.location.href = '/buyback-kiosk'}
+              style={{
+                padding: '12px 24px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                background: '#6B7280',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              ← メニューに戻る
+            </button>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1F2937' }}>買取登録</h1>
+            <div style={{ width: '140px' }}></div>
+          </div>
+        )}
+
+        {/* 通常モード時のタイトル */}
+        {!isKioskMode && <h1 className="page-title">買取入力</h1>}
+
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">買取方法を選択してください</h2>
