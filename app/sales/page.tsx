@@ -1060,8 +1060,9 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify(squareData))}`
 
     // Square POS起動前にKIOSK状態を保存（戻り時の認証スキップ用）
-    if (window.location.search) {
-      sessionStorage.setItem('square_callback_params', window.location.search)
+    const kioskParam = new URLSearchParams(window.location.search).get('kiosk')
+    if (kioskParam === 'true') {
+      localStorage.setItem('kiosk_square_pending', 'true')
     }
 
     // Square POSアプリを起動（iPad/iPhoneの場合）
