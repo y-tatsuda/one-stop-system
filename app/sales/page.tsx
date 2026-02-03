@@ -1071,10 +1071,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       location_id: shop.square_location_id,
       notes: `[SALE:${headerData.id}] ${itemDescriptions}`.substring(0, 500),
       supported_tender_types: [
-        'CREDIT_CARD',
+        'CARD',
         'CASH',
-        'SQUARE_GIFT_CARD',
-        'CARD_ON_FILE',
       ],
     }
     const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify(squareData))}`
