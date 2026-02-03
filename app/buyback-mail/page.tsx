@@ -110,7 +110,7 @@ export default function MailBuybackPage() {
         .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .not('model', 'in', '(SE,6s,7,7P)')
-        .order('sort_order')
+        .order('sort_order', { ascending: false })
 
       setIphoneModels(modelsRes || [])
       setLoading(false)
@@ -881,9 +881,26 @@ function DeviceItemForm({
             className={`form-select ${errors[`item_${index}_model`] ? 'form-input-error' : ''}`}
           >
             <option value="">選択してください</option>
-            {iphoneModels.map(m => (
-              <option key={m.model} value={m.model}>{m.display_name}</option>
-            ))}
+            {(() => {
+              const groups: { series: string; label: string; models: typeof iphoneModels }[] = []
+              for (const m of iphoneModels) {
+                const series = m.model === 'Air' ? '17' : m.model === '16e' ? '16'
+                  : (m.model.match(/^(\d+)/)?.[1] || m.model.replace(/Max$|Pro$/, '') || m.model)
+                let group = groups.find(g => g.series === series)
+                if (!group) {
+                  group = { series, label: `${series}シリーズ`, models: [] }
+                  groups.push(group)
+                }
+                group.models.push(m)
+              }
+              return groups.map(g => (
+                <optgroup key={g.series} label={g.label}>
+                  {g.models.map(m => (
+                    <option key={m.model} value={m.model}>{m.display_name}</option>
+                  ))}
+                </optgroup>
+              ))
+            })()}
           </select>
           {errors[`item_${index}_model`] && <div className="form-error">{errors[`item_${index}_model`]}</div>}
         </div>
