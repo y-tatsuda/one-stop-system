@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
-type Shop = {
-  id: number
-  name: string
-}
+import { DEFAULT_TENANT_ID } from '../lib/constants'
+import { Shop } from '../lib/types'
 
 type Category = {
   id: number
@@ -51,7 +48,7 @@ export default function AccessoryInventoryPage() {
       const { data: shopsData } = await supabase
         .from('m_shops')
         .select('id, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('id')
 
@@ -59,7 +56,7 @@ export default function AccessoryInventoryPage() {
       const { data: categoriesData } = await supabase
         .from('m_accessory_categories')
         .select('id, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('sort_order')
 
@@ -96,7 +93,7 @@ export default function AccessoryInventoryPage() {
             category_id
           )
         `)
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('shop_id', parseInt(selectedShop))
 
       if (error) {

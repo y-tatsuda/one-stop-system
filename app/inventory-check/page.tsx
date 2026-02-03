@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
-type Shop = {
-  id: number
-  name: string
-}
+import { DEFAULT_TENANT_ID } from '../lib/constants'
+import { Shop } from '../lib/types'
 
 type PartsItem = {
   id: number
@@ -51,7 +48,7 @@ export default function InventoryCheckPage() {
       const { data: shopsData } = await supabase
         .from('m_shops')
         .select('id, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('id')
 
@@ -76,7 +73,7 @@ export default function InventoryCheckPage() {
       const { data: checkData } = await supabase
         .from('t_inventory_checks')
         .select('id, check_date, check_type, status')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('shop_id', parseInt(selectedShop))
         .eq('check_date', today)
         .eq('check_type', checkType)
@@ -88,7 +85,7 @@ export default function InventoryCheckPage() {
         const { data } = await supabase
           .from('t_parts_inventory')
           .select('id, model, parts_type, actual_qty')
-          .eq('tenant_id', 1)
+          .eq('tenant_id', DEFAULT_TENANT_ID)
           .eq('shop_id', parseInt(selectedShop))
           .order('model')
           .order('parts_type')
@@ -111,7 +108,7 @@ export default function InventoryCheckPage() {
               )
             )
           `)
-          .eq('tenant_id', 1)
+          .eq('tenant_id', DEFAULT_TENANT_ID)
           .eq('shop_id', parseInt(selectedShop))
 
         if (data) {
@@ -195,7 +192,7 @@ export default function InventoryCheckPage() {
         const { data, error } = await supabase
           .from('t_inventory_checks')
           .insert({
-            tenant_id: 1,
+            tenant_id: DEFAULT_TENANT_ID,
             shop_id: parseInt(selectedShop),
             check_date: today,
             check_type: checkType,

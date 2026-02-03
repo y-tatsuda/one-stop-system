@@ -2,16 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
-type Shop = {
-  id: number
-  name: string
-}
-
-type Staff = {
-  id: number
-  name: string
-}
+import { DEFAULT_TENANT_ID } from '../lib/constants'
+import { Shop, Staff } from '../lib/types'
 
 type Sale = {
   id: number
@@ -56,8 +48,8 @@ export default function SalesCorrectionPage() {
   useEffect(() => {
     async function fetchMasters() {
       const [{ data: shopsData }, { data: staffData }] = await Promise.all([
-        supabase.from('m_shops').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('id'),
-        supabase.from('m_staff').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('name'),
+        supabase.from('m_shops').select('id, name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).order('id'),
+        supabase.from('m_staff').select('id, name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).order('name'),
       ])
       setShops(shopsData || [])
       setStaffList(staffData || [])
@@ -80,7 +72,7 @@ export default function SalesCorrectionPage() {
         m_staff(name),
         t_sales_details(category, model, menu)
       `, { count: 'exact' })
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .gte('sale_date', startDate)
       .lte('sale_date', endDate)
       .order('sale_date', { ascending: false })

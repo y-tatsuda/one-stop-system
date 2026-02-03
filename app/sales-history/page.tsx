@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
-type Shop = { id: number; name: string }
-type Staff = { id: number; name: string }
+import { DEFAULT_TENANT_ID } from '../lib/constants'
+import { Shop, Staff } from '../lib/types'
 
 type SalesRecord = {
   id: number
@@ -76,8 +75,8 @@ export default function SalesHistoryPage() {
 
   const fetchMasterData = async () => {
     const [shopsRes, staffRes] = await Promise.all([
-      supabase.from('m_shops').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('id'),
-      supabase.from('m_staff').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('id'),
+      supabase.from('m_shops').select('id, name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).order('id'),
+      supabase.from('m_staff').select('id, name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).order('id'),
     ])
     setShops(shopsRes.data || [])
     setStaffList(staffRes.data || [])
@@ -94,7 +93,7 @@ export default function SalesHistoryPage() {
         m_staff(name),
         t_sales_details(id, category, sub_category, model, menu, quantity, unit_price, unit_cost, amount, cost, profit, used_inventory_id)
       `)
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .order('sale_date', { ascending: false })
       .order('id', { ascending: false })
 
@@ -170,7 +169,7 @@ export default function SalesHistoryPage() {
       const { data: cancelSale, error: cancelError } = await supabase
         .from('t_sales')
         .insert({
-          tenant_id: 1,
+          tenant_id: DEFAULT_TENANT_ID,
           shop_id: selectedSale.shop_id,
           staff_id: selectedSale.staff_id,
           sale_date: saleDate,

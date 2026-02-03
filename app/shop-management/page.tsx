@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { DEFAULT_TENANT_ID } from '../lib/constants'
 
 type Shop = {
   id: number
@@ -34,7 +35,7 @@ export default function ShopManagementPage() {
     const { data } = await supabase
       .from('m_shops')
       .select('id, name, code, is_active, is_ec, created_at')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .order('id')
 
     setShops(data || [])
@@ -105,7 +106,7 @@ export default function ShopManagementPage() {
         const { error } = await supabase
           .from('m_shops')
           .insert({
-            tenant_id: 1,
+            tenant_id: DEFAULT_TENANT_ID,
             name: formData.name.trim(),
             code: formData.code.trim(),
             is_ec: formData.is_ec,

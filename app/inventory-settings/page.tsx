@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { DEFAULT_TENANT_ID } from '../lib/constants'
 
 type CheckSetting = {
   id: number
@@ -24,7 +25,7 @@ export default function InventoryCheckSettingsPage() {
     const { data } = await supabase
       .from('m_inventory_check_settings')
       .select('id, day_of_week, is_active')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .order('day_of_week')
 
     setSettings(data || [])
@@ -67,7 +68,7 @@ export default function InventoryCheckSettingsPage() {
         const { error } = await supabase
           .from('m_inventory_check_settings')
           .insert({
-            tenant_id: 1,
+            tenant_id: DEFAULT_TENANT_ID,
             day_of_week: selectedDay,
             is_active: true,
           })

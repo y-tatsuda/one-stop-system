@@ -2,12 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
-type Shop = {
-  id: number
-  name: string
-  square_location_id: string | null
-}
+import { DEFAULT_TENANT_ID } from '../lib/constants'
+import { Shop } from '../lib/types'
 
 type SyncStatus = {
   loading: boolean
@@ -41,7 +37,7 @@ export default function SquareSettingsPage() {
     const { data: shopsData } = await supabase
       .from('m_shops')
       .select('id, name, square_location_id')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('id')
 
@@ -105,7 +101,7 @@ export default function SquareSettingsPage() {
         await supabase
           .from('m_system_settings')
           .upsert({
-            tenant_id: 1,
+            tenant_id: DEFAULT_TENANT_ID,
             key: setting.key,
             value: setting.value,
             updated_at: new Date().toISOString(),

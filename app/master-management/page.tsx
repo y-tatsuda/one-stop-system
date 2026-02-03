@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { DEFAULT_TENANT_ID } from '../lib/constants'
 
 type MainTab = 'repair_parts' | 'buyback' | 'sales' | 'accessory' | 'imei_lookup'
 type BuybackSubTab = 'price' | 'deduction' | 'guarantee'
@@ -269,7 +270,7 @@ export default function MasterManagementPage() {
     const { data: modelsData } = await supabase
       .from('m_iphone_models')
       .select('model, display_name')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('sort_order')
 
@@ -279,7 +280,7 @@ export default function MasterManagementPage() {
     const { data: suppliersData } = await supabase
       .from('m_suppliers')
       .select('id, code, name')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('sort_order')
 
@@ -293,7 +294,7 @@ export default function MasterManagementPage() {
     const { data: repairData } = await supabase
       .from('m_repair_prices_iphone')
       .select('id, model, repair_type, price')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('model')
       .order('repair_type')
@@ -304,7 +305,7 @@ export default function MasterManagementPage() {
     const { data: partsData } = await supabase
       .from('m_costs_hw')
       .select('id, model, parts_type, cost, supplier_id')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('model')
       .order('parts_type')
@@ -315,7 +316,7 @@ export default function MasterManagementPage() {
     const { data: buybackData } = await supabase
       .from('m_buyback_prices')
       .select('id, model, storage, rank, price')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('model')
       .order('storage')
@@ -327,7 +328,7 @@ export default function MasterManagementPage() {
     const { data: buybackDeductionData } = await supabase
       .from('m_buyback_deductions')
       .select('id, model, storage, deduction_type, amount')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('model')
       .order('storage')
@@ -339,7 +340,7 @@ export default function MasterManagementPage() {
     const { data: buybackGuaranteeData } = await supabase
       .from('m_buyback_guarantees')
       .select('id, model, storage, guarantee_price')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('model')
       .order('storage')
@@ -350,7 +351,7 @@ export default function MasterManagementPage() {
     const { data: salesData } = await supabase
       .from('m_sales_prices')
       .select('id, model, storage, rank, price, price_excl_tax')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('model')
       .order('storage')
@@ -362,7 +363,7 @@ export default function MasterManagementPage() {
     const { data: salesDeductionData } = await supabase
       .from('m_sales_price_deductions')
       .select('id, model, deduction_type, amount')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('model')
       .order('deduction_type')
@@ -373,7 +374,7 @@ export default function MasterManagementPage() {
     const { data: categoryData } = await supabase
       .from('m_accessory_categories')
       .select('id, name')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('sort_order')
 
@@ -383,7 +384,7 @@ export default function MasterManagementPage() {
     const { data: accessoryData } = await supabase
       .from('m_accessories')
       .select('id, name, variation, price, cost, category_id, m_accessory_categories(name)')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('name')
 
@@ -591,7 +592,7 @@ export default function MasterManagementPage() {
 
     const { data: repairData, error: repairError } = await supabase
       .from('m_repair_prices_iphone')
-      .insert({ tenant_id: 1, model: newModel, repair_type: newRepairType, price: newPrice, is_active: true })
+      .insert({ tenant_id: DEFAULT_TENANT_ID, model: newModel, repair_type: newRepairType, price: newPrice, is_active: true })
       .select()
       .single()
 
@@ -609,7 +610,7 @@ export default function MasterManagementPage() {
     const newPartsType = getPartsTypeFromRepairType(newRepairType)
     const { data: partsData } = await supabase
       .from('m_costs_hw')
-      .insert({ tenant_id: 1, model: newModel, parts_type: newPartsType, cost: newCost, supplier_id: parseInt(newSupplierId), is_active: true })
+      .insert({ tenant_id: DEFAULT_TENANT_ID, model: newModel, parts_type: newPartsType, cost: newCost, supplier_id: parseInt(newSupplierId), is_active: true })
       .select()
       .single()
 
@@ -627,7 +628,7 @@ export default function MasterManagementPage() {
     setSaving(true)
     const { data, error } = await supabase
       .from('m_buyback_prices')
-      .insert({ tenant_id: 1, model: newModel, storage: newStorage, rank: newRank, price: newPrice, is_active: true })
+      .insert({ tenant_id: DEFAULT_TENANT_ID, model: newModel, storage: newStorage, rank: newRank, price: newPrice, is_active: true })
       .select()
       .single()
 
@@ -647,7 +648,7 @@ export default function MasterManagementPage() {
     setSaving(true)
     const { data, error } = await supabase
       .from('m_buyback_deductions')
-      .insert({ tenant_id: 1, model: newModel, storage: newStorage, deduction_type: newDeductionType, amount: newAmount, is_active: true })
+      .insert({ tenant_id: DEFAULT_TENANT_ID, model: newModel, storage: newStorage, deduction_type: newDeductionType, amount: newAmount, is_active: true })
       .select()
       .single()
 
@@ -667,7 +668,7 @@ export default function MasterManagementPage() {
     setSaving(true)
     const { data, error } = await supabase
       .from('m_buyback_guarantees')
-      .insert({ tenant_id: 1, model: newModel, storage: newStorage, guarantee_price: newGuaranteePrice, is_active: true })
+      .insert({ tenant_id: DEFAULT_TENANT_ID, model: newModel, storage: newStorage, guarantee_price: newGuaranteePrice, is_active: true })
       .select()
       .single()
 
@@ -687,7 +688,7 @@ export default function MasterManagementPage() {
     setSaving(true)
     const { data, error } = await supabase
       .from('m_sales_prices')
-      .insert({ tenant_id: 1, model: newModel, storage: newStorage, rank: newRank, price: newPrice, price_excl_tax: newPriceExclTax, is_active: true })
+      .insert({ tenant_id: DEFAULT_TENANT_ID, model: newModel, storage: newStorage, rank: newRank, price: newPrice, price_excl_tax: newPriceExclTax, is_active: true })
       .select()
       .single()
 
@@ -707,7 +708,7 @@ export default function MasterManagementPage() {
     setSaving(true)
     const { data, error } = await supabase
       .from('m_sales_price_deductions')
-      .insert({ tenant_id: 1, model: newModel, deduction_type: newDeductionType, amount: newAmount, is_active: true })
+      .insert({ tenant_id: DEFAULT_TENANT_ID, model: newModel, deduction_type: newDeductionType, amount: newAmount, is_active: true })
       .select()
       .single()
 
@@ -727,7 +728,7 @@ export default function MasterManagementPage() {
     setSaving(true)
     const { data, error } = await supabase
       .from('m_accessories')
-      .insert({ tenant_id: 1, category_id: newAccessoryCategoryId, name: newAccessoryName, variation: newAccessoryVariation || null, price: newPrice, cost: newCost, is_active: true })
+      .insert({ tenant_id: DEFAULT_TENANT_ID, category_id: newAccessoryCategoryId, name: newAccessoryName, variation: newAccessoryVariation || null, price: newPrice, cost: newCost, is_active: true })
       .select('id, name, variation, price, cost, category_id, m_accessory_categories(name)')
       .single()
 
@@ -752,7 +753,7 @@ export default function MasterManagementPage() {
     setSaving(true)
     const insertData = bulkStorages.flatMap(storage =>
       RANKS.map(rank => ({
-        tenant_id: 1, model: bulkModel, storage, rank, price: bulkPrices[`${storage}_${rank}`] || 0, is_active: true
+        tenant_id: DEFAULT_TENANT_ID, model: bulkModel, storage, rank, price: bulkPrices[`${storage}_${rank}`] || 0, is_active: true
       }))
     )
 
@@ -780,7 +781,7 @@ export default function MasterManagementPage() {
       RANKS.map(rank => {
         const priceExclTax = bulkPrices[`${storage}_${rank}`] || 0
         return {
-          tenant_id: 1, model: bulkModel, storage, rank, price: Math.floor(priceExclTax * 1.1), price_excl_tax: priceExclTax, is_active: true
+          tenant_id: DEFAULT_TENANT_ID, model: bulkModel, storage, rank, price: Math.floor(priceExclTax * 1.1), price_excl_tax: priceExclTax, is_active: true
         }
       })
     )
@@ -829,7 +830,7 @@ export default function MasterManagementPage() {
           model, storage, rank, imei, battery_percent, color,
           buyback_id, used_inventory_id
         `)
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('imei', imeiSearch.trim())
         .single()
 

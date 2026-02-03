@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
-type Shop = {
-  id: number
-  name: string
-}
+import { DEFAULT_TENANT_ID } from '../lib/constants'
+import { Shop } from '../lib/types'
 
 type Staff = {
   id: number
@@ -64,14 +61,14 @@ export default function DailyReportPage() {
       const { data: shopsData } = await supabase
         .from('m_shops')
         .select('id, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('id')
 
       const { data: staffData } = await supabase
         .from('m_staff')
         .select('id, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('id')
 
@@ -107,7 +104,7 @@ export default function DailyReportPage() {
             amount
           )
         `)
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('shop_id', shopId)
         .eq('sale_date', formData.reportDate)
 
@@ -115,7 +112,7 @@ export default function DailyReportPage() {
       const { data: buybackData } = await supabase
         .from('t_buyback')
         .select('id')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('shop_id', shopId)
         .eq('buyback_date', formData.reportDate)
 
@@ -184,7 +181,7 @@ export default function DailyReportPage() {
       const { data: reportData } = await supabase
         .from('t_daily_reports')
         .select('id, memo, sent_to_chat, sent_at, staff_id')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('shop_id', shopId)
         .eq('report_date', formData.reportDate)
         .single()
@@ -219,7 +216,7 @@ export default function DailyReportPage() {
     setSaving(true)
 
     const reportData = {
-      tenant_id: 1,
+      tenant_id: DEFAULT_TENANT_ID,
       shop_id: parseInt(formData.shopId),
       staff_id: parseInt(formData.staffId),
       report_date: formData.reportDate,

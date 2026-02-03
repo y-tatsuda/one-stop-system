@@ -3,53 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
-
-type Shop = {
-  id: number
-  name: string
-  square_location_id: string | null
-  is_ec: boolean
-}
-
-type Staff = {
-  id: number
-  name: string
-}
-
-type VisitSource = {
-  id: number
-  name: string
-}
+import { DEFAULT_TENANT_ID } from '../lib/constants'
+import { Shop, Staff, VisitSource, Supplier, Accessory, UsedInventoryBase } from '../lib/types'
 
 type AndroidModel = {
   model: string
 }
 
-type Accessory = {
-  id: number
-  name: string
-  variation: string | null
-  price: number
-  cost: number
-  category_id: number
-  category_name: string
-}
-
-type UsedInventory = {
-  id: number
-  model: string
-  storage: number
-  rank: string
-  sales_price: number
-  total_cost: number
-  management_number: string | null
-}
-
-type Supplier = {
-  id: number
-  code: string
-  name: string
-}
+// 販売用の中古在庫型（基本型を拡張）
+type UsedInventory = UsedInventoryBase
 
 type SalesDetail = {
   id: string
@@ -302,21 +264,21 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       const { data: shopsData } = await supabase
         .from('m_shops')
         .select('id, name, square_location_id, is_ec')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('id')
 
       const { data: staffData } = await supabase
         .from('m_staff')
         .select('id, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('id')
 
       const { data: visitSourcesData } = await supabase
         .from('m_visit_sources')
         .select('id, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('sort_order')
 
@@ -324,7 +286,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       const { data: androidData } = await supabase
         .from('m_repair_prices_android')
         .select('model')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('model')
 
@@ -340,7 +302,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
           id, name, variation, price, cost, category_id,
           category:m_accessory_categories(name)
         `)
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('category_id')
         .order('name')
@@ -361,7 +323,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       const { data: iphoneModelsData } = await supabase
         .from('m_iphone_models')
         .select('model, display_name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('sort_order')
 
@@ -369,7 +331,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       const { data: iphoneMenusData } = await supabase
         .from('m_repair_prices_iphone')
         .select('repair_type')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
 
       // 重複削除して順序を調整（REPAIR_TYPE_ORDER定数を使用）
@@ -389,7 +351,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       const { data: suppliersData } = await supabase
         .from('m_suppliers')
         .select('id, code, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('sort_order')
 
@@ -397,21 +359,21 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       const { data: partsCostsData } = await supabase
         .from('m_costs_hw')
         .select('model, parts_type')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
 
       // iPad修理価格データ取得（原価含む）
       const { data: ipadPricesData } = await supabase
         .from('m_repair_prices_ipad')
         .select('model, repair_type, price, cost')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
 
       // Android修理価格データ取得（原価含む）
       const { data: androidPricesData } = await supabase
         .from('m_repair_prices_android')
         .select('model, repair_type, price, cost')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
 
       // Square Application ID取得
@@ -475,7 +437,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       const { data } = await supabase
         .from('t_used_inventory')
         .select('id, model, storage, rank, sales_price, total_cost, management_number')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('shop_id', formData.shopId)
         .eq('status', '販売可')
         .order('model')
@@ -495,7 +457,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       const { data } = await supabase
         .from('m_repair_prices_iphone')
         .select('price')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('model', iphoneForm.model)
         .eq('repair_type', iphoneForm.menu)
         .single()
@@ -507,7 +469,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       let costQuery = supabase
         .from('m_costs_hw')
         .select('cost')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('model', iphoneForm.model)
         .eq('parts_type', partsType)
 
@@ -545,7 +507,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       const { data: priceData } = await supabase
         .from('m_sales_prices')
         .select('price')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('model', inventory.model)
         .eq('storage', inventory.storage)
         .eq('rank', inventory.rank)
@@ -558,7 +520,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       const { data: deductionData } = await supabase
         .from('m_sales_price_deductions')
         .select('deduction_type, amount')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('model', inventory.model)
         .eq('is_active', true)
 
@@ -996,7 +958,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     const { data: headerData, error: headerError } = await supabase
       .from('t_sales')
       .insert({
-        tenant_id: 1,
+        tenant_id: DEFAULT_TENANT_ID,
         shop_id: parseInt(formData.shopId),
         staff_id: selectedShopIsEc ? null : parseInt(formData.staffId),
         visit_source_id: selectedShopIsEc ? null : (formData.visitSourceId ? parseInt(formData.visitSourceId) : null),
@@ -1057,7 +1019,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
           const { data: invData } = await supabase
             .from('t_parts_inventory')
             .select('id, actual_qty')
-            .eq('tenant_id', 1)
+            .eq('tenant_id', DEFAULT_TENANT_ID)
             .eq('shop_id', parseInt(formData.shopId))
             .eq('model', detail.model)
             .eq('parts_type', partsType)
@@ -1120,7 +1082,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     const { data: headerData, error: headerError } = await supabase
       .from('t_sales')
       .insert({
-        tenant_id: 1,
+        tenant_id: DEFAULT_TENANT_ID,
         shop_id: parseInt(formData.shopId),
         staff_id: selectedShopIsEc ? null : parseInt(formData.staffId),
         visit_source_id: selectedShopIsEc ? null : (formData.visitSourceId ? parseInt(formData.visitSourceId) : null),
@@ -1201,7 +1163,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
           const { data: invData, error: invFetchError } = await supabase
             .from('t_parts_inventory')
             .select('id, actual_qty')
-            .eq('tenant_id', 1)
+            .eq('tenant_id', DEFAULT_TENANT_ID)
             .eq('shop_id', parseInt(formData.shopId))
             .eq('model', detail.model)
             .eq('parts_type', partsType)

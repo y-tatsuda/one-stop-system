@@ -2,18 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { PARTS_MODEL_GROUPS, DEFAULT_HIDDEN_MODELS, DEFAULT_HIDDEN_PARTS } from '../lib/constants'
-
-type Shop = {
-  id: number
-  name: string
-}
-
-type Supplier = {
-  id: number
-  code: string
-  name: string
-}
+import { DEFAULT_TENANT_ID, PARTS_MODEL_GROUPS, DEFAULT_HIDDEN_MODELS, DEFAULT_HIDDEN_PARTS } from '../lib/constants'
+import { Shop, Supplier } from '../lib/types'
 
 type PartsInventory = {
   id: number
@@ -119,21 +109,21 @@ export default function PartsInventoryPage() {
       const { data: shopsData } = await supabase
         .from('m_shops')
         .select('id, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('id')
 
       const { data: modelsData } = await supabase
         .from('m_iphone_models')
         .select('model, display_name, sort_order')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('sort_order')
 
       const { data: suppliersData } = await supabase
         .from('m_suppliers')
         .select('id, code, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('sort_order')
 
@@ -163,7 +153,7 @@ export default function PartsInventoryPage() {
       const { data } = await supabase
         .from('t_parts_inventory')
         .select('*')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('shop_id', parseInt(selectedShop))
         .eq('supplier_id', parseInt(selectedSupplier))
         .order('model')

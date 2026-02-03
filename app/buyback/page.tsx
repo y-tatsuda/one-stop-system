@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { DEFAULT_TENANT_ID, MODELS_WITH_COLOR, getRepairTypes } from '../lib/constants'
+import { Shop, Staff, IphoneModel } from '../lib/types'
 import {
   calculateBuybackDeduction,
   calculateSalesDeduction,
@@ -14,9 +16,6 @@ import {
 // =====================================================
 // 型定義
 // =====================================================
-type Shop = { id: number; name: string }
-type Staff = { id: number; name: string }
-type IphoneModel = { model: string; display_name: string }
 type CostData = { parts_type: string; cost: number }
 
 // 動作チェック項目
@@ -51,27 +50,6 @@ const COLOR_OPTIONS = [
 
 // ランク選択肢
 const RANK_OPTIONS = ['超美品', '美品', '良品', '並品', 'リペア品']
-
-// 色の区別があるモデル（白パネルがあるモデル）
-const MODELS_WITH_COLOR = ['SE', '6s', '7', '7P', '8', '8P']
-
-// 修理種別（モデルに応じて表示を切り替え）
-const getRepairTypes = (model?: string) => {
-  const hasColor = model ? MODELS_WITH_COLOR.includes(model) : false
-
-  return [
-    { key: 'TH-L', label: hasColor ? '標準パネル(黒)' : '標準パネル', partsType: 'TH-L', exclusive: 'TH-F' },
-    { key: 'TH-F', label: '標準パネル(白)', partsType: 'TH-F', exclusive: 'TH-L', onlyWithColor: true },
-    { key: 'HG-L', label: hasColor ? 'HGパネル(黒)' : 'HGパネル', partsType: 'HG-L', exclusive: 'HG-F' },
-    { key: 'HG-F', label: 'HGパネル(白)', partsType: 'HG-F', exclusive: 'HG-L', onlyWithColor: true },
-    { key: 'battery', label: '標準バッテリー', partsType: 'バッテリー' },
-    { key: 'hg_battery', label: 'HGバッテリー', partsType: 'HGバッテリー' },
-    { key: 'connector', label: 'コネクタ', partsType: 'コネクタ' },
-    { key: 'rear_camera', label: 'リアカメラ', partsType: 'リアカメラ' },
-    { key: 'front_camera', label: 'インカメラ', partsType: 'インカメラ' },
-    { key: 'camera_glass', label: 'カメラ窓', partsType: 'カメラ窓' },
-  ].filter(item => !item.onlyWithColor || hasColor)
-}
 
 // 職業選択肢
 const OCCUPATION_OPTIONS = [
@@ -333,9 +311,9 @@ export default function BuybackPage() {
   useEffect(() => {
     async function fetchMasterData() {
       const [shopsRes, staffRes, modelsRes] = await Promise.all([
-        supabase.from('m_shops').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('id'),
-        supabase.from('m_staff').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('id'),
-        supabase.from('m_iphone_models').select('model, display_name').eq('tenant_id', 1).eq('is_active', true).not('model', 'in', '(SE,6s,7,7P)').order('sort_order'),
+        supabase.from('m_shops').select('id, name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).order('id'),
+        supabase.from('m_staff').select('id, name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).order('id'),
+        supabase.from('m_iphone_models').select('model, display_name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).not('model', 'in', '(SE,6s,7,7P)').order('sort_order'),
       ])
 
       setShops(shopsRes.data || [])
@@ -407,7 +385,7 @@ export default function BuybackPage() {
     const { data: priceData } = await supabase
       .from('m_buyback_prices')
       .select('price')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('model', model)
       .eq('storage', parseInt(storage))
       .eq('rank', rank)
@@ -417,7 +395,7 @@ export default function BuybackPage() {
     const { data: deductionData } = await supabase
       .from('m_buyback_deductions')
       .select('deduction_type, amount')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('model', model)
       .eq('storage', parseInt(storage))
       .eq('is_active', true)
@@ -426,7 +404,7 @@ export default function BuybackPage() {
     const { data: guaranteeData } = await supabase
       .from('m_buyback_guarantees')
       .select('guarantee_price')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('model', model)
       .eq('storage', parseInt(storage))
       .single()
@@ -435,7 +413,7 @@ export default function BuybackPage() {
     const { data: salesPriceData } = await supabase
       .from('m_sales_prices')
       .select('price')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('model', model)
       .eq('storage', parseInt(storage))
       .eq('rank', rank)
@@ -445,7 +423,7 @@ export default function BuybackPage() {
     const { data: salesDeductionData } = await supabase
       .from('m_sales_price_deductions')
       .select('deduction_type, amount')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('model', model)
       .eq('is_active', true)
 
@@ -641,7 +619,7 @@ ${bankInfo.accountHolder}
       const { data: customerData, error: customerError } = await supabase
         .from('t_customers')
         .insert({
-          tenant_id: 1,
+          tenant_id: DEFAULT_TENANT_ID,
           name: customerInfo.name,
           name_kana: customerInfo.nameKana || null,
           birth_date: customerInfo.birthDate || null,
@@ -669,7 +647,7 @@ ${bankInfo.accountHolder}
         .from('t_buyback')
         .insert({
           customer_id: customerData.id,
-          tenant_id: 1,
+          tenant_id: DEFAULT_TENANT_ID,
           shop_id: parseInt(shopId),
           staff_id: parseInt(staffId),
           buyback_date: buybackDate,
@@ -730,7 +708,7 @@ ${bankInfo.accountHolder}
         const { data: inventoryData, error: inventoryError } = await supabase
           .from('t_used_inventory')
           .insert({
-            tenant_id: 1,
+            tenant_id: DEFAULT_TENANT_ID,
             shop_id: parseInt(shopId),
             arrival_date: buybackDate,
             model: item.model,
@@ -761,7 +739,7 @@ ${bankInfo.accountHolder}
         await supabase
           .from('t_buyback_items')
           .insert({
-            tenant_id: 1,
+            tenant_id: DEFAULT_TENANT_ID,
             buyback_id: buybackId,
             item_number: i + 1,
             model: item.model,
@@ -1247,7 +1225,7 @@ function ItemForm({
       const { data } = await supabase
         .from('m_buyback_prices')
         .select('storage')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('model', item.model)
         .eq('is_active', true)
       
@@ -1269,7 +1247,7 @@ function ItemForm({
       const { data } = await supabase
         .from('m_costs_hw')
         .select('parts_type, cost')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('model', item.model)
         .eq('is_active', true)
       
@@ -2692,7 +2670,7 @@ function OperationCheckScreen({
     const { data: priceData } = await supabase
       .from('m_buyback_prices')
       .select('price')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('model', item.model)
       .eq('storage', parseInt(item.storage))
       .eq('rank', newRank)

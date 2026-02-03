@@ -3,11 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/app/lib/supabase'
-
-type Shop = {
-  id: number
-  name: string
-}
+import { DEFAULT_TENANT_ID } from '@/app/lib/constants'
+import { Shop } from '@/app/lib/types'
 
 export default function KioskLoginPage() {
   const router = useRouter()
@@ -35,7 +32,7 @@ export default function KioskLoginPage() {
       const { data } = await supabase
         .from('m_shops')
         .select('id, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('id')
 

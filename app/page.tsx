@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
-
-type Shop = {
-  id: number
-  name: string
-}
+import { DEFAULT_TENANT_ID } from './lib/constants'
+import { Shop } from './lib/types'
 
 type AlertItem = {
   id: string
@@ -88,7 +85,7 @@ export default function Home() {
       const { data: shopsData } = await supabase
         .from('m_shops')
         .select('id, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('id')
 
@@ -104,7 +101,7 @@ export default function Home() {
       const { data: partsData } = await supabase
         .from('t_parts_inventory')
         .select('shop_id, model, parts_type, required_qty, actual_qty')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
 
       if (partsData) {
         for (const shop of shopsData) {
@@ -134,7 +131,7 @@ export default function Home() {
       const { data: accessoryData } = await supabase
         .from('t_accessory_inventory')
         .select('shop_id, accessory_id, required_qty, actual_qty, m_accessories(name)')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
 
       if (accessoryData) {
         for (const shop of shopsData) {
@@ -165,7 +162,7 @@ export default function Home() {
       const { data: inventoryData } = await supabase
         .from('t_used_inventory')
         .select('id, shop_id, arrival_date, model, storage, ec_status')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .in('status', ['販売可', '修理中'])
 
       if (inventoryData) {
@@ -257,7 +254,7 @@ export default function Home() {
       const { data: checkSettings } = await supabase
         .from('m_inventory_check_settings')
         .select('day_of_week')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
 
       const checkDays = checkSettings?.map(s => s.day_of_week) || [0, 4]
@@ -269,7 +266,7 @@ export default function Home() {
           const { data: checkData } = await supabase
             .from('t_inventory_checks')
             .select('id, status')
-            .eq('tenant_id', 1)
+            .eq('tenant_id', DEFAULT_TENANT_ID)
             .eq('shop_id', shop.id)
             .eq('check_date', todayStr)
             .single()
@@ -303,21 +300,21 @@ export default function Home() {
           m_staff(name),
           t_sales_details(category, model, menu)
         `)
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('sale_date', today)
         .order('id', { ascending: false })
 
       const { data: buybackData } = await supabase
         .from('t_buyback')
         .select('final_price')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('buyback_date', today)
 
       // 月間売上データ
       const { data: monthlySalesData } = await supabase
         .from('t_sales')
         .select('total_amount, total_profit')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .gte('sale_date', monthStart)
         .lte('sale_date', today)
 
@@ -325,7 +322,7 @@ export default function Home() {
       const { data: monthlyBuybackData } = await supabase
         .from('t_buyback')
         .select('final_price')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .gte('buyback_date', monthStart)
         .lte('buyback_date', today)
 

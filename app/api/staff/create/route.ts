@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { DEFAULT_TENANT_ID } from '@/app/lib/constants'
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     const { data: newStaff, error: staffError } = await supabaseAdmin
       .from('m_staff')
       .insert({
-        tenant_id: 1,
+        tenant_id: DEFAULT_TENANT_ID,
         auth_user_id: authData.user.id,
         email,
         name,

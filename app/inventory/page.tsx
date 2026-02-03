@@ -2,72 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
-type IphoneModel = {
-  model: string
-  display_name: string
-}
-
-type UsedInventory = {
-  id: number
-  arrival_date: string
-  model: string
-  storage: number
-  rank: string
-  imei: string | null
-  management_number: string | null
-  battery_percent: number | null
-  is_service_state: boolean | null
-  nw_status: string | null
-  camera_stain_level: string | null
-  camera_broken: boolean | null
-  repair_history: boolean | null
-  repair_types: string | null
-  buyback_price: number
-  repair_cost: number
-  total_cost: number
-  sales_price: number | null
-  status: string
-  ec_status: string | null
-  memo: string | null
-  shop_id: number
-  shop: {
-    name: string
-  }
-  sale_date?: string | null // 販売日（販売済みの場合）
-}
-
-type Shop = {
-  id: number
-  name: string
-}
+import { DEFAULT_TENANT_ID, MODELS_WITH_COLOR, getRepairTypes } from '../lib/constants'
+import { Shop, IphoneModel, UsedInventory } from '../lib/types'
 
 type PartsInventory = {
   id: number
   model: string
   parts_type: string
   actual_qty: number
-}
-
-// 色の区別があるモデル（白パネルがあるモデル）
-const MODELS_WITH_COLOR = ['SE', '6s', '7', '7P', '8', '8P']
-
-// 修理に使用するパーツ種別（モデルに応じて表示を切り替え）
-const getRepairTypesList = (model?: string) => {
-  const hasColor = model ? MODELS_WITH_COLOR.includes(model) : false
-
-  return [
-    { key: 'TH-L', label: hasColor ? '標準パネル(黒)' : '標準パネル', partsType: 'TH-L' },
-    { key: 'TH-F', label: '標準パネル(白)', partsType: 'TH-F', onlyWithColor: true },
-    { key: 'HG-L', label: hasColor ? 'HGパネル(黒)' : 'HGパネル', partsType: 'HG-L' },
-    { key: 'HG-F', label: 'HGパネル(白)', partsType: 'HG-F', onlyWithColor: true },
-    { key: 'battery', label: '標準バッテリー', partsType: 'バッテリー' },
-    { key: 'hg_battery', label: 'HGバッテリー', partsType: 'HGバッテリー' },
-    { key: 'connector', label: 'コネクタ', partsType: 'コネクタ' },
-    { key: 'rear_camera', label: 'リアカメラ', partsType: 'リアカメラ' },
-    { key: 'front_camera', label: 'インカメラ', partsType: 'インカメラ' },
-    { key: 'camera_glass', label: 'カメラ窓', partsType: 'カメラ窓' },
-  ].filter(item => !item.onlyWithColor || hasColor)
 }
 
 const ITEMS_PER_PAGE = 20
@@ -206,7 +148,7 @@ export default function InventoryPage() {
       const { data: modelsData } = await supabase
         .from('m_iphone_models')
         .select('model, display_name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('sort_order')
 
@@ -228,7 +170,7 @@ export default function InventoryPage() {
     let query = supabase
       .from('t_used_inventory')
       .select(`*, shop:m_shops(name)`)
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .order('arrival_date', { ascending: false })
 
     if (filters.shopId) query = query.eq('shop_id', parseInt(filters.shopId))
@@ -376,7 +318,7 @@ export default function InventoryPage() {
     const { data } = await supabase
       .from('t_parts_inventory')
       .select('id, model, parts_type, actual_qty')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('shop_id', shopId)
       .eq('model', model)
 
@@ -421,7 +363,7 @@ export default function InventoryPage() {
       return
     }
 
-    const repairTypesList = getRepairTypesList(selectedItem.model)
+    const repairTypesList = getRepairTypes(selectedItem.model)
     for (const partKey of selectedParts) {
       const repairType = repairTypesList.find(r => r.key === partKey)
       if (!repairType) continue
@@ -852,7 +794,7 @@ export default function InventoryPage() {
               </div>
               <p style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '10px' }}>使用パーツを選択:</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
-                {getRepairTypesList(selectedItem.model).map((repair) => {
+                {getRepairTypes(selectedItem.model).map((repair) => {
                   const qty = getPartsQty(repair.partsType)
                   const isSelected = selectedParts.includes(repair.key)
                   const willBeNegative = isSelected && qty <= 0
@@ -872,7 +814,7 @@ export default function InventoryPage() {
               </div>
               {/* 在庫0警告 */}
               {selectedParts.some(key => {
-                const repairTypesList = getRepairTypesList(selectedItem.model)
+                const repairTypesList = getRepairTypes(selectedItem.model)
                 const repair = repairTypesList.find(r => r.key === key)
                 return repair && getPartsQty(repair.partsType) <= 0
               }) && (
@@ -880,7 +822,7 @@ export default function InventoryPage() {
                   <p style={{ fontWeight: '600', color: '#92400E', fontSize: '0.85rem', marginBottom: '4px' }}>⚠️ 以下のパーツは在庫が0のためマイナスになります</p>
                   <ul style={{ paddingLeft: '20px', fontSize: '0.8rem', color: '#92400E', margin: 0 }}>
                     {selectedParts.map(key => {
-                      const repairTypesList = getRepairTypesList(selectedItem.model)
+                      const repairTypesList = getRepairTypes(selectedItem.model)
                       const repair = repairTypesList.find(r => r.key === key)
                       if (!repair) return null
                       const qty = getPartsQty(repair.partsType)

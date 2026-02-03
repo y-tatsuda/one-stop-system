@@ -2,17 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
-type Shop = {
-  id: number
-  name: string
-}
-
-type Supplier = {
-  id: number
-  code: string
-  name: string
-}
+import { DEFAULT_TENANT_ID } from '../lib/constants'
+import { Shop, Supplier } from '../lib/types'
 
 type IphoneModel = {
   model: string
@@ -82,7 +73,7 @@ export default function OrderPage() {
       const { data: shopsData } = await supabase
         .from('m_shops')
         .select('id, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('id')
 
@@ -90,7 +81,7 @@ export default function OrderPage() {
       const { data: modelsData } = await supabase
         .from('m_iphone_models')
         .select('model, display_name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('sort_order')
 
@@ -98,7 +89,7 @@ export default function OrderPage() {
       const { data: suppliersData } = await supabase
         .from('m_suppliers')
         .select('id, code, name')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
         .order('sort_order')
 
@@ -123,7 +114,7 @@ export default function OrderPage() {
       let query = supabase
         .from('t_parts_inventory')
         .select('id, shop_id, model, parts_type, supplier_id, required_qty, actual_qty')
-        .eq('tenant_id', 1)
+        .eq('tenant_id', DEFAULT_TENANT_ID)
 
       // 仕入先でフィルタ
       if (selectedSupplier) {

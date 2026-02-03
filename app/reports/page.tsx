@@ -3,13 +3,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { DEFAULT_TENANT_ID } from '../lib/constants'
+import { Shop, Staff } from '../lib/types'
 
 // =============================================
 // 型定義
 // =============================================
-
-type Shop = { id: number; name: string; is_ec: boolean }
-type Staff = { id: number; name: string }
 
 type SalesTarget = {
   id?: number
@@ -285,8 +284,8 @@ export default function ReportsPage() {
 
   useEffect(() => {
     async function fetchMasterData() {
-      const { data: shopsData } = await supabase.from('m_shops').select('id, name, is_ec').eq('tenant_id', 1).eq('is_active', true).order('id')
-      const { data: staffData } = await supabase.from('m_staff').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('id')
+      const { data: shopsData } = await supabase.from('m_shops').select('id, name, is_ec').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).order('id')
+      const { data: staffData } = await supabase.from('m_staff').select('id, name').eq('tenant_id', DEFAULT_TENANT_ID).eq('is_active', true).order('id')
       setShops(shopsData || [])
       setStaff(staffData || [])
     }
@@ -316,7 +315,7 @@ export default function ReportsPage() {
 
     const { data: salesData } = await supabase.from('t_sales')
       .select('id, shop_id, staff_id, sale_date, total_amount, total_cost, total_profit')
-      .eq('tenant_id', 1).gte('sale_date', startDate).lte('sale_date', endDate)
+      .eq('tenant_id', DEFAULT_TENANT_ID).gte('sale_date', startDate).lte('sale_date', endDate)
 
     const salesIds = salesData?.map(s => s.id) || []
     let detailsData: any[] = []
@@ -327,22 +326,22 @@ export default function ReportsPage() {
 
     let targetsData: any[] = []
     if (yearMonth) {
-      const { data } = await supabase.from('m_sales_targets').select('*').eq('tenant_id', 1).eq('year_month', yearMonth)
+      const { data } = await supabase.from('m_sales_targets').select('*').eq('tenant_id', DEFAULT_TENANT_ID).eq('year_month', yearMonth)
       targetsData = data || []
     }
 
-    const { data: holidaysData } = await supabase.from('m_holidays').select('*').eq('tenant_id', 1).gte('holiday_date', startDate).lte('holiday_date', endDate)
+    const { data: holidaysData } = await supabase.from('m_holidays').select('*').eq('tenant_id', DEFAULT_TENANT_ID).gte('holiday_date', startDate).lte('holiday_date', endDate)
     if (yearMonth) setBusinessDays(calculateBusinessDays(yearMonth, holidaysData || []))
 
     const { data: buybackData } = await supabase.from('t_buyback')
-      .select('id, model, storage, final_price').eq('tenant_id', 1).gte('buyback_date', startDate).lte('buyback_date', endDate)
+      .select('id, model, storage, final_price').eq('tenant_id', DEFAULT_TENANT_ID).gte('buyback_date', startDate).lte('buyback_date', endDate)
 
     if (yearMonth) {
       const [year, month] = yearMonth.split('-').map(Number)
       const lastYearStart = `${year - 1}-${String(month).padStart(2, '0')}-01`
       const lastYearEnd = new Date(year - 1, month, 0).toLocaleDateString('sv-SE')
       const { data: lastYearData } = await supabase.from('t_sales')
-        .select('total_amount, total_cost, total_profit').eq('tenant_id', 1).gte('sale_date', lastYearStart).lte('sale_date', lastYearEnd)
+        .select('total_amount, total_cost, total_profit').eq('tenant_id', DEFAULT_TENANT_ID).gte('sale_date', lastYearStart).lte('sale_date', lastYearEnd)
       if (lastYearData && lastYearData.length > 0) {
         setLastYearSummary({
           salesCount: lastYearData.length,
@@ -364,7 +363,7 @@ export default function ReportsPage() {
 
     const { data: salesData } = await supabase.from('t_sales')
       .select('sale_date, total_amount, total_profit')
-      .eq('tenant_id', 1).gte('sale_date', startDate).lte('sale_date', endDate)
+      .eq('tenant_id', DEFAULT_TENANT_ID).gte('sale_date', startDate).lte('sale_date', endDate)
 
     const dailyMap = new Map<string, DailySales>()
     const daysInMonth = new Date(year, month, 0).getDate()
@@ -391,14 +390,14 @@ export default function ReportsPage() {
     const yearEnd = `${trendYear}-12-31`
     const { data: thisYearData } = await supabase.from('t_sales')
       .select('sale_date, total_amount, total_profit')
-      .eq('tenant_id', 1).gte('sale_date', yearStart).lte('sale_date', yearEnd)
+      .eq('tenant_id', DEFAULT_TENANT_ID).gte('sale_date', yearStart).lte('sale_date', yearEnd)
 
     // 前年の週別データ
     const lastYearStart = `${trendYear - 1}-01-01`
     const lastYearEnd = `${trendYear - 1}-12-31`
     const { data: lastYearData } = await supabase.from('t_sales')
       .select('sale_date, total_amount, total_profit')
-      .eq('tenant_id', 1).gte('sale_date', lastYearStart).lte('sale_date', lastYearEnd)
+      .eq('tenant_id', DEFAULT_TENANT_ID).gte('sale_date', lastYearStart).lte('sale_date', lastYearEnd)
 
     // 週番号を計算する関数
     const getWeekNumber = (date: Date): number => {
@@ -477,11 +476,11 @@ export default function ReportsPage() {
   }
 
   const fetchTargetData = async () => {
-    const { data: targetsData } = await supabase.from('m_sales_targets').select('*').eq('tenant_id', 1).eq('year_month', targetMonth)
+    const { data: targetsData } = await supabase.from('m_sales_targets').select('*').eq('tenant_id', DEFAULT_TENANT_ID).eq('year_month', targetMonth)
     const [year, month] = targetMonth.split('-').map(Number)
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
     const monthEnd = new Date(year, month, 0).toLocaleDateString('sv-SE')
-    const { data: holidaysData } = await supabase.from('m_holidays').select('*').eq('tenant_id', 1).gte('holiday_date', monthStart).lte('holiday_date', monthEnd).order('holiday_date')
+    const { data: holidaysData } = await supabase.from('m_holidays').select('*').eq('tenant_id', DEFAULT_TENANT_ID).gte('holiday_date', monthStart).lte('holiday_date', monthEnd).order('holiday_date')
     setTargets(targetsData || [])
     setHolidays(holidaysData || [])
     setBusinessDays(calculateBusinessDays(targetMonth, holidaysData || []))
@@ -630,7 +629,7 @@ export default function ReportsPage() {
   const saveTarget = async (target: SalesTarget) => {
     setSavingTarget(true)
     const data = {
-      tenant_id: 1, year_month: targetMonth, shop_id: target.shop_id, staff_id: target.staff_id,
+      tenant_id: DEFAULT_TENANT_ID, year_month: targetMonth, shop_id: target.shop_id, staff_id: target.staff_id,
       weekday_amount: target.weekday_amount,
       weekend_amount: target.saturday_amount || 0, // 後方互換用
       saturday_amount: target.saturday_amount || 0,
@@ -650,7 +649,7 @@ export default function ReportsPage() {
 
   const addHoliday = async () => {
     if (!newHoliday.holiday_date) { alert('日付を選択してください'); return }
-    await supabase.from('m_holidays').insert({ tenant_id: 1, shop_id: newHoliday.shop_id, holiday_date: newHoliday.holiday_date, reason: newHoliday.reason || null })
+    await supabase.from('m_holidays').insert({ tenant_id: DEFAULT_TENANT_ID, shop_id: newHoliday.shop_id, holiday_date: newHoliday.holiday_date, reason: newHoliday.reason || null })
     setNewHoliday({ shop_id: null, holiday_date: '', reason: '' })
     fetchTargetData()
   }

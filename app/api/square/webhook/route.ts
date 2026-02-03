@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { DEFAULT_TENANT_ID } from '@/app/lib/constants'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -189,7 +190,7 @@ async function handlePaymentCompleted(payment: any) {
     const { data: sale, error: saleError } = await supabase
       .from('t_sales')
       .insert({
-        tenant_id: 1,
+        tenant_id: DEFAULT_TENANT_ID,
         shop_id: shopId,
         staff_id: 1,
         sale_date: saleDate,
@@ -251,7 +252,7 @@ async function handlePaymentCanceled(payment: any) {
     const { data: cancelSale, error: cancelError } = await supabase
       .from('t_sales')
       .insert({
-        tenant_id: 1,
+        tenant_id: DEFAULT_TENANT_ID,
         shop_id: originalSale.shop_id,
         staff_id: 1,
         sale_date: saleDate,
@@ -316,7 +317,7 @@ async function handleRefundCompleted(refund: any) {
     const { data: refundSale, error: refundError } = await supabase
       .from('t_sales')
       .insert({
-        tenant_id: 1,
+        tenant_id: DEFAULT_TENANT_ID,
         shop_id: originalSale.shop_id,
         staff_id: 1,
         sale_date: saleDate,

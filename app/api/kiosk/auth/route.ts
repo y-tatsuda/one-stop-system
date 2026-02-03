@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { DEFAULT_TENANT_ID } from '@/app/lib/constants'
 
 // キオスクモード認証（パスコードのみ）
 export async function POST(request: NextRequest) {
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
       .from('m_shops')
       .select('id, name, kiosk_passcode')
       .eq('id', shopId)
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .single()
 

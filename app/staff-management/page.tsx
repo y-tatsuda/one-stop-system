@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
-type Shop = {
-  id: number
-  name: string
-}
+import { DEFAULT_TENANT_ID } from '../lib/constants'
+import { Shop } from '../lib/types'
 
 type Staff = {
   id: number
@@ -61,7 +58,7 @@ export default function StaffManagementPage() {
     const { data: shopsData } = await supabase
       .from('m_shops')
       .select('id, name')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .eq('is_active', true)
       .order('id')
 
@@ -71,7 +68,7 @@ export default function StaffManagementPage() {
     const { data: staffData } = await supabase
       .from('m_staff')
       .select('id, name, email, role, is_active, is_2fa_enabled, password_changed, created_at, m_staff_shops(shop_id)')
-      .eq('tenant_id', 1)
+      .eq('tenant_id', DEFAULT_TENANT_ID)
       .order('id')
 
     if (staffData) {
