@@ -96,13 +96,15 @@ export default function InventoryPage() {
     ec_status: '',
     status: '',
     storage_location: '',
+    shop_id: 0,
+    management_number: '',
     memo: '',
   })
 
   // 一括変更用
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [showBulkModal, setShowBulkModal] = useState(false)
-  const [bulkLocation, setBulkLocation] = useState('')
+  const [bulkShopId, setBulkShopId] = useState('')
 
   const [showRepairModal, setShowRepairModal] = useState(false)
   const [selectedParts, setSelectedParts] = useState<string[]>([])
@@ -285,6 +287,8 @@ export default function InventoryPage() {
       ec_status: item.ec_status || '',
       status: item.status,
       storage_location: item.storage_location || '',
+      shop_id: item.shop_id,
+      management_number: item.management_number || '',
       memo: item.memo || '',
     })
     setShowDetailModal(true)
@@ -306,6 +310,8 @@ export default function InventoryPage() {
         ec_status: editData.ec_status || null,
         status: editData.status,
         storage_location: editData.storage_location || null,
+        shop_id: editData.shop_id,
+        management_number: editData.management_number || null,
         memo: editData.memo || null,
         updated_at: new Date().toISOString(),
       })
@@ -321,21 +327,21 @@ export default function InventoryPage() {
     fetchInventory()
   }
 
-  // 一括で保管場所を更新
-  const bulkUpdateLocation = async () => {
+  // 一括で保管店舗を更新
+  const bulkUpdateShop = async () => {
     if (selectedIds.length === 0) {
       alert('在庫を選択してください')
       return
     }
-    if (!bulkLocation.trim()) {
-      alert('保管場所を入力してください')
+    if (!bulkShopId) {
+      alert('店舗を選択してください')
       return
     }
 
     const { error } = await supabase
       .from('t_used_inventory')
       .update({
-        storage_location: bulkLocation.trim(),
+        shop_id: parseInt(bulkShopId),
         updated_at: new Date().toISOString(),
       })
       .in('id', selectedIds)
@@ -345,10 +351,11 @@ export default function InventoryPage() {
       return
     }
 
-    alert(`${selectedIds.length}件の保管場所を更新しました`)
+    const shopName = shops.find(s => s.id === parseInt(bulkShopId))?.name || ''
+    alert(`${selectedIds.length}件の保管店舗を「${shopName}」に更新しました`)
     setShowBulkModal(false)
     setSelectedIds([])
-    setBulkLocation('')
+    setBulkShopId('')
     fetchInventory()
   }
 
@@ -616,7 +623,7 @@ export default function InventoryPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--color-primary)' }}>{selectedIds.length}件選択中</span>
               <button onClick={() => setShowBulkModal(true)} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
-                保管場所を一括変更
+                保管店舗を一括変更
               </button>
               <button onClick={() => setSelectedIds([])} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
                 選択解除
@@ -826,6 +833,8 @@ export default function InventoryPage() {
                     </div>
                   )}
                 </div>
+                <div><label className="form-label" style={{ fontSize: '0.8rem' }}>保管店舗</label><select value={editData.shop_id} onChange={(e) => setEditData({ ...editData, shop_id: parseInt(e.target.value) })} className="form-select">{shops.map(shop => (<option key={shop.id} value={shop.id}>{shop.name}</option>))}</select></div>
+                <div><label className="form-label" style={{ fontSize: '0.8rem' }}>管理番号</label><input type="text" value={editData.management_number} onChange={(e) => setEditData({ ...editData, management_number: e.target.value.replace(/[^0-9]/g, '').slice(0, 4) })} className="form-input" style={{ fontFamily: 'monospace' }} placeholder="4桁の数字" maxLength={4} /></div>
                 <div><label className="form-label" style={{ fontSize: '0.8rem' }}>EC出品</label><select value={editData.ec_status} onChange={(e) => setEditData({ ...editData, ec_status: e.target.value })} className="form-select"><option value="">未出品</option><option value="shopify">Shopify</option><option value="mercari">メルカリ</option><option value="both">両方</option></select></div>
                 <div><label className="form-label" style={{ fontSize: '0.8rem' }}>ステータス</label><select value={editData.status} onChange={(e) => setEditData({ ...editData, status: e.target.value })} className="form-select"><option value="修理中">修理中</option><option value="販売可">販売可</option><option value="販売済">販売済</option><option value="移動中">移動中</option></select></div>
                 <div><label className="form-label" style={{ fontSize: '0.8rem' }}>保管場所</label><input type="text" value={editData.storage_location} onChange={(e) => setEditData({ ...editData, storage_location: e.target.value })} className="form-input" placeholder="例: 棚A-1, バックヤード" /></div>
@@ -903,32 +912,35 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* 一括保管場所変更モーダル */}
+      {/* 一括保管店舗変更モーダル */}
       {showBulkModal && (
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h2 className="modal-title">保管場所を一括変更</h2>
+              <h2 className="modal-title">保管店舗を一括変更</h2>
               <button onClick={() => setShowBulkModal(false)} className="modal-close">✕</button>
             </div>
             <div className="modal-body">
               <p style={{ marginBottom: '16px', color: 'var(--color-text-secondary)' }}>
-                {selectedIds.length}件の在庫の保管場所を変更します
+                {selectedIds.length}件の在庫の保管店舗を変更します
               </p>
               <div className="form-group">
-                <label className="form-label">新しい保管場所</label>
-                <input
-                  type="text"
-                  value={bulkLocation}
-                  onChange={(e) => setBulkLocation(e.target.value)}
-                  className="form-input"
-                  placeholder="例: 棚A-1, バックヤード, 福井店棚B"
-                />
+                <label className="form-label">移動先の店舗</label>
+                <select
+                  value={bulkShopId}
+                  onChange={(e) => setBulkShopId(e.target.value)}
+                  className="form-select"
+                >
+                  <option value="">店舗を選択</option>
+                  {shops.map(shop => (
+                    <option key={shop.id} value={shop.id}>{shop.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="modal-footer">
               <button onClick={() => setShowBulkModal(false)} className="btn btn-secondary">キャンセル</button>
-              <button onClick={bulkUpdateLocation} className="btn btn-primary">一括変更</button>
+              <button onClick={bulkUpdateShop} className="btn btn-primary">一括変更</button>
             </div>
           </div>
         </div>
