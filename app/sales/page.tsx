@@ -92,6 +92,20 @@ export default function SalesPage() {
   const isKioskMode = searchParams.get('kiosk') === 'true'
   const kioskShopId = searchParams.get('shop')
 
+  // Square POSからの戻り時のレスポンスを表示
+  const squareResponseData = searchParams.get('data')
+  const [squareResponse, setSquareResponse] = useState<string | null>(null)
+  useEffect(() => {
+    if (squareResponseData) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(squareResponseData))
+        setSquareResponse(JSON.stringify(decoded, null, 2))
+      } catch {
+        setSquareResponse(squareResponseData)
+      }
+    }
+  }, [squareResponseData])
+
   const [shops, setShops] = useState<Shop[]>([])
   const [staff, setStaff] = useState<Staff[]>([])
   const [visitSources, setVisitSources] = useState<VisitSource[]>([])
@@ -1221,6 +1235,20 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
 
   return (
     <div style={containerStyle}>
+      {/* Square POSからの戻りデバッグ情報 */}
+      {squareResponse && (
+        <div style={{
+          padding: '16px',
+          marginBottom: '16px',
+          background: '#FEF3C7',
+          border: '2px solid #F59E0B',
+          borderRadius: '8px',
+          fontSize: '0.85rem',
+        }}>
+          <strong>Square POSレスポンス:</strong>
+          <pre style={{ marginTop: '8px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{squareResponse}</pre>
+        </div>
+      )}
       {/* KIOSKモード時のヘッダー */}
       {isKioskMode && (
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
