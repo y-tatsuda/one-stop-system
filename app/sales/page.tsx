@@ -1070,9 +1070,6 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       callback_url: `${window.location.origin}/sales`,
       location_id: shop.square_location_id,
       notes: `[SALE:${headerData.id}] ${itemDescriptions}`.substring(0, 500),
-      supported_tender_types: [
-        'CASH',
-      ],
     }
     const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify(squareData))}`
 
