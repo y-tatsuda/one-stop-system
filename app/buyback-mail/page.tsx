@@ -813,6 +813,7 @@ function DeviceItemForm({
   onCalculate: (model: string, storage: string, rank: string) => void
 }) {
   const [availableStorages, setAvailableStorages] = useState<number[]>([])
+  const [showCameraStainExample, setShowCameraStainExample] = useState(false)
 
   // 機種変更時に容量リストを取得
   useEffect(() => {
@@ -991,8 +992,22 @@ function DeviceItemForm({
           </select>
           <div style={{ fontSize: 12, color: '#666', marginTop: 4, lineHeight: 1.6 }}>
             ※ 白い無地の背景にカメラをかざすと確認出来ます<br />
-            このような症状です。(例)
+            <span
+              onClick={() => setShowCameraStainExample(!showCameraStainExample)}
+              style={{ color: '#004AAD', textDecoration: 'underline', cursor: 'pointer' }}
+            >
+              このような症状です。(例)
+            </span>
           </div>
+          {showCameraStainExample && (
+            <div style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+              <img
+                src="/camerastain.png"
+                alt="カメラ染みの例"
+                style={{ width: '100%', display: 'block' }}
+              />
+            </div>
+          )}
         </div>
 
         {/* カメラ窓の破損 */}
