@@ -85,6 +85,17 @@ export default function PartsInventoryPage() {
   const [tempHiddenModels, setTempHiddenModels] = useState<string[]>([])
   const [tempHiddenParts, setTempHiddenParts] = useState<string[]>([])
 
+  // 適正在庫見直しモーダル
+  const [showReviewModal, setShowReviewModal] = useState(false)
+  const [reviewInventory, setReviewInventory] = useState<PartsInventory[]>([])
+  const [reviewLoading, setReviewLoading] = useState(false)
+  const [reviewSaving, setReviewSaving] = useState(false)
+  const [reviewHiddenModels, setReviewHiddenModels] = useState<string[]>([])
+  const [reviewHiddenParts, setReviewHiddenParts] = useState<string[]>([])
+  const [changedCells, setChangedCells] = useState<Map<string, number>>(new Map())
+  const [reviewEditingKey, setReviewEditingKey] = useState<string | null>(null)
+  const [reviewEditValue, setReviewEditValue] = useState<string>('0')
+
   // LocalStorageから設定を読み込み
   useEffect(() => {
     const savedHiddenModels = localStorage.getItem(STORAGE_KEY_HIDDEN_MODELS)
@@ -477,6 +488,207 @@ export default function PartsInventoryPage() {
     setShowSettingsModal(false)
   }
 
+  // 適正在庫見直しモーダルを開く
+  const openReviewModal = async () => {
+    setShowReviewModal(true)
+    setReviewLoading(true)
+    setChangedCells(new Map())
+    setReviewHiddenModels([...hiddenModels])
+    setReviewHiddenParts([...hiddenParts])
+    setReviewEditingKey(null)
+
+    if (!selectedShop) return
+
+    const { data } = await supabase
+      .from('t_parts_inventory')
+      .select('*')
+      .eq('tenant_id', DEFAULT_TENANT_ID)
+      .eq('shop_id', parseInt(selectedShop))
+      .order('model')
+      .order('parts_type')
+
+    setReviewInventory(data || [])
+    setReviewLoading(false)
+  }
+
+  // 見直しモーダル: セル変更を記録
+  const handleReviewCellChange = (itemId: number, newValue: number) => {
+    const newMap = new Map(changedCells)
+    newMap.set(itemId.toString(), newValue)
+    setChangedCells(newMap)
+
+    // reviewInventory のローカル状態も即更新
+    setReviewInventory(prev => prev.map(item =>
+      item.id === itemId ? { ...item, required_qty: newValue } : item
+    ))
+    setReviewEditingKey(null)
+  }
+
+  // 見直しモーダル: 保存
+  const saveReviewChanges = async () => {
+    if (changedCells.size === 0) {
+      setShowReviewModal(false)
+      return
+    }
+
+    setReviewSaving(true)
+
+    for (const [idStr, newQty] of changedCells) {
+      const { error } = await supabase
+        .from('t_parts_inventory')
+        .update({ required_qty: newQty, updated_at: new Date().toISOString() })
+        .eq('id', parseInt(idStr))
+
+      if (error) {
+        alert('更新に失敗しました: ' + error.message)
+        setReviewSaving(false)
+        return
+      }
+    }
+
+    setReviewSaving(false)
+    setShowReviewModal(false)
+
+    // メイン画面の在庫データをリフレッシュ
+    if (selectedShop && selectedSupplier) {
+      const { data } = await supabase
+        .from('t_parts_inventory')
+        .select('*')
+        .eq('tenant_id', DEFAULT_TENANT_ID)
+        .eq('shop_id', parseInt(selectedShop))
+        .eq('supplier_id', parseInt(selectedSupplier))
+        .order('model')
+        .order('parts_type')
+
+      setInventory(data || [])
+    }
+  }
+
+  // 見直しモーダル用: グループ化された在庫データを仕入先別に生成
+  const getReviewGroupedData = (): { modelKey: string; displayName: string; partsType: string; supplierValues: { supplierId: number; supplierName: string; items: PartsInventory[]; totalRequired: number }[] }[] => {
+    const result: { modelKey: string; displayName: string; partsType: string; supplierValues: { supplierId: number; supplierName: string; items: PartsInventory[]; totalRequired: number }[] }[] = []
+
+    // フィルタリング
+    const filteredInventory = reviewInventory.filter(item => {
+      if (!PARTS_TYPE_ORDER.includes(item.parts_type)) return false
+      if (reviewHiddenParts.includes(item.parts_type)) return false
+      return true
+    })
+
+    // モデル表示順を取得
+    const displayModels = getDisplayModels()
+
+    // 各モデル/グループ × パーツ種別 の組み合わせを生成
+    const processedKeys = new Set<string>()
+
+    for (const modelOrGroup of displayModels) {
+      // 非表示チェック
+      if (PARTS_MODEL_GROUPS[modelOrGroup]) {
+        const groupModels = getGroupModels(modelOrGroup)
+        if (groupModels.every(m => reviewHiddenModels.includes(m))) continue
+      } else {
+        if (reviewHiddenModels.includes(modelOrGroup)) continue
+      }
+
+      for (const partsType of PARTS_TYPE_ORDER) {
+        if (reviewHiddenParts.includes(partsType)) continue
+
+        const key = `${modelOrGroup}:${partsType}`
+        if (processedKeys.has(key)) continue
+        processedKeys.add(key)
+
+        // このモデル/グループ × パーツ種別 に該当する在庫データを仕入先別に集める
+        const supplierValues: { supplierId: number; supplierName: string; items: PartsInventory[]; totalRequired: number }[] = []
+
+        for (const supplier of suppliers) {
+          let matchingItems: PartsInventory[]
+
+          if (PARTS_MODEL_GROUPS[modelOrGroup]) {
+            const groupModels = getGroupModels(modelOrGroup)
+            const isShared = PARTS_MODEL_GROUPS[modelOrGroup].sharedParts.includes(partsType)
+
+            if (isShared) {
+              matchingItems = filteredInventory.filter(item =>
+                groupModels.includes(item.model) && item.parts_type === partsType && item.supplier_id === supplier.id
+              )
+            } else {
+              // 共有パーツでない場合はスキップ（個別モデルとして表示される）
+              continue
+            }
+          } else {
+            matchingItems = filteredInventory.filter(item =>
+              item.model === modelOrGroup && item.parts_type === partsType && item.supplier_id === supplier.id
+            )
+          }
+
+          const totalRequired = matchingItems.reduce((sum, item) => sum + item.required_qty, 0)
+
+          supplierValues.push({
+            supplierId: supplier.id,
+            supplierName: supplier.name,
+            items: matchingItems,
+            totalRequired,
+          })
+        }
+
+        // データが1件でもある場合のみ追加
+        const hasData = supplierValues.some(sv => sv.items.length > 0)
+        if (!hasData) continue
+
+        result.push({
+          modelKey: modelOrGroup,
+          displayName: PARTS_MODEL_GROUPS[modelOrGroup] ? modelOrGroup : getDisplayName(modelOrGroup),
+          partsType,
+          supplierValues,
+        })
+      }
+    }
+
+    return result
+  }
+
+  // 見直しモーダル: モデル表示切り替え
+  const toggleReviewModelVisibility = (modelOrGroup: string) => {
+    if (PARTS_MODEL_GROUPS[modelOrGroup]) {
+      const groupModels = getGroupModels(modelOrGroup)
+      const allHidden = groupModels.every(m => reviewHiddenModels.includes(m))
+      if (allHidden) {
+        setReviewHiddenModels(reviewHiddenModels.filter(m => !groupModels.includes(m)))
+      } else {
+        setReviewHiddenModels([...reviewHiddenModels, ...groupModels.filter(m => !reviewHiddenModels.includes(m))])
+      }
+    } else {
+      if (reviewHiddenModels.includes(modelOrGroup)) {
+        setReviewHiddenModels(reviewHiddenModels.filter(m => m !== modelOrGroup))
+      } else {
+        setReviewHiddenModels([...reviewHiddenModels, modelOrGroup])
+      }
+    }
+  }
+
+  // 見直しモーダル: パーツ表示切り替え
+  const toggleReviewPartsVisibility = (partsType: string) => {
+    if (reviewHiddenParts.includes(partsType)) {
+      setReviewHiddenParts(reviewHiddenParts.filter(p => p !== partsType))
+    } else {
+      setReviewHiddenParts([...reviewHiddenParts, partsType])
+    }
+  }
+
+  // 見直しモーダル: モデルが表示されているか
+  const isReviewModelVisible = (modelOrGroup: string): boolean => {
+    if (PARTS_MODEL_GROUPS[modelOrGroup]) {
+      const groupModels = getGroupModels(modelOrGroup)
+      return !groupModels.every(m => reviewHiddenModels.includes(m))
+    }
+    return !reviewHiddenModels.includes(modelOrGroup)
+  }
+
+  // 見直しモーダル: パーツが表示されているか
+  const isReviewPartsVisible = (partsType: string): boolean => {
+    return !reviewHiddenParts.includes(partsType)
+  }
+
   // モデル表示切り替え
   const toggleModelVisibility = (modelOrGroup: string) => {
     if (PARTS_MODEL_GROUPS[modelOrGroup]) {
@@ -533,13 +745,20 @@ export default function PartsInventoryPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">パーツ在庫管理</h1>
-        <button
-          onClick={openSettingsModal}
-          className="btn btn-secondary"
-          style={{ marginLeft: 'auto' }}
-        >
-          ⚙ 表示設定
-        </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+          <button
+            onClick={openReviewModal}
+            className="btn btn-primary"
+          >
+            適正在庫 見直し
+          </button>
+          <button
+            onClick={openSettingsModal}
+            className="btn btn-secondary"
+          >
+            ⚙ 表示設定
+          </button>
+        </div>
       </div>
 
       {/* フィルター */}
@@ -768,6 +987,232 @@ export default function PartsInventoryPage() {
           )}
         </div>
       </div>
+
+      {/* 適正在庫見直しモーダル */}
+      {showReviewModal && (
+        <div className="modal-overlay" onClick={() => setShowReviewModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90vw', width: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">適正在庫 見直し</h2>
+              <button className="modal-close" onClick={() => setShowReviewModal(false)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ overflow: 'auto', flex: 1, padding: '16px' }}>
+              {reviewLoading ? (
+                <div className="loading">
+                  <div className="loading-spinner"></div>
+                </div>
+              ) : (
+                <>
+                  {/* モデル表示切り替え */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: 'var(--color-text-light)' }}>モデル</h3>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {getDisplayModels().map((modelOrGroup) => (
+                        <button
+                          key={modelOrGroup}
+                          onClick={() => toggleReviewModelVisibility(modelOrGroup)}
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: '16px',
+                            border: '1px solid var(--color-border)',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            backgroundColor: isReviewModelVisible(modelOrGroup) ? 'var(--color-primary)' : 'transparent',
+                            color: isReviewModelVisible(modelOrGroup) ? '#fff' : 'var(--color-text)',
+                          }}
+                        >
+                          {PARTS_MODEL_GROUPS[modelOrGroup] ? modelOrGroup : getDisplayName(modelOrGroup)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* パーツ表示切り替え */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: 'var(--color-text-light)' }}>パーツ</h3>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {PARTS_TYPE_ORDER.map((partsType) => (
+                        <button
+                          key={partsType}
+                          onClick={() => toggleReviewPartsVisibility(partsType)}
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: '16px',
+                            border: '1px solid var(--color-border)',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            backgroundColor: isReviewPartsVisible(partsType) ? 'var(--color-primary)' : 'transparent',
+                            color: isReviewPartsVisible(partsType) ? '#fff' : 'var(--color-text)',
+                          }}
+                        >
+                          {getPartsTypeLabel(partsType)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* テーブル */}
+                  {(() => {
+                    const reviewData = getReviewGroupedData()
+                    if (reviewData.length === 0) {
+                      return (
+                        <div className="empty-state">
+                          <p className="empty-state-text">データがありません</p>
+                        </div>
+                      )
+                    }
+
+                    // モデルごとにグループ化
+                    const modelGroups = new Map<string, typeof reviewData>()
+                    for (const row of reviewData) {
+                      if (!modelGroups.has(row.modelKey)) {
+                        modelGroups.set(row.modelKey, [])
+                      }
+                      modelGroups.get(row.modelKey)!.push(row)
+                    }
+
+                    return (
+                      <div className="table-wrapper" style={{ border: 'none' }}>
+                        <table className="data-table" style={{ fontSize: '0.85rem' }}>
+                          <thead>
+                            <tr>
+                              <th style={{ minWidth: '80px' }}>機種</th>
+                              <th style={{ minWidth: '100px' }}>パーツ</th>
+                              {suppliers.map(s => (
+                                <th key={s.id} className="text-center" style={{ minWidth: '80px' }}>{s.name}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Array.from(modelGroups.entries()).map(([modelKey, rows]) => (
+                              rows.map((row, idx) => (
+                                <tr key={`${row.modelKey}:${row.partsType}`}>
+                                  {idx === 0 ? (
+                                    <td rowSpan={rows.length} style={{ fontWeight: 600, verticalAlign: 'middle' }}>
+                                      {row.displayName}
+                                    </td>
+                                  ) : null}
+                                  <td>{getPartsTypeLabel(row.partsType)}</td>
+                                  {row.supplierValues.map((sv) => {
+                                    const cellKey = `${row.modelKey}:${row.partsType}:${sv.supplierId}`
+                                    const isEditing = reviewEditingKey === cellKey
+
+                                    if (sv.items.length === 0) {
+                                      return <td key={sv.supplierId} className="text-center" style={{ color: 'var(--color-text-light)' }}>-</td>
+                                    }
+
+                                    return (
+                                      <td key={sv.supplierId} className="text-center">
+                                        {isEditing ? (
+                                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                            <input
+                                              type="tel"
+                                              inputMode="numeric"
+                                              pattern="[0-9]*"
+                                              value={reviewEditValue}
+                                              onChange={(e) => {
+                                                const value = e.target.value.replace(/[^0-9]/g, '')
+                                                setReviewEditValue(value)
+                                              }}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                  const newQty = parseInt(reviewEditValue) || 0
+                                                  if (sv.items.length === 1) {
+                                                    handleReviewCellChange(sv.items[0].id, newQty)
+                                                  } else {
+                                                    const perItem = Math.floor(newQty / sv.items.length)
+                                                    const remainder = newQty % sv.items.length
+                                                    sv.items.forEach((item, i) => {
+                                                      handleReviewCellChange(item.id, perItem + (i < remainder ? 1 : 0))
+                                                    })
+                                                  }
+                                                } else if (e.key === 'Escape') {
+                                                  setReviewEditingKey(null)
+                                                }
+                                              }}
+                                              className="form-input"
+                                              style={{ width: '60px', textAlign: 'center', padding: '2px 6px', fontSize: '0.85rem' }}
+                                              autoFocus
+                                            />
+                                            <button
+                                              onClick={() => {
+                                                const newQty = parseInt(reviewEditValue) || 0
+                                                if (sv.items.length === 1) {
+                                                  handleReviewCellChange(sv.items[0].id, newQty)
+                                                } else {
+                                                  const perItem = Math.floor(newQty / sv.items.length)
+                                                  const remainder = newQty % sv.items.length
+                                                  sv.items.forEach((item, i) => {
+                                                    handleReviewCellChange(item.id, perItem + (i < remainder ? 1 : 0))
+                                                  })
+                                                }
+                                              }}
+                                              className="btn btn-sm btn-success"
+                                              style={{ padding: '2px 6px', minWidth: 'auto', fontSize: '0.75rem' }}
+                                            >
+                                              ✓
+                                            </button>
+                                            <button
+                                              onClick={() => setReviewEditingKey(null)}
+                                              className="btn btn-sm btn-secondary"
+                                              style={{ padding: '2px 6px', minWidth: 'auto', fontSize: '0.75rem' }}
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            onClick={() => {
+                                              setReviewEditingKey(cellKey)
+                                              setReviewEditValue(sv.totalRequired.toString())
+                                            }}
+                                            style={{
+                                              padding: '2px 10px',
+                                              borderRadius: 'var(--radius)',
+                                              border: 'none',
+                                              background: changedCells.has(sv.items[0]?.id.toString()) ? 'var(--color-warning-light, #fff3cd)' : 'transparent',
+                                              cursor: 'pointer',
+                                              color: 'var(--color-text)',
+                                              fontSize: '0.85rem',
+                                            }}
+                                          >
+                                            {sv.totalRequired}
+                                          </button>
+                                        )}
+                                      </td>
+                                    )
+                                  })}
+                                </tr>
+                              ))
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })()}
+                </>
+              )}
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--color-text-light)' }}>
+                {changedCells.size > 0 ? `${changedCells.size}件の変更あり` : '変更なし'}
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary" onClick={() => setShowReviewModal(false)}>
+                  キャンセル
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={saveReviewChanges}
+                  disabled={reviewSaving || changedCells.size === 0}
+                >
+                  {reviewSaving ? '保存中...' : '保存'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 表示設定モーダル */}
       {showSettingsModal && (
