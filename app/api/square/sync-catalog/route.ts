@@ -7,25 +7,51 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const SQUARE_API_URL = 'https://connect.squareup.com/v2'
-
-async function getSquareAccessToken(): Promise<string | null> {
-  const { data } = await supabase
+async function getSquareConfig(): Promise<{ baseUrl: string; accessToken: string; applicationId: string; mode: string }> {
+  const { data: settingsData } = await supabase
     .from('m_system_settings')
-    .select('value')
-    .eq('key', 'square_access_token')
-    .single()
+    .select('key, value')
+    .in('key', [
+      'square_mode',
+      'square_application_id',
+      'square_sandbox_application_id',
+      'square_access_token',
+      'square_sandbox_access_token',
+    ])
 
-  return data?.value || process.env.SQUARE_ACCESS_TOKEN || null
+  const settingsMap: { [key: string]: string } = {}
+  settingsData?.forEach(s => {
+    settingsMap[s.key] = s.value
+  })
+
+  const mode = settingsMap['square_mode'] || 'production'
+  const isSandbox = mode === 'sandbox'
+
+  const accessToken = isSandbox
+    ? (settingsMap['square_sandbox_access_token'] || '')
+    : (settingsMap['square_access_token'] || process.env.SQUARE_ACCESS_TOKEN || '')
+
+  const applicationId = isSandbox
+    ? (settingsMap['square_sandbox_application_id'] || '')
+    : (settingsMap['square_application_id'] || '')
+
+  if (!accessToken) {
+    throw new Error(`Square Access Token（${isSandbox ? 'Sandbox' : '本番'}）が設定されていません`)
+  }
+
+  const baseUrl = isSandbox
+    ? 'https://connect.squareupsandbox.com/v2'
+    : 'https://connect.squareup.com/v2'
+
+  return { baseUrl, accessToken, applicationId, mode }
 }
 
 async function squareRequest(endpoint: string, method: string, body?: any) {
-  const accessToken = await getSquareAccessToken()
-  if (!accessToken) {
-    throw new Error('Square Access Tokenが設定されていません')
-  }
+  const { baseUrl, accessToken, mode } = await getSquareConfig()
 
-  const response = await fetch(`${SQUARE_API_URL}${endpoint}`, {
+  console.log(`Square API リクエスト [${mode}]: ${method} ${endpoint}`)
+
+  const response = await fetch(`${baseUrl}${endpoint}`, {
     method,
     headers: {
       'Authorization': `Bearer ${accessToken}`,

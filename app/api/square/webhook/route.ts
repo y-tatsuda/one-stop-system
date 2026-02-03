@@ -12,7 +12,15 @@ export async function POST(request: NextRequest) {
     const body = await request.text()
     const event = JSON.parse(body)
 
-    console.log('Square Webhook受信:', event.type)
+    // 現在のSquareモードを取得
+    const { data: modeSetting } = await supabase
+      .from('m_system_settings')
+      .select('value')
+      .eq('key', 'square_mode')
+      .maybeSingle()
+
+    const squareMode = modeSetting?.value || 'production'
+    console.log(`Square Webhook受信 [${squareMode}]:`, event.type)
 
     switch (event.type) {
       case 'payment.created':

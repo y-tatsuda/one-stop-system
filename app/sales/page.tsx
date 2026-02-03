@@ -376,14 +376,20 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
 
-      // Square Application ID取得
-      const { data: squareAppIdData } = await supabase
+      // Square Application ID取得（モードに応じて切り替え）
+      const { data: squareSettingsData } = await supabase
         .from('m_system_settings')
-        .select('value')
-        .eq('key', 'square_application_id')
-        .single()
+        .select('key, value')
+        .in('key', ['square_mode', 'square_application_id', 'square_sandbox_application_id'])
 
-      setSquareApplicationId(squareAppIdData?.value || null)
+      const squareSettingsMap: { [key: string]: string } = {}
+      squareSettingsData?.forEach(s => { squareSettingsMap[s.key] = s.value })
+
+      const squareMode = squareSettingsMap['square_mode'] || 'production'
+      const appId = squareMode === 'sandbox'
+        ? squareSettingsMap['square_sandbox_application_id']
+        : squareSettingsMap['square_application_id']
+      setSquareApplicationId(appId || null)
       setShops(shopsData || [])
       setStaff(staffData || [])
       setVisitSources(visitSourcesData || [])

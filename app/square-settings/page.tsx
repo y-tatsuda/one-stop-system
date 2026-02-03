@@ -17,8 +17,11 @@ export default function SquareSettingsPage() {
   const [shops, setShops] = useState<Shop[]>([])
   const [settings, setSettings] = useState({
     applicationId: '',
+    sandboxApplicationId: '',
     accessToken: '',
+    sandboxAccessToken: '',
     webhookSignatureKey: '',
+    squareMode: 'production' as 'sandbox' | 'production',
     feeRateCard: '2.5',
     feeRateElectronic: '3.25',
     feeRateQr: '3.25',
@@ -56,8 +59,11 @@ export default function SquareSettingsPage() {
       .select('key, value')
       .in('key', [
         'square_application_id',
+        'square_sandbox_application_id',
         'square_access_token',
+        'square_sandbox_access_token',
         'square_webhook_signature_key',
+        'square_mode',
         'square_fee_rate_card',
         'square_fee_rate_electronic',
         'square_fee_rate_qr',
@@ -71,8 +77,11 @@ export default function SquareSettingsPage() {
 
     setSettings({
       applicationId: settingsMap['square_application_id'] || '',
+      sandboxApplicationId: settingsMap['square_sandbox_application_id'] || '',
       accessToken: settingsMap['square_access_token'] || '',
+      sandboxAccessToken: settingsMap['square_sandbox_access_token'] || '',
       webhookSignatureKey: settingsMap['square_webhook_signature_key'] || '',
+      squareMode: (settingsMap['square_mode'] as 'sandbox' | 'production') || 'production',
       feeRateCard: settingsMap['square_fee_rate_card'] || '2.5',
       feeRateElectronic: settingsMap['square_fee_rate_electronic'] || '3.25',
       feeRateQr: settingsMap['square_fee_rate_qr'] || '3.25',
@@ -89,8 +98,11 @@ export default function SquareSettingsPage() {
       // システム設定を保存
       const settingsToSave = [
         { key: 'square_application_id', value: settings.applicationId },
+        { key: 'square_sandbox_application_id', value: settings.sandboxApplicationId },
         { key: 'square_access_token', value: settings.accessToken },
+        { key: 'square_sandbox_access_token', value: settings.sandboxAccessToken },
         { key: 'square_webhook_signature_key', value: settings.webhookSignatureKey },
+        { key: 'square_mode', value: settings.squareMode },
         { key: 'square_fee_rate_card', value: settings.feeRateCard },
         { key: 'square_fee_rate_electronic', value: settings.feeRateElectronic },
         { key: 'square_fee_rate_qr', value: settings.feeRateQr },
@@ -187,6 +199,74 @@ export default function SquareSettingsPage() {
         <p className="page-subtitle">Square POSとの連携を設定します</p>
       </div>
 
+      {/* モード切り替え */}
+      <div className="card mb-lg" style={{
+        borderLeft: `4px solid ${settings.squareMode === 'sandbox' ? '#F59E0B' : '#059669'}`,
+      }}>
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 className="card-title">環境モード</h2>
+          <span style={{
+            padding: '4px 12px',
+            borderRadius: '9999px',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            color: '#fff',
+            background: settings.squareMode === 'sandbox' ? '#F59E0B' : '#059669',
+          }}>
+            {settings.squareMode === 'sandbox' ? 'Sandbox（テスト）' : '本番環境'}
+          </span>
+        </div>
+        <div className="card-body">
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: `2px solid ${settings.squareMode === 'sandbox' ? '#F59E0B' : '#D1D5DB'}`,
+              background: settings.squareMode === 'sandbox' ? '#FFFBEB' : '#fff',
+              cursor: 'pointer',
+              fontWeight: settings.squareMode === 'sandbox' ? 600 : 400,
+            }}>
+              <input
+                type="radio"
+                name="squareMode"
+                value="sandbox"
+                checked={settings.squareMode === 'sandbox'}
+                onChange={() => setSettings({ ...settings, squareMode: 'sandbox' })}
+              />
+              Sandbox（テスト）
+            </label>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: `2px solid ${settings.squareMode === 'production' ? '#059669' : '#D1D5DB'}`,
+              background: settings.squareMode === 'production' ? '#ECFDF5' : '#fff',
+              cursor: 'pointer',
+              fontWeight: settings.squareMode === 'production' ? 600 : 400,
+            }}>
+              <input
+                type="radio"
+                name="squareMode"
+                value="production"
+                checked={settings.squareMode === 'production'}
+                onChange={() => setSettings({ ...settings, squareMode: 'production' })}
+              />
+              本番
+            </label>
+          </div>
+          {settings.squareMode === 'sandbox' && (
+            <p style={{ fontSize: '0.8rem', color: '#92400E', background: '#FEF3C7', padding: '8px 12px', borderRadius: '6px' }}>
+              Sandboxモードでは、テスト用のSquare環境に接続します。実際の決済は発生しません。
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* API設定 */}
       <div className="card mb-lg">
         <div className="card-header">
@@ -194,26 +274,66 @@ export default function SquareSettingsPage() {
         </div>
         <div className="card-body">
           <div className="form-grid form-grid-2">
-            <div className="form-group">
-              <label className="form-label">Application ID</label>
-              <input
-                type="text"
-                value={settings.applicationId}
-                onChange={(e) => setSettings({ ...settings, applicationId: e.target.value })}
-                className="form-input"
-                placeholder="sq0idp-XXXX..."
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Access Token（本番用）</label>
-              <input
-                type="password"
-                value={settings.accessToken}
-                onChange={(e) => setSettings({ ...settings, accessToken: e.target.value })}
-                className="form-input"
-                placeholder="EAAA..."
-              />
-            </div>
+            {/* Sandbox設定 */}
+            {settings.squareMode === 'sandbox' && (
+              <>
+                <div className="form-group">
+                  <label className="form-label" style={{ color: '#92400E' }}>Sandbox Application ID</label>
+                  <input
+                    type="text"
+                    value={settings.sandboxApplicationId}
+                    onChange={(e) => setSettings({ ...settings, sandboxApplicationId: e.target.value })}
+                    className="form-input"
+                    style={{ borderColor: '#F59E0B' }}
+                    placeholder="sandbox-sq0idb-XXXX..."
+                  />
+                  <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '4px' }}>
+                    Square Developer Dashboard → Sandbox → Sandbox Application ID
+                  </p>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ color: '#92400E' }}>Sandbox Access Token</label>
+                  <input
+                    type="password"
+                    value={settings.sandboxAccessToken}
+                    onChange={(e) => setSettings({ ...settings, sandboxAccessToken: e.target.value })}
+                    className="form-input"
+                    style={{ borderColor: '#F59E0B' }}
+                    placeholder="EAAAl..."
+                  />
+                  <p style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '4px' }}>
+                    Square Developer Dashboard → Sandbox → Sandbox Access Token
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* 本番設定 */}
+            {settings.squareMode === 'production' && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Application ID（本番用）</label>
+                  <input
+                    type="text"
+                    value={settings.applicationId}
+                    onChange={(e) => setSettings({ ...settings, applicationId: e.target.value })}
+                    className="form-input"
+                    placeholder="sq0idp-XXXX..."
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Access Token（本番用）</label>
+                  <input
+                    type="password"
+                    value={settings.accessToken}
+                    onChange={(e) => setSettings({ ...settings, accessToken: e.target.value })}
+                    className="form-input"
+                    placeholder="EAAA..."
+                  />
+                </div>
+              </>
+            )}
+
             <div className="form-group">
               <label className="form-label">Webhook署名キー</label>
               <input
