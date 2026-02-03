@@ -141,7 +141,7 @@ export default function MailBuybackPage() {
   const calculatePrice = useCallback(async (index: number, model: string, storage: string, rank: string) => {
     if (!model || !storage || !rank) return
 
-    const [priceRes, deductionRes] = await Promise.all([
+    const queries = [
       supabase
         .from('m_buyback_prices')
         .select('price')
@@ -151,16 +151,19 @@ export default function MailBuybackPage() {
         .eq('rank', rank)
         .single(),
       supabase
-        .from('m_buyback_deductions')
-        .select('deduction_type, amount')
+        .from('m_buyback_prices')
+        .select('price')
         .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('model', model)
         .eq('storage', parseInt(storage))
-        .eq('is_active', true),
-    ])
+        .eq('rank', '美品')
+        .single(),
+    ]
+
+    const [priceRes, bihinRes] = await Promise.all(queries)
 
     const basePrice = priceRes.data?.price || 0
-    const deductions: DeductionData[] = deductionRes.data || []
+    const bihinPrice = bihinRes.data?.price || basePrice
 
     const item = items[index]
     const batteryPercent = parseInt(item.batteryPercent) || 100
@@ -175,7 +178,8 @@ export default function MailBuybackPage() {
         cameraBroken: item.cameraBroken,
         repairHistory: item.repairHistory,
       },
-      deductions
+      [],
+      bihinPrice
     )
 
     const estimatedPrice = Math.max(basePrice - totalDeduction, 0)

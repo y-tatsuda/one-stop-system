@@ -37,11 +37,13 @@ export type SalesCondition = {
 // 定数（買取用）
 // =====================================================
 
-/** バッテリー減額率（買取時：90%未満で10%減額） */
+/** バッテリー減額率（買取時：90%未満で10%、80%未満/サービス状態で20%） */
 export const BATTERY_DEDUCTION_RATE = 0.10
+export const BATTERY_DEDUCTION_RATE_SEVERE = 0.20
 
-/** バッテリー閾値（買取時：この値未満で減額） */
+/** バッテリー閾値 */
 export const BATTERY_THRESHOLD = 90
+export const BATTERY_THRESHOLD_SEVERE = 80
 
 // =====================================================
 // 買取減額計算
@@ -50,53 +52,61 @@ export const BATTERY_THRESHOLD = 90
 /**
  * 買取減額を計算する
  *
- * 【ルール】
- * - バッテリー: 90%未満またはサービス状態 → 基準価格の10%減額（割合計算）
- * - NW利用制限/カメラ染み/カメラ故障/修理歴 → DBマスタから固定金額
+ * 【ルール】すべて美品基準価格に対するパーセント減額
+ * - バッテリー90%未満: 美品価格の10%減額
+ * - バッテリー80%未満 or サービス状態: 美品価格の20%減額
+ * - NW利用制限 △: 美品価格の20%減額
+ * - NW利用制限 ×: 美品価格の40%減額
+ * - カメラ染み（大小問わず）: 美品価格の20%減額
+ * - カメラ窓割れ: 美品価格の10%減額
+ * - 非正規修理歴あり: 美品価格の20%減額
  *
- * @param basePrice 基本買取価格
+ * @param basePrice 該当ランクの基本買取価格
  * @param condition 端末状態
- * @param deductions 減額マスタ（m_buyback_deductionsから取得）
+ * @param _deductions 減額マスタ（互換性のため残すが未使用）
+ * @param bihinPrice 美品ランクの基準価格（減額計算のベース）
  * @returns 総減額金額
  */
 export function calculateBuybackDeduction(
   basePrice: number,
   condition: BuybackCondition,
-  deductions: DeductionData[]
+  _deductions: DeductionData[],
+  bihinPrice?: number
 ): number {
+  // 美品価格が渡されなければbasePriceを使用（後方互換）
+  const referencePrice = bihinPrice ?? basePrice
   let totalDeduction = 0
   const { batteryPercent, isServiceState, nwStatus, cameraStain, cameraBroken, repairHistory } = condition
 
-  // バッテリー減額（90%未満で基準価格の10%減額）
-  if (isServiceState || batteryPercent < BATTERY_THRESHOLD) {
-    totalDeduction += Math.round(basePrice * BATTERY_DEDUCTION_RATE)
+  // バッテリー減額
+  if (isServiceState || batteryPercent < BATTERY_THRESHOLD_SEVERE) {
+    // 80%未満 or サービス状態 → 20%減額
+    totalDeduction += Math.round(referencePrice * BATTERY_DEDUCTION_RATE_SEVERE)
+  } else if (batteryPercent < BATTERY_THRESHOLD) {
+    // 90%未満 → 10%減額
+    totalDeduction += Math.round(referencePrice * BATTERY_DEDUCTION_RATE)
   }
 
-  // ネットワーク利用制限（固定金額）
+  // ネットワーク利用制限
   if (nwStatus === 'triangle') {
-    const d = deductions.find(d => d.deduction_type === 'nw_checking')
-    if (d) totalDeduction += d.amount
+    totalDeduction += Math.round(referencePrice * 0.20)
   } else if (nwStatus === 'cross') {
-    const d = deductions.find(d => d.deduction_type === 'nw_ng')
-    if (d) totalDeduction += d.amount
+    totalDeduction += Math.round(referencePrice * 0.40)
   }
 
-  // カメラ染み（固定金額）
+  // カメラ染み（大小問わず20%）
   if (cameraStain === 'minor' || cameraStain === 'major') {
-    const d = deductions.find(d => d.deduction_type === 'camera_stain')
-    if (d) totalDeduction += d.amount
+    totalDeduction += Math.round(referencePrice * 0.20)
   }
 
-  // カメラ故障（固定金額）
+  // カメラ窓割れ（10%）
   if (cameraBroken) {
-    const d = deductions.find(d => d.deduction_type === 'camera_broken')
-    if (d) totalDeduction += d.amount
+    totalDeduction += Math.round(referencePrice * 0.10)
   }
 
-  // 修理歴あり（固定金額）
+  // 非正規修理歴あり（20%）
   if (repairHistory) {
-    const d = deductions.find(d => d.deduction_type === 'repair_history')
-    if (d) totalDeduction += d.amount
+    totalDeduction += Math.round(referencePrice * 0.20)
   }
 
   return totalDeduction

@@ -9,7 +9,9 @@ import {
   calculateBuybackDeduction,
   calculateSalesDeduction,
   BATTERY_DEDUCTION_RATE,
+  BATTERY_DEDUCTION_RATE_SEVERE,
   BATTERY_THRESHOLD,
+  BATTERY_THRESHOLD_SEVERE,
   type DeductionData
 } from '../lib/pricing'
 
@@ -108,6 +110,7 @@ type BuybackItem = {
   selectedRepairs: string[]
   repairCost: number
   basePrice: number
+  bihinPrice: number
   totalDeduction: number
   calculatedPrice: number
   guaranteePrice: number
@@ -187,6 +190,7 @@ const createEmptyItem = (): BuybackItem => ({
   selectedRepairs: [],
   repairCost: 0,
   basePrice: 0,
+  bihinPrice: 0,
   totalDeduction: 0,
   calculatedPrice: 0,
   guaranteePrice: 0,
@@ -391,7 +395,17 @@ export default function BuybackPage() {
       .eq('rank', rank)
       .single()
 
-    // 減額データ取得
+    // 美品基準価格取得（減額計算のベース）
+    const { data: bihinData } = await supabase
+      .from('m_buyback_prices')
+      .select('price')
+      .eq('tenant_id', DEFAULT_TENANT_ID)
+      .eq('model', model)
+      .eq('storage', parseInt(storage))
+      .eq('rank', '美品')
+      .single()
+
+    // 減額データ取得（互換性のため残す）
     const { data: deductionData } = await supabase
       .from('m_buyback_deductions')
       .select('deduction_type, amount')
@@ -428,6 +442,7 @@ export default function BuybackPage() {
       .eq('is_active', true)
 
     const basePrice = priceData?.price || 0
+    const bihinPrice = bihinData?.price || basePrice
     const guaranteePrice = guaranteeData?.guarantee_price || 0
     const salesBasePrice = salesPriceData?.price || 0
 
@@ -437,7 +452,7 @@ export default function BuybackPage() {
     const salesDeductions = salesDeductionData || []
     const batteryPercent = parseInt(item.batteryPercent) || 100
 
-    // 買取減額計算（共有ユーティリティ使用）
+    // 買取減額計算（共有ユーティリティ使用・美品基準）
     const totalDeduction = calculateBuybackDeduction(
       basePrice,
       {
@@ -448,7 +463,8 @@ export default function BuybackPage() {
         cameraBroken: item.cameraBroken,
         repairHistory: item.repairHistory,
       },
-      deductions
+      deductions,
+      bihinPrice
     )
 
     const calculatedPrice = basePrice - totalDeduction
@@ -477,6 +493,7 @@ export default function BuybackPage() {
 
     updateItem(index, {
       basePrice,
+      bihinPrice,
       totalDeduction,
       calculatedPrice,
       guaranteePrice,
@@ -1669,12 +1686,18 @@ function CustomerViewScreen({
                 
                 {item.totalDeduction > 0 && (
                   <>
-                    {item.isServiceState || (parseInt(item.batteryPercent) < BATTERY_THRESHOLD) ? (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#DC2626' }}>
-                        <span>バッテリー減額（{item.isServiceState ? 'サービス' : item.batteryPercent + '%'}・10%減）</span>
-                        <span>-¥{Math.round(item.basePrice * BATTERY_DEDUCTION_RATE).toLocaleString()}</span>
-                      </div>
-                    ) : null}
+                    {item.isServiceState || (parseInt(item.batteryPercent) < BATTERY_THRESHOLD) ? (() => {
+                      const isSevere = item.isServiceState || parseInt(item.batteryPercent) < BATTERY_THRESHOLD_SEVERE
+                      const rate = isSevere ? BATTERY_DEDUCTION_RATE_SEVERE : BATTERY_DEDUCTION_RATE
+                      const pct = isSevere ? '20' : '10'
+                      const label = item.isServiceState ? 'サービス' : item.batteryPercent + '%'
+                      return (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#DC2626' }}>
+                          <span>バッテリー減額（{label}・{pct}%減）</span>
+                          <span>-¥{Math.round((item.bihinPrice || item.basePrice) * rate).toLocaleString()}</span>
+                        </div>
+                      )
+                    })() : null}
                   </>
                 )}
                 
