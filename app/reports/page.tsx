@@ -8,7 +8,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 // 型定義
 // =============================================
 
-type Shop = { id: number; name: string }
+type Shop = { id: number; name: string; is_ec: boolean }
 type Staff = { id: number; name: string }
 
 type SalesTarget = {
@@ -16,7 +16,10 @@ type SalesTarget = {
   shop_id: number | null
   staff_id: number | null
   weekday_amount: number
-  weekend_amount: number
+  weekend_amount: number      // 後方互換用（使用しない）
+  saturday_amount: number
+  sunday_amount: number
+  holiday_amount: number
   profit_rate: number
   kpi_oled_rate: number | null
   kpi_battery_combo_rate: number | null
@@ -44,7 +47,11 @@ type KPIData = {
   oledTargetScreenRepairCount: number
   screenBatteryComboCount: number
   screenRepairSalesCount: number
+  hgBatteryCount: number       // HGバッテリー件数
+  batteryTargetCount: number   // バッテリー交換対象件数（HGバッテリー対象機種）
   filmSalesCount: number
+  glassFilmCount: number       // ガラスフィルム（1000円系）
+  privacyFilmCount: number     // 覗き見防止（2000円系）
   repairOrUsedSalesCount: number
   usedSalesFromRepairCount: number
   repairSalesCount: number
@@ -62,6 +69,7 @@ type StaffSummary = {
 type ShopSummary = {
   shopId: number
   shopName: string
+  isEc: boolean
   summary: SummaryData
   kpi: KPIData
   target: SalesTarget | null
@@ -99,6 +107,15 @@ type MonthlyWeekData = {
 // HGパネル（有機EL）対応機種
 const OLED_TARGET_MODELS = [
   'X', 'XS', 'XSMax', '11Pro', '11ProMax',
+  '12', '12mini', '12Pro', '12ProMax',
+  '13', '13mini', '13Pro', '13ProMax',
+  '14', '14Plus', '14Pro', '14ProMax',
+  '15', '15Plus', '15Pro', '15ProMax',
+  '16', '16Plus', '16Pro', '16ProMax', '16e'
+]
+
+// HGバッテリー対応機種（12以降）
+const HG_BATTERY_TARGET_MODELS = [
   '12', '12mini', '12Pro', '12ProMax',
   '13', '13mini', '13Pro', '13ProMax',
   '14', '14Plus', '14Pro', '14ProMax',
@@ -167,13 +184,17 @@ export default function ReportsPage() {
   const [overallKPI, setOverallKPI] = useState<KPIData>({
     oledScreenRepairCount: 0, oledTargetScreenRepairCount: 0,
     screenBatteryComboCount: 0, screenRepairSalesCount: 0,
-    filmSalesCount: 0, repairOrUsedSalesCount: 0,
+    hgBatteryCount: 0, batteryTargetCount: 0,
+    filmSalesCount: 0, glassFilmCount: 0, privacyFilmCount: 0,
+    repairOrUsedSalesCount: 0,
     usedSalesFromRepairCount: 0, repairSalesCount: 0,
     accessoryQuantity: 0
   })
   const [overallTarget, setOverallTarget] = useState<SalesTarget | null>(null)
   const [shopSummaries, setShopSummaries] = useState<ShopSummary[]>([])
   const [buybackSummary, setBuybackSummary] = useState({ count: 0, totalPrice: 0 })
+  const [ecSalesSummary, setEcSalesSummary] = useState<SummaryData>({ salesCount: 0, totalAmount: 0, totalCost: 0, totalProfit: 0 })
+  const [storeSalesSummary, setStoreSalesSummary] = useState<SummaryData>({ salesCount: 0, totalAmount: 0, totalCost: 0, totalProfit: 0 })
   const [lastYearSummary, setLastYearSummary] = useState<SummaryData | null>(null)
 
   // ランキングデータ
@@ -193,7 +214,7 @@ export default function ReportsPage() {
   const [editingTarget, setEditingTarget] = useState<SalesTarget | null>(null)
   const [newHoliday, setNewHoliday] = useState<Holiday>({ shop_id: null, holiday_date: '', reason: '' })
   const [savingTarget, setSavingTarget] = useState(false)
-  const [businessDays, setBusinessDays] = useState({ weekdays: 0, weekends: 0 })
+  const [businessDays, setBusinessDays] = useState({ weekdays: 0, saturdays: 0, sundays: 0, holidays: 0 })
 
   // =============================================
   // 期間計算
@@ -233,20 +254,27 @@ export default function ReportsPage() {
     const [year, month] = yearMonth.split('-').map(Number)
     const startDate = new Date(year, month - 1, 1)
     const endDate = new Date(year, month, 0)
-    let weekdays = 0, weekends = 0
+    let weekdays = 0, saturdays = 0, sundays = 0, holidays = 0
     const holidayDates = holidayList.filter(h => h.shop_id === null).map(h => h.holiday_date)
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toLocaleDateString('sv-SE')
-      if (holidayDates.includes(dateStr)) continue
+      if (holidayDates.includes(dateStr)) {
+        holidays++
+        continue
+      }
       const dayOfWeek = d.getDay()
-      if (dayOfWeek === 0 || dayOfWeek === 6) weekends++
+      if (dayOfWeek === 0) sundays++
+      else if (dayOfWeek === 6) saturdays++
       else weekdays++
     }
-    return { weekdays, weekends }
+    return { weekdays, saturdays, sundays, holidays }
   }
 
-  const calculateMonthlyTarget = (target: SalesTarget, days: { weekdays: number; weekends: number }) => {
-    const amount = (target.weekday_amount * days.weekdays) + (target.weekend_amount * days.weekends)
+  const calculateMonthlyTarget = (target: SalesTarget, days: { weekdays: number; saturdays: number; sundays: number; holidays: number }) => {
+    const amount = (target.weekday_amount * days.weekdays) +
+                   (target.saturday_amount * days.saturdays) +
+                   (target.sunday_amount * days.sundays) +
+                   (target.holiday_amount * days.holidays)
     const profit = Math.round(amount * (target.profit_rate / 100))
     return { amount, profit }
   }
@@ -257,7 +285,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     async function fetchMasterData() {
-      const { data: shopsData } = await supabase.from('m_shops').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('id')
+      const { data: shopsData } = await supabase.from('m_shops').select('id, name, is_ec').eq('tenant_id', 1).eq('is_active', true).order('id')
       const { data: staffData } = await supabase.from('m_staff').select('id, name').eq('tenant_id', 1).eq('is_active', true).order('id')
       setShops(shopsData || [])
       setStaff(staffData || [])
@@ -474,7 +502,9 @@ export default function ReportsPage() {
     const calculateKPI = (salesList: any[]): KPIData => {
       let oledScreenRepairCount = 0, oledTargetScreenRepairCount = 0
       let screenBatteryComboCount = 0, screenRepairSalesCount = 0
-      let filmSalesCount = 0, repairOrUsedSalesCount = 0
+      let hgBatteryCount = 0, batteryTargetCount = 0
+      let filmSalesCount = 0, glassFilmCount = 0, privacyFilmCount = 0
+      let repairOrUsedSalesCount = 0
       let usedSalesFromRepairCount = 0, repairSalesCount = 0, accessoryQuantity = 0
 
       salesList.forEach(sale => {
@@ -485,20 +515,38 @@ export default function ReportsPage() {
         const hasBatteryRepair = details.some(d => (d.category === 'iPhone修理' || d.category === 'Android修理') && BATTERY_TYPES.includes(d.menu))
         const hasOledScreenRepair = details.some(d => d.category === 'iPhone修理' && HG_SCREEN_TYPES.includes(d.menu))
         const hasOledTargetScreenRepair = details.some(d => d.category === 'iPhone修理' && SCREEN_REPAIR_TYPES.includes(d.menu) && OLED_TARGET_MODELS.includes(d.model))
-        const hasFilmSale = details.some(d => d.category === 'アクセサリ' && (d.menu?.includes('フィルム') || d.menu?.includes('HD') || d.menu?.includes('覗き見')))
+
+        // HGバッテリー獲得判定
+        const hasHgBattery = details.some(d => d.category === 'iPhone修理' && d.menu === 'HGバッテリー')
+        const hasBatteryTargetModel = details.some(d => d.category === 'iPhone修理' && BATTERY_TYPES.includes(d.menu) && HG_BATTERY_TARGET_MODELS.includes(d.model))
+
+        // フィルム詳細判定
+        const hasGlassFilm = details.some(d => d.category === 'アクセサリ' && (d.menu?.includes('HD') || (d.menu?.includes('フィルム') && !d.menu?.includes('覗き見'))))
+        const hasPrivacyFilm = details.some(d => d.category === 'アクセサリ' && d.menu?.includes('覗き見'))
+        const hasAnyFilm = hasGlassFilm || hasPrivacyFilm
 
         if (hasOledScreenRepair) oledScreenRepairCount++
         if (hasOledTargetScreenRepair) oledTargetScreenRepairCount++
         if (hasScreenRepair && hasBatteryRepair) screenBatteryComboCount++
         if (hasScreenRepair) screenRepairSalesCount++
-        if (hasFilmSale && (hasRepair || hasUsedSale)) filmSalesCount++
+        if (hasHgBattery) hgBatteryCount++
+        if (hasBatteryTargetModel) batteryTargetCount++
+        if (hasAnyFilm && (hasRepair || hasUsedSale)) filmSalesCount++
+        if (hasGlassFilm && (hasRepair || hasUsedSale)) glassFilmCount++
+        if (hasPrivacyFilm && (hasRepair || hasUsedSale)) privacyFilmCount++
         if (hasRepair || hasUsedSale) repairOrUsedSalesCount++
         if (hasRepair && hasUsedSale) usedSalesFromRepairCount++
         if (hasRepair) repairSalesCount++
         details.forEach(d => { if (d.category === 'アクセサリ') accessoryQuantity += d.quantity || 1 })
       })
 
-      return { oledScreenRepairCount, oledTargetScreenRepairCount, screenBatteryComboCount, screenRepairSalesCount, filmSalesCount, repairOrUsedSalesCount, usedSalesFromRepairCount, repairSalesCount, accessoryQuantity }
+      return {
+        oledScreenRepairCount, oledTargetScreenRepairCount,
+        screenBatteryComboCount, screenRepairSalesCount,
+        hgBatteryCount, batteryTargetCount,
+        filmSalesCount, glassFilmCount, privacyFilmCount,
+        repairOrUsedSalesCount, usedSalesFromRepairCount, repairSalesCount, accessoryQuantity
+      }
     }
 
     const calculateSummary = (salesList: any[]): SummaryData => ({
@@ -520,10 +568,17 @@ export default function ReportsPage() {
         const staffTarget = targetsData.find(t => t.shop_id === shop.id && t.staff_id === st.id)
         return { staffId: st.id, staffName: st.name, summary: calculateSummary(staffSales), kpi: calculateKPI(staffSales), target: staffTarget || null }
       }).filter(st => st.summary.salesCount > 0)
-      return { shopId: shop.id, shopName: shop.name, summary: calculateSummary(shopSales), kpi: calculateKPI(shopSales), target: shopTarget || null, staffList }
+      return { shopId: shop.id, shopName: shop.name, isEc: shop.is_ec || false, summary: calculateSummary(shopSales), kpi: calculateKPI(shopSales), target: shopTarget || null, staffList }
     })
     setShopSummaries(shopSummaryList)
     setBuybackSummary({ count: buybackData.length, totalPrice: buybackData.reduce((sum, b) => sum + (b.final_price || 0), 0) })
+
+    // EC店舗と実店舗の売上を分離
+    const ecShopIds = shops.filter(s => s.is_ec).map(s => s.id)
+    const ecSales = salesData.filter(s => ecShopIds.includes(s.shop_id))
+    const storeSales = salesData.filter(s => !ecShopIds.includes(s.shop_id))
+    setEcSalesSummary(calculateSummary(ecSales))
+    setStoreSalesSummary(calculateSummary(storeSales))
 
     // ランキング集計
     const modelMap = new Map<string, RankingItem>()
@@ -576,7 +631,12 @@ export default function ReportsPage() {
     setSavingTarget(true)
     const data = {
       tenant_id: 1, year_month: targetMonth, shop_id: target.shop_id, staff_id: target.staff_id,
-      weekday_amount: target.weekday_amount, weekend_amount: target.weekend_amount, profit_rate: target.profit_rate,
+      weekday_amount: target.weekday_amount,
+      weekend_amount: target.saturday_amount || 0, // 後方互換用
+      saturday_amount: target.saturday_amount || 0,
+      sunday_amount: target.sunday_amount || 0,
+      holiday_amount: target.holiday_amount || 0,
+      profit_rate: target.profit_rate,
       kpi_oled_rate: target.kpi_oled_rate, kpi_battery_combo_rate: target.kpi_battery_combo_rate,
       kpi_film_rate: target.kpi_film_rate, kpi_used_sales_rate: target.kpi_used_sales_rate,
       kpi_accessory_avg: target.kpi_accessory_avg, updated_at: new Date().toISOString()
@@ -629,6 +689,21 @@ export default function ReportsPage() {
   }
 
   const getTargetForDisplay = (target: SalesTarget | null) => target ? calculateMonthlyTarget(target, businessDays) : null
+
+  // 店舗目標の合計から全体目標を計算
+  const getOverallTargetFromShops = () => {
+    const shopTargets = shopSummaries.map(s => s.target).filter(Boolean) as SalesTarget[]
+    if (shopTargets.length === 0) return null
+    const totalWeekday = shopTargets.reduce((sum, t) => sum + (t.weekday_amount || 0), 0)
+    const totalSaturday = shopTargets.reduce((sum, t) => sum + (t.saturday_amount || 0), 0)
+    const totalSunday = shopTargets.reduce((sum, t) => sum + (t.sunday_amount || 0), 0)
+    const totalHoliday = shopTargets.reduce((sum, t) => sum + (t.holiday_amount || 0), 0)
+    const avgProfitRate = shopTargets.reduce((sum, t) => sum + (t.profit_rate || 0), 0) / shopTargets.length
+    const amount = (totalWeekday * businessDays.weekdays) + (totalSaturday * businessDays.saturdays) + (totalSunday * businessDays.sundays) + (totalHoliday * businessDays.holidays)
+    const profit = Math.round(amount * (avgProfitRate / 100))
+    return { amount, profit }
+  }
+
   const { daysInPeriod, daysPassed } = getDateRange()
 
   // カレンダー用ヘルパー
@@ -701,13 +776,13 @@ export default function ReportsPage() {
               <div className="card mb-lg">
                 <div className="card-header"><h2 className="card-title">全体実績</h2></div>
                 <div className="card-body">
-                  {overallTarget && periodType === 'month' && (() => {
-                    const target = getTargetForDisplay(overallTarget)
+                  {periodType === 'month' && (() => {
+                    const target = getOverallTargetFromShops()
                     if (!target) return null
                     return (
                       <div className="form-grid form-grid-2 mb-lg">
                         <div style={{ padding: '16px', background: 'var(--color-primary-light)', borderRadius: 'var(--radius)' }}>
-                          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-primary)', marginBottom: '12px' }}>売上目標</div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-primary)', marginBottom: '12px' }}>売上目標（店舗合計）</div>
                           <div className="form-grid form-grid-4" style={{ gap: '8px' }}>
                             <div><div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>目標</div><div style={{ fontWeight: 600 }}>¥{target.amount.toLocaleString()}</div></div>
                             <div><div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>累計</div><div style={{ fontWeight: 600 }}>¥{overallSummary.totalAmount.toLocaleString()}</div></div>
@@ -716,7 +791,7 @@ export default function ReportsPage() {
                           </div>
                         </div>
                         <div style={{ padding: '16px', background: 'var(--color-success-light)', borderRadius: 'var(--radius)' }}>
-                          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-success)', marginBottom: '12px' }}>粗利目標</div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-success)', marginBottom: '12px' }}>粗利目標（店舗合計）</div>
                           <div className="form-grid form-grid-4" style={{ gap: '8px' }}>
                             <div><div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>目標</div><div style={{ fontWeight: 600 }}>¥{target.profit.toLocaleString()}</div></div>
                             <div><div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>累計</div><div style={{ fontWeight: 600 }}>¥{overallSummary.totalProfit.toLocaleString()}</div></div>
@@ -734,6 +809,29 @@ export default function ReportsPage() {
                     <div className="stat-card"><div className="stat-label">粗利率</div><div className="stat-value">{calcProfitRate(overallSummary.totalProfit, overallSummary.totalAmount)}</div></div>
                     <div className="stat-card"><div className="stat-label">客単価</div><div className="stat-value">{calcUnitPrice(overallSummary.totalAmount, overallSummary.salesCount)}</div></div>
                   </div>
+
+                  {/* 実店舗 vs EC内訳 */}
+                  {(ecSalesSummary.salesCount > 0 || storeSalesSummary.salesCount > 0) && (
+                    <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div style={{ padding: '12px 16px', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: 'var(--color-text-secondary)' }}>実店舗</div>
+                        <div className="flex gap-lg" style={{ fontSize: '0.9rem' }}>
+                          <span>{storeSalesSummary.salesCount}件</span>
+                          <span style={{ color: 'var(--color-primary)' }}>¥{storeSalesSummary.totalAmount.toLocaleString()}</span>
+                          <span style={{ color: 'var(--color-success)' }}>粗利 ¥{storeSalesSummary.totalProfit.toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <div style={{ padding: '12px 16px', background: 'var(--color-primary-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-primary)' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: 'var(--color-primary)' }}>EC売上（メルカリ・Shopify等）</div>
+                        <div className="flex gap-lg" style={{ fontSize: '0.9rem' }}>
+                          <span>{ecSalesSummary.salesCount}件</span>
+                          <span style={{ color: 'var(--color-primary)' }}>¥{ecSalesSummary.totalAmount.toLocaleString()}</span>
+                          <span style={{ color: 'var(--color-success)' }}>粗利 ¥{ecSalesSummary.totalProfit.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {lastYearSummary && periodType === 'month' && (
                     <div style={{ marginTop: '16px', padding: '12px', background: 'var(--color-bg)', borderRadius: 'var(--radius)' }}>
                       <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px' }}>前年同月比</div>
@@ -756,6 +854,7 @@ export default function ReportsPage() {
                           <div className="flex items-center gap-md">
                             <span style={{ fontWeight: 600 }}>{expandedShops.includes(shop.shopId) ? '▼' : '▶'}</span>
                             <span style={{ fontWeight: 600 }}>{shop.shopName}</span>
+                            {shop.isEc && <span className="badge badge-primary">EC</span>}
                           </div>
                           <div className="flex gap-lg" style={{ fontSize: '0.9rem' }}>
                             <span>接客: {shop.summary.salesCount}件</span>
@@ -796,12 +895,19 @@ export default function ReportsPage() {
               <div className="card mb-lg">
                 <div className="card-header"><h2 className="card-title">全体KPI</h2></div>
                 <div className="card-body">
-                  <div className="stat-grid stat-grid-5">
+                  {/* パネル・バッテリー関連 */}
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '12px', color: 'var(--color-text-secondary)' }}>パネル・バッテリー</h3>
+                  <div className="stat-grid stat-grid-4 mb-lg">
                     <div className="stat-card">
                       <div className="stat-label">HGパネル獲得率</div>
                       <div className="stat-value" style={{ color: 'var(--color-primary)' }}>{calcRate(overallKPI.oledScreenRepairCount, overallKPI.oledTargetScreenRepairCount)}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{overallKPI.oledScreenRepairCount} / {overallKPI.oledTargetScreenRepairCount}件</div>
                       {overallTarget?.kpi_oled_rate && <div style={{ fontSize: '0.75rem', color: 'var(--color-warning)' }}>目標: {overallTarget.kpi_oled_rate}%</div>}
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-label">HGバッテリー獲得率</div>
+                      <div className="stat-value" style={{ color: 'var(--color-primary)' }}>{calcRate(overallKPI.hgBatteryCount, overallKPI.batteryTargetCount)}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{overallKPI.hgBatteryCount} / {overallKPI.batteryTargetCount}件</div>
                     </div>
                     <div className="stat-card">
                       <div className="stat-label">同時交換率</div>
@@ -810,16 +916,31 @@ export default function ReportsPage() {
                       {overallTarget?.kpi_battery_combo_rate && <div style={{ fontSize: '0.75rem', color: 'var(--color-warning)' }}>目標: {overallTarget.kpi_battery_combo_rate}%</div>}
                     </div>
                     <div className="stat-card">
-                      <div className="stat-label">フィルム獲得率</div>
+                      <div className="stat-label">中古販売率</div>
+                      <div className="stat-value" style={{ color: 'var(--color-success)' }}>{calcRate(overallKPI.usedSalesFromRepairCount, overallKPI.repairSalesCount)}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{overallKPI.usedSalesFromRepairCount} / {overallKPI.repairSalesCount}件</div>
+                      {overallTarget?.kpi_used_sales_rate && <div style={{ fontSize: '0.75rem', color: 'var(--color-warning)' }}>目標: {overallTarget.kpi_used_sales_rate}%</div>}
+                    </div>
+                  </div>
+
+                  {/* フィルム詳細 */}
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '12px', color: 'var(--color-text-secondary)' }}>フィルム装着</h3>
+                  <div className="stat-grid stat-grid-4 mb-lg">
+                    <div className="stat-card">
+                      <div className="stat-label">全体装着率</div>
                       <div className="stat-value" style={{ color: 'var(--color-warning)' }}>{calcRate(overallKPI.filmSalesCount, overallKPI.repairOrUsedSalesCount)}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{overallKPI.filmSalesCount} / {overallKPI.repairOrUsedSalesCount}件</div>
                       {overallTarget?.kpi_film_rate && <div style={{ fontSize: '0.75rem', color: 'var(--color-warning)' }}>目標: {overallTarget.kpi_film_rate}%</div>}
                     </div>
                     <div className="stat-card">
-                      <div className="stat-label">中古販売率</div>
-                      <div className="stat-value" style={{ color: 'var(--color-primary)' }}>{calcRate(overallKPI.usedSalesFromRepairCount, overallKPI.repairSalesCount)}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{overallKPI.usedSalesFromRepairCount} / {overallKPI.repairSalesCount}件</div>
-                      {overallTarget?.kpi_used_sales_rate && <div style={{ fontSize: '0.75rem', color: 'var(--color-warning)' }}>目標: {overallTarget.kpi_used_sales_rate}%</div>}
+                      <div className="stat-label">ガラスフィルム（1000円）</div>
+                      <div className="stat-value" style={{ color: 'var(--color-warning)' }}>{calcRate(overallKPI.glassFilmCount, overallKPI.repairOrUsedSalesCount)}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{overallKPI.glassFilmCount}件</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-label">覗き見防止（2000円）</div>
+                      <div className="stat-value" style={{ color: 'var(--color-warning)' }}>{calcRate(overallKPI.privacyFilmCount, overallKPI.repairOrUsedSalesCount)}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{overallKPI.privacyFilmCount}件</div>
                     </div>
                     <div className="stat-card">
                       <div className="stat-label">アクセサリ添付</div>
@@ -835,13 +956,14 @@ export default function ReportsPage() {
                 <div className="card-body" style={{ padding: 0 }}>
                   <div className="table-wrapper" style={{ border: 'none' }}>
                     <table className="data-table">
-                      <thead><tr><th>店舗/スタッフ</th><th className="text-right">HGパネル</th><th className="text-right">同時交換</th><th className="text-right">フィルム</th><th className="text-right">中古販売</th><th className="text-right">アクセサリ</th></tr></thead>
+                      <thead><tr><th>店舗/スタッフ</th><th className="text-right">HGパネル</th><th className="text-right">HGバッテリー</th><th className="text-right">同時交換</th><th className="text-right">フィルム</th><th className="text-right">中古販売</th><th className="text-right">アクセサリ</th></tr></thead>
                       <tbody>
                         {shopSummaries.map(shop => (
                           <>
                             <tr key={`shop-${shop.shopId}`} style={{ background: 'var(--color-bg)' }}>
                               <td style={{ fontWeight: 600 }}>{shop.shopName}</td>
                               <td className="text-right">{calcRate(shop.kpi.oledScreenRepairCount, shop.kpi.oledTargetScreenRepairCount)}</td>
+                              <td className="text-right">{calcRate(shop.kpi.hgBatteryCount, shop.kpi.batteryTargetCount)}</td>
                               <td className="text-right">{calcRate(shop.kpi.screenBatteryComboCount, shop.kpi.screenRepairSalesCount)}</td>
                               <td className="text-right">{calcRate(shop.kpi.filmSalesCount, shop.kpi.repairOrUsedSalesCount)}</td>
                               <td className="text-right">{calcRate(shop.kpi.usedSalesFromRepairCount, shop.kpi.repairSalesCount)}</td>
@@ -851,6 +973,7 @@ export default function ReportsPage() {
                               <tr key={`staff-${st.staffId}`}>
                                 <td style={{ paddingLeft: '32px' }}>{st.staffName}</td>
                                 <td className="text-right">{calcRate(st.kpi.oledScreenRepairCount, st.kpi.oledTargetScreenRepairCount)}</td>
+                                <td className="text-right">{calcRate(st.kpi.hgBatteryCount, st.kpi.batteryTargetCount)}</td>
                                 <td className="text-right">{calcRate(st.kpi.screenBatteryComboCount, st.kpi.screenRepairSalesCount)}</td>
                                 <td className="text-right">{calcRate(st.kpi.filmSalesCount, st.kpi.repairOrUsedSalesCount)}</td>
                                 <td className="text-right">{calcRate(st.kpi.usedSalesFromRepairCount, st.kpi.repairSalesCount)}</td>
@@ -1128,7 +1251,7 @@ export default function ReportsPage() {
                   <div className="flex items-center gap-md">
                     <label className="form-label" style={{ marginBottom: 0 }}>対象月:</label>
                     <input type="month" value={targetMonth} onChange={(e) => setTargetMonth(e.target.value)} className="form-input" style={{ width: 'auto' }} />
-                    <span style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>営業日: 平日{businessDays.weekdays}日 / 土日{businessDays.weekends}日</span>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>営業日: 平日{businessDays.weekdays}日 / 土曜{businessDays.saturdays}日 / 日曜{businessDays.sundays}日 / 祝日{businessDays.holidays}日</span>
                   </div>
                 </div>
               </div>
@@ -1154,51 +1277,65 @@ export default function ReportsPage() {
               <div className="card">
                 <div className="card-header"><h2 className="card-title">売上・KPI目標</h2></div>
                 <div className="card-body">
+                  {/* 全体目標（店舗合計から自動計算） */}
                   <div style={{ marginBottom: '24px' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '12px' }}>全体目標</h3>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '12px' }}>全体目標（店舗合計）</h3>
                     {(() => {
-                      const t = targets.find(t => t.shop_id === null && t.staff_id === null)
-                      return t ? (
-                        <div className="flex items-center gap-md">
-                          <span>平日: ¥{t.weekday_amount.toLocaleString()}/日</span>
-                          <span>土日: ¥{t.weekend_amount.toLocaleString()}/日</span>
-                          <span>粗利率: {t.profit_rate}%</span>
-                          <button onClick={() => setEditingTarget(t)} className="btn btn-sm btn-secondary">編集</button>
+                      const shopTargets = targets.filter(t => t.shop_id !== null && t.staff_id === null)
+                      if (shopTargets.length === 0) {
+                        return <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>各店舗の目標を設定すると自動で合算されます</p>
+                      }
+                      const totalWeekday = shopTargets.reduce((sum, t) => sum + (t.weekday_amount || 0), 0)
+                      const totalSaturday = shopTargets.reduce((sum, t) => sum + (t.saturday_amount || 0), 0)
+                      const totalSunday = shopTargets.reduce((sum, t) => sum + (t.sunday_amount || 0), 0)
+                      const totalHoliday = shopTargets.reduce((sum, t) => sum + (t.holiday_amount || 0), 0)
+                      const monthlyTarget = (totalWeekday * businessDays.weekdays) + (totalSaturday * businessDays.saturdays) + (totalSunday * businessDays.sundays) + (totalHoliday * businessDays.holidays)
+                      return (
+                        <div style={{ padding: '12px 16px', background: 'var(--color-bg)', borderRadius: 'var(--radius)' }}>
+                          <div className="flex flex-wrap gap-lg" style={{ fontSize: '0.9rem', marginBottom: '8px' }}>
+                            <span>平日: ¥{totalWeekday.toLocaleString()}/日</span>
+                            <span>土曜: ¥{totalSaturday.toLocaleString()}/日</span>
+                            <span>日曜: ¥{totalSunday.toLocaleString()}/日</span>
+                            <span>祝日: ¥{totalHoliday.toLocaleString()}/日</span>
+                          </div>
+                          <div style={{ fontWeight: 600, color: 'var(--color-primary)' }}>月間目標: ¥{monthlyTarget.toLocaleString()}</div>
                         </div>
-                      ) : (
-                        <button onClick={() => setEditingTarget({ shop_id: null, staff_id: null, weekday_amount: 0, weekend_amount: 0, profit_rate: 75, kpi_oled_rate: 60, kpi_battery_combo_rate: 30, kpi_film_rate: 70, kpi_used_sales_rate: 5, kpi_accessory_avg: 1.5 })} className="btn btn-primary">全体目標を設定</button>
                       )
                     })()}
                   </div>
-                  {shops.map(shop => (
+                  {shops.filter(s => !s.is_ec).map(shop => (
                     <div key={shop.id} style={{ marginBottom: '24px' }}>
                       <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '12px' }}>{shop.name}</h3>
                       {(() => {
                         const t = targets.find(t => t.shop_id === shop.id && t.staff_id === null)
                         return t ? (
-                          <div className="flex items-center gap-md mb-md">
-                            <span>平日: ¥{t.weekday_amount.toLocaleString()}/日</span>
-                            <span>土日: ¥{t.weekend_amount.toLocaleString()}/日</span>
+                          <div className="flex flex-wrap items-center gap-md mb-md">
+                            <span>平日: ¥{t.weekday_amount?.toLocaleString()}</span>
+                            <span>土曜: ¥{(t.saturday_amount || 0).toLocaleString()}</span>
+                            <span>日曜: ¥{(t.sunday_amount || 0).toLocaleString()}</span>
+                            <span>祝日: ¥{(t.holiday_amount || 0).toLocaleString()}</span>
                             <button onClick={() => setEditingTarget(t)} className="btn btn-sm btn-secondary">編集</button>
                           </div>
                         ) : (
-                          <button onClick={() => setEditingTarget({ shop_id: shop.id, staff_id: null, weekday_amount: 0, weekend_amount: 0, profit_rate: 75, kpi_oled_rate: 60, kpi_battery_combo_rate: 30, kpi_film_rate: 70, kpi_used_sales_rate: 5, kpi_accessory_avg: 1.5 })} className="btn btn-sm btn-secondary mb-md">店舗目標を設定</button>
+                          <button onClick={() => setEditingTarget({ shop_id: shop.id, staff_id: null, weekday_amount: 0, weekend_amount: 0, saturday_amount: 0, sunday_amount: 0, holiday_amount: 0, profit_rate: 75, kpi_oled_rate: 60, kpi_battery_combo_rate: 30, kpi_film_rate: 70, kpi_used_sales_rate: 5, kpi_accessory_avg: 1.5 })} className="btn btn-sm btn-secondary mb-md">店舗目標を設定</button>
                         )
                       })()}
                       <div style={{ paddingLeft: '24px' }}>
                         {staff.map(st => {
                           const t = targets.find(t => t.shop_id === shop.id && t.staff_id === st.id)
                           return (
-                            <div key={st.id} className="flex items-center gap-md" style={{ marginBottom: '8px' }}>
+                            <div key={st.id} className="flex flex-wrap items-center gap-md" style={{ marginBottom: '8px' }}>
                               <span style={{ width: '80px' }}>{st.name}</span>
                               {t ? (
                                 <>
-                                  <span>平日: ¥{t.weekday_amount.toLocaleString()}</span>
-                                  <span>土日: ¥{t.weekend_amount.toLocaleString()}</span>
+                                  <span style={{ fontSize: '0.85rem' }}>平日¥{t.weekday_amount?.toLocaleString()}</span>
+                                  <span style={{ fontSize: '0.85rem' }}>土¥{(t.saturday_amount || 0).toLocaleString()}</span>
+                                  <span style={{ fontSize: '0.85rem' }}>日¥{(t.sunday_amount || 0).toLocaleString()}</span>
+                                  <span style={{ fontSize: '0.85rem' }}>祝¥{(t.holiday_amount || 0).toLocaleString()}</span>
                                   <button onClick={() => setEditingTarget(t)} className="btn btn-sm btn-secondary">編集</button>
                                 </>
                               ) : (
-                                <button onClick={() => setEditingTarget({ shop_id: shop.id, staff_id: st.id, weekday_amount: 0, weekend_amount: 0, profit_rate: 75, kpi_oled_rate: null, kpi_battery_combo_rate: null, kpi_film_rate: null, kpi_used_sales_rate: null, kpi_accessory_avg: null })} className="btn btn-sm btn-secondary">設定</button>
+                                <button onClick={() => setEditingTarget({ shop_id: shop.id, staff_id: st.id, weekday_amount: 0, weekend_amount: 0, saturday_amount: 0, sunday_amount: 0, holiday_amount: 0, profit_rate: 75, kpi_oled_rate: null, kpi_battery_combo_rate: null, kpi_film_rate: null, kpi_used_sales_rate: null, kpi_accessory_avg: null })} className="btn btn-sm btn-secondary">設定</button>
                               )}
                             </div>
                           )
@@ -1214,9 +1351,12 @@ export default function ReportsPage() {
                   <div className="modal" onClick={(e) => e.stopPropagation()}>
                     <div className="modal-header"><h3 className="modal-title">目標設定</h3><button className="modal-close" onClick={() => setEditingTarget(null)}>×</button></div>
                     <div className="modal-body">
-                      <div className="form-grid form-grid-2 mb-md">
-                        <div className="form-group"><label className="form-label">平日1日あたり売上目標</label><input type="number" value={editingTarget.weekday_amount} onChange={(e) => setEditingTarget({ ...editingTarget, weekday_amount: Number(e.target.value) })} className="form-input" /></div>
-                        <div className="form-group"><label className="form-label">土日1日あたり売上目標</label><input type="number" value={editingTarget.weekend_amount} onChange={(e) => setEditingTarget({ ...editingTarget, weekend_amount: Number(e.target.value) })} className="form-input" /></div>
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '12px' }}>1日あたり売上目標</h4>
+                      <div className="form-grid form-grid-4 mb-md">
+                        <div className="form-group"><label className="form-label">平日（月〜金）</label><input type="number" value={editingTarget.weekday_amount} onChange={(e) => setEditingTarget({ ...editingTarget, weekday_amount: Number(e.target.value) })} className="form-input" /></div>
+                        <div className="form-group"><label className="form-label">土曜日</label><input type="number" value={editingTarget.saturday_amount || 0} onChange={(e) => setEditingTarget({ ...editingTarget, saturday_amount: Number(e.target.value) })} className="form-input" /></div>
+                        <div className="form-group"><label className="form-label">日曜日</label><input type="number" value={editingTarget.sunday_amount || 0} onChange={(e) => setEditingTarget({ ...editingTarget, sunday_amount: Number(e.target.value) })} className="form-input" /></div>
+                        <div className="form-group"><label className="form-label">祝日</label><input type="number" value={editingTarget.holiday_amount || 0} onChange={(e) => setEditingTarget({ ...editingTarget, holiday_amount: Number(e.target.value) })} className="form-input" /></div>
                       </div>
                       <div className="form-group mb-md"><label className="form-label">粗利率（%）</label><input type="number" value={editingTarget.profit_rate} onChange={(e) => setEditingTarget({ ...editingTarget, profit_rate: Number(e.target.value) })} className="form-input" style={{ width: '100px' }} /></div>
                       <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '12px' }}>KPI目標（任意）</h4>

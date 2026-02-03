@@ -7,6 +7,7 @@ type Shop = {
   id: number
   name: string
   square_location_id: string | null
+  is_ec: boolean
 }
 
 type Staff = {
@@ -204,6 +205,11 @@ export default function SalesPage() {
     visitSourceId: '',
   })
 
+  // 選択された店舗がEC店舗かどうか
+  const selectedShopIsEc = formData.shopId
+    ? shops.find(s => s.id === parseInt(formData.shopId))?.is_ec || false
+    : false
+
   // iPhone修理フォーム
   const [iphoneForm, setIphoneForm] = useState({
     model: '',
@@ -289,7 +295,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     async function fetchMasterData() {
       const { data: shopsData } = await supabase
         .from('m_shops')
-        .select('id, name, square_location_id')
+        .select('id, name, square_location_id, is_ec')
         .eq('tenant_id', 1)
         .eq('is_active', true)
         .order('id')
@@ -930,6 +936,29 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     }))
   }
 
+  // 明細の単価更新（イレギュラー対応用）
+  const updateDetailUnitPrice = (id: string, unitPrice: number) => {
+    setDetails(details.map(d => {
+      if (d.id === id) {
+        const newAmount = (unitPrice * d.quantity) - d.discount
+        const newProfit = newAmount - d.cost
+        return { ...d, unitPrice, amount: newAmount, profit: newProfit }
+      }
+      return d
+    }))
+  }
+
+  // 明細の原価更新（イレギュラー対応用）
+  const updateDetailUnitCost = (id: string, cost: number) => {
+    setDetails(details.map(d => {
+      if (d.id === id) {
+        const newProfit = d.amount - cost
+        return { ...d, cost, profit: newProfit }
+      }
+      return d
+    }))
+  }
+
   // 合計計算
   const subtotal = details.reduce((sum, d) => sum + (d.unitPrice * d.quantity), 0)
   const totalDiscount = details.reduce((sum, d) => sum + d.discount, 0)
@@ -939,8 +968,12 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
 
   // Squareで決済
   const handleSquareCheckout = async () => {
-    if (!formData.shopId || !formData.staffId) {
-      alert('店舗と担当者を選択してください')
+    if (!formData.shopId) {
+      alert('店舗を選択してください')
+      return
+    }
+    if (!selectedShopIsEc && !formData.staffId) {
+      alert('担当者を選択してください')
       return
     }
     if (details.length === 0) {
@@ -979,8 +1012,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       .insert({
         tenant_id: 1,
         shop_id: parseInt(formData.shopId),
-        staff_id: parseInt(formData.staffId),
-        visit_source_id: formData.visitSourceId ? parseInt(formData.visitSourceId) : null,
+        staff_id: selectedShopIsEc ? null : parseInt(formData.staffId),
+        visit_source_id: selectedShopIsEc ? null : (formData.visitSourceId ? parseInt(formData.visitSourceId) : null),
         sale_date: formData.saleDate,
         total_amount: totalAmount,
         total_cost: totalCost,
@@ -1084,8 +1117,12 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
 
   // 売上登録
   const handleSubmit = async () => {
-    if (!formData.shopId || !formData.staffId) {
-      alert('店舗と担当者を選択してください')
+    if (!formData.shopId) {
+      alert('店舗を選択してください')
+      return
+    }
+    if (!selectedShopIsEc && !formData.staffId) {
+      alert('担当者を選択してください')
       return
     }
     if (details.length === 0) {
@@ -1099,8 +1136,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       .insert({
         tenant_id: 1,
         shop_id: parseInt(formData.shopId),
-        staff_id: parseInt(formData.staffId),
-        visit_source_id: formData.visitSourceId ? parseInt(formData.visitSourceId) : null,
+        staff_id: selectedShopIsEc ? null : parseInt(formData.staffId),
+        visit_source_id: selectedShopIsEc ? null : (formData.visitSourceId ? parseInt(formData.visitSourceId) : null),
         sale_date: formData.saleDate,
         total_amount: totalAmount,
         total_cost: totalCost,
@@ -1296,41 +1333,59 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
               <label className="form-label">店舗</label>
               <select
                 value={formData.shopId}
-                onChange={(e) => setFormData({ ...formData, shopId: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, shopId: e.target.value, staffId: '', visitSourceId: '' })}
                 className="form-select"
               >
                 <option value="">選択してください</option>
                 {shops.map((shop) => (
-                  <option key={shop.id} value={shop.id}>{shop.name}</option>
+                  <option key={shop.id} value={shop.id}>
+                    {shop.name}{shop.is_ec ? ' (EC)' : ''}
+                  </option>
                 ))}
               </select>
             </div>
-            <div className="form-group">
-              <label className="form-label">担当者</label>
-              <select
-                value={formData.staffId}
-                onChange={(e) => setFormData({ ...formData, staffId: e.target.value })}
-                className="form-select"
-              >
-                <option value="">選択してください</option>
-                {staff.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">来店経路</label>
-              <select
-                value={formData.visitSourceId}
-                onChange={(e) => setFormData({ ...formData, visitSourceId: e.target.value })}
-                className="form-select"
-              >
-                <option value="">選択してください</option>
-                {visitSources.map((vs) => (
-                  <option key={vs.id} value={vs.id}>{vs.name}</option>
-                ))}
-              </select>
-            </div>
+            {selectedShopIsEc ? (
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <div style={{
+                  padding: '12px 16px',
+                  backgroundColor: 'var(--color-primary-bg)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-primary)',
+                  color: 'var(--color-primary)'
+                }}>
+                  EC売上モード：担当者・来店経路の入力は不要です
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="form-group">
+                  <label className="form-label">担当者</label>
+                  <select
+                    value={formData.staffId}
+                    onChange={(e) => setFormData({ ...formData, staffId: e.target.value })}
+                    className="form-select"
+                  >
+                    <option value="">選択してください</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">来店経路</label>
+                  <select
+                    value={formData.visitSourceId}
+                    onChange={(e) => setFormData({ ...formData, visitSourceId: e.target.value })}
+                    className="form-select"
+                  >
+                    <option value="">選択してください</option>
+                    {visitSources.map((vs) => (
+                      <option key={vs.id} value={vs.id}>{vs.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1802,7 +1857,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                       })
                       .map((inv) => (
                         <option key={inv.id} value={inv.id}>
-                          [{inv.management_number || '----'}] {inv.model} {inv.storage}GB {inv.rank}
+                          [{inv.management_number ? String(inv.management_number).padStart(4, '0') : '----'}] {inv.model} {inv.storage}GB {inv.rank}
                         </option>
                       ))}
                   </select>
@@ -2098,7 +2153,20 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                         <td>{detail.model}</td>
                         <td>{detail.menu}</td>
                         <td className="text-right">{detail.quantity}</td>
-                        <td className="text-right">¥{detail.unitPrice.toLocaleString()}</td>
+                        <td className="text-right">
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            className="form-input"
+                            style={{ width: '90px', textAlign: 'right', padding: '4px 8px' }}
+                            value={detail.unitPrice || ''}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/[^0-9]/g, '')
+                              updateDetailUnitPrice(detail.id, parseInt(value) || 0)
+                            }}
+                          />
+                        </td>
                         <td className="text-right">
                           <input
                             type="tel"
@@ -2115,7 +2183,20 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                           />
                         </td>
                         <td className="text-right">¥{detail.amount.toLocaleString()}</td>
-                        <td className="text-right">¥{detail.cost.toLocaleString()}</td>
+                        <td className="text-right">
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            className="form-input"
+                            style={{ width: '90px', textAlign: 'right', padding: '4px 8px' }}
+                            value={detail.cost || ''}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/[^0-9]/g, '')
+                              updateDetailUnitCost(detail.id, parseInt(value) || 0)
+                            }}
+                          />
+                        </td>
                         <td className="text-right">
                           <div>¥{detail.profit.toLocaleString()}</div>
                           <div style={{ fontSize: '0.75rem', color: profitRate >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>

@@ -8,6 +8,7 @@ type Shop = {
   name: string
   code: string
   is_active: boolean
+  is_ec: boolean
   created_at: string
 }
 
@@ -23,6 +24,7 @@ export default function ShopManagementPage() {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
+    is_ec: false,
   })
 
   // データ取得
@@ -31,7 +33,7 @@ export default function ShopManagementPage() {
 
     const { data } = await supabase
       .from('m_shops')
-      .select('id, name, code, is_active, created_at')
+      .select('id, name, code, is_active, is_ec, created_at')
       .eq('tenant_id', 1)
       .order('id')
 
@@ -49,7 +51,7 @@ export default function ShopManagementPage() {
   // 新規追加モーダルを開く
   const openAddModal = () => {
     setEditingShop(null)
-    setFormData({ name: '', code: '' })
+    setFormData({ name: '', code: '', is_ec: false })
     setShowModal(true)
   }
 
@@ -59,6 +61,7 @@ export default function ShopManagementPage() {
     setFormData({
       name: shop.name,
       code: shop.code,
+      is_ec: shop.is_ec || false,
     })
     setShowModal(true)
   }
@@ -67,7 +70,7 @@ export default function ShopManagementPage() {
   const closeModal = () => {
     setShowModal(false)
     setEditingShop(null)
-    setFormData({ name: '', code: '' })
+    setFormData({ name: '', code: '', is_ec: false })
   }
 
   // 保存
@@ -88,9 +91,10 @@ export default function ShopManagementPage() {
         // 更新
         const { error } = await supabase
           .from('m_shops')
-          .update({ 
+          .update({
             name: formData.name.trim(),
             code: formData.code.trim(),
+            is_ec: formData.is_ec,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingShop.id)
@@ -104,6 +108,7 @@ export default function ShopManagementPage() {
             tenant_id: 1,
             name: formData.name.trim(),
             code: formData.code.trim(),
+            is_ec: formData.is_ec,
             is_active: true,
           })
 
@@ -191,6 +196,7 @@ export default function ShopManagementPage() {
                   <th>ID</th>
                   <th>店舗名</th>
                   <th>店舗コード</th>
+                  <th className="text-center">種別</th>
                   <th className="text-center">ステータス</th>
                   <th className="text-center">操作</th>
                 </tr>
@@ -198,7 +204,7 @@ export default function ShopManagementPage() {
               <tbody>
                 {filteredShops.length === 0 ? (
                   <tr>
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       <div className="empty-state">
                         <p className="empty-state-text">店舗が登録されていません</p>
                       </div>
@@ -213,15 +219,22 @@ export default function ShopManagementPage() {
                       <td>{shop.id}</td>
                       <td style={{ fontWeight: 500 }}>{shop.name}</td>
                       <td>
-                        <span style={{ 
-                          padding: '4px 8px', 
-                          backgroundColor: 'var(--color-bg)', 
+                        <span style={{
+                          padding: '4px 8px',
+                          backgroundColor: 'var(--color-bg)',
                           borderRadius: 'var(--radius-sm)',
                           fontFamily: 'monospace',
                           fontSize: '0.9rem'
                         }}>
                           {shop.code}
                         </span>
+                      </td>
+                      <td className="text-center">
+                        {shop.is_ec ? (
+                          <span className="badge badge-primary">EC</span>
+                        ) : (
+                          <span className="badge badge-gray">実店舗</span>
+                        )}
                       </td>
                       <td className="text-center">
                         {shop.is_active ? (
@@ -296,6 +309,20 @@ export default function ShopManagementPage() {
                   placeholder="例：FUKUI"
                 />
                 <p className="form-hint">半角英数字で入力（システム内部で使用）</p>
+              </div>
+
+              {/* EC店舗フラグ */}
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.is_ec}
+                    onChange={(e) => setFormData({ ...formData, is_ec: e.target.checked })}
+                    style={{ width: '18px', height: '18px' }}
+                  />
+                  <span style={{ fontWeight: 500 }}>EC店舗（メルカリ・Shopify等）</span>
+                </label>
+                <p className="form-hint">EC店舗の場合、売上入力が簡略化されます</p>
               </div>
             </div>
 
