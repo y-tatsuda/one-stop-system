@@ -47,7 +47,7 @@ const PARTS_TYPE_ORDER = [
 const partsTypeLabels: { [key: string]: string } = {
   'TH': 'THパネル',
   'HG': 'HGパネル',
-  'バッテリー': 'バッテリー',
+  'バッテリー': '標準バッテリー',
   'HGバッテリー': 'HGバッテリー',
   'コネクタ': 'コネクタ',
   'リアカメラ': 'リアカメラ',
@@ -74,9 +74,9 @@ export default function PartsInventoryPage() {
   const [selectedPartsType, setSelectedPartsType] = useState<string>('')
   const [showShortageOnly, setShowShortageOnly] = useState(false)
   const [editingKey, setEditingKey] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState<number>(0)
+  const [editValue, setEditValue] = useState<string>('0')
   const [editingRequiredKey, setEditingRequiredKey] = useState<string | null>(null)
-  const [editRequiredValue, setEditRequiredValue] = useState<number>(0)
+  const [editRequiredValue, setEditRequiredValue] = useState<string>('0')
 
   // 表示設定
   const [showSettingsModal, setShowSettingsModal] = useState(false)
@@ -221,8 +221,9 @@ export default function PartsInventoryPage() {
     const result = new Map<string, GroupedInventoryItem[]>()
     const processedKeys = new Set<string>()
 
-    // フィルタリング（非表示パーツを除外）
+    // フィルタリング（非表示パーツ・未定義パーツを除外）
     const filteredInventory = inventory.filter(item => {
+      if (!PARTS_TYPE_ORDER.includes(item.parts_type)) return false
       if (hiddenParts.includes(item.parts_type)) return false
       if (selectedPartsType && item.parts_type !== selectedPartsType) return false
       return true
@@ -649,17 +650,17 @@ export default function PartsInventoryPage() {
                                   type="tel"
                                   inputMode="numeric"
                                   pattern="[0-9]*"
-                                  value={editRequiredValue || ''}
+                                  value={editRequiredValue}
                                   onChange={(e) => {
                                     const value = e.target.value.replace(/[^0-9]/g, '')
-                                    setEditRequiredValue(parseInt(value) || 0)
+                                    setEditRequiredValue(value)
                                   }}
                                   className="form-input"
                                   style={{ width: '70px', textAlign: 'center', padding: '4px 8px' }}
                                   autoFocus
                                 />
                                 <button
-                                  onClick={() => updateRequiredQty(item, editRequiredValue)}
+                                  onClick={() => updateRequiredQty(item, parseInt(editRequiredValue) || 0)}
                                   className="btn btn-sm btn-success"
                                   style={{ padding: '4px 8px', minWidth: 'auto' }}
                                 >
@@ -677,7 +678,7 @@ export default function PartsInventoryPage() {
                               <button
                                 onClick={() => {
                                   setEditingRequiredKey(item.groupKey)
-                                  setEditRequiredValue(item.totalRequired)
+                                  setEditRequiredValue(item.totalRequired.toString())
                                 }}
                                 style={{
                                   padding: '4px 12px',
@@ -699,17 +700,17 @@ export default function PartsInventoryPage() {
                                   type="tel"
                                   inputMode="numeric"
                                   pattern="[0-9]*"
-                                  value={editValue || ''}
+                                  value={editValue}
                                   onChange={(e) => {
                                     const value = e.target.value.replace(/[^0-9]/g, '')
-                                    setEditValue(parseInt(value) || 0)
+                                    setEditValue(value)
                                   }}
                                   className="form-input"
                                   style={{ width: '70px', textAlign: 'center', padding: '4px 8px' }}
                                   autoFocus
                                 />
                                 <button
-                                  onClick={() => updateActualQty(item, editValue)}
+                                  onClick={() => updateActualQty(item, parseInt(editValue) || 0)}
                                   className="btn btn-sm btn-success"
                                   style={{ padding: '4px 8px', minWidth: 'auto' }}
                                 >
@@ -727,7 +728,7 @@ export default function PartsInventoryPage() {
                               <button
                                 onClick={() => {
                                   setEditingKey(item.groupKey)
-                                  setEditValue(item.totalActual)
+                                  setEditValue(item.totalActual.toString())
                                 }}
                                 style={{
                                   fontWeight: 600,
