@@ -1071,7 +1071,6 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       location_id: shop.square_location_id,
       notes: `[SALE:${headerData.id}] ${itemDescriptions}`.substring(0, 500),
       supported_tender_types: [
-        'CREDIT_CARD',
         'CASH',
       ],
     }
