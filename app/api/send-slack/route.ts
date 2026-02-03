@@ -4,7 +4,7 @@ export async function POST(request: NextRequest) {
   try {
     const { message } = await request.json()
 
-    const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL
+    const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL_TRANSFER
 
     if (!SLACK_WEBHOOK_URL) {
       console.error('SLACK_WEBHOOK_URL is not set')

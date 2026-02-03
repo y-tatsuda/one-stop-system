@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     // Slack通知（失敗しても申込自体は成功とする）
     try {
-      const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL
+      const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL_BUYBACK
       if (SLACK_WEBHOOK_URL) {
         await fetch(SLACK_WEBHOOK_URL, {
           method: 'POST',
