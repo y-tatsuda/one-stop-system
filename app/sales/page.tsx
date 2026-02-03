@@ -1053,11 +1053,16 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         amount: totalAmount,
         currency_code: 'JPY'
       },
-      callback_url: `${window.location.origin}${window.location.pathname}${window.location.search}`,
+      callback_url: `${window.location.origin}/sales`,
       location_id: shop.square_location_id,
       notes: `[SALE:${headerData.id}] ${itemDescriptions}`.substring(0, 500),
     }
     const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify(squareData))}`
+
+    // Square POS起動前にKIOSK状態を保存（戻り時の認証スキップ用）
+    if (window.location.search) {
+      sessionStorage.setItem('square_callback_params', window.location.search)
+    }
 
     // Square POSアプリを起動（iPad/iPhoneの場合）
     // iPadOS 13以降はuserAgentに"iPad"が含まれないため、タッチ対応+Macで判定

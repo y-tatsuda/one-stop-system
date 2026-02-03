@@ -61,9 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // キオスクモードかどうかを判定（URLパラメータから）
+  // キオスクモードかどうかを判定（URLパラメータ or Square POS戻り時のsessionStorage）
   const kioskParam = searchParams.get('kiosk')
-  const isKioskRequest = kioskParam === 'true'
+  const hasSquareCallbackKiosk = typeof window !== 'undefined' &&
+    (sessionStorage.getItem('square_callback_params') || '').includes('kiosk=true')
+  const isKioskRequest = kioskParam === 'true' || hasSquareCallbackKiosk
 
   // 初期認証チェック（一度だけ実行）
   useEffect(() => {
@@ -74,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const res = await fetch('/api/kiosk/auth')
           const data = await res.json()
           if (data.authenticated) {
+            sessionStorage.removeItem('square_callback_params')
             setIsKioskMode(true)
             setAuthChecked(true)
             setIsLoading(false)
