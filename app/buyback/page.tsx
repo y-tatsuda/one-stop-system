@@ -1329,35 +1329,40 @@ function ItemForm({
         )}
       </div>
       <div className="card-body">
-        {/* 機種選択（ボタングリッド） */}
-        <div className="form-group mb-lg">
-          <label className="form-label form-label-required">機種</label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-            {iphoneModels.map(m => (
-              <button
-                key={m.model}
-                type="button"
-                onClick={() => onUpdate({ model: m.model, storage: '', rank: '' })}
-                style={{
-                  padding: '10px 4px',
-                  borderRadius: '8px',
-                  border: item.model === m.model ? '2px solid #004AAD' : '1px solid #D1D5DB',
-                  background: item.model === m.model ? '#E8F0FE' : '#FFFFFF',
-                  color: item.model === m.model ? '#004AAD' : '#374151',
-                  fontWeight: item.model === m.model ? '700' : '500',
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {m.display_name}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* 基本情報 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div className="form-grid-4 mb-lg">
+          <div className="form-group">
+            <label className="form-label form-label-required">機種</label>
+            <select
+              value={item.model}
+              onChange={(e) => onUpdate({ model: e.target.value, storage: '', rank: '' })}
+              className="form-select"
+              style={{ fontSize: '1rem' }}
+            >
+              <option value="">選択してください</option>
+              {(() => {
+                const groups: { series: string; label: string; models: typeof iphoneModels }[] = []
+                for (const m of iphoneModels) {
+                  const series = m.model === 'Air' || m.model === '16e'
+                    ? (m.model === 'Air' ? '17' : '16')
+                    : (m.model.match(/^(\d+)/)?.[1] || m.model.replace(/Max$|Pro$/, '') || m.model)
+                  let group = groups.find(g => g.series === series)
+                  if (!group) {
+                    group = { series, label: `${series}シリーズ`, models: [] }
+                    groups.push(group)
+                  }
+                  group.models.push(m)
+                }
+                return groups.map(g => (
+                  <optgroup key={g.series} label={g.label}>
+                    {g.models.map(m => (
+                      <option key={m.model} value={m.model}>{m.display_name}</option>
+                    ))}
+                  </optgroup>
+                ))
+              })()}
+            </select>
+          </div>
           <div className="form-group">
             <label className="form-label form-label-required">容量</label>
             <select
