@@ -1060,16 +1060,20 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     setDetails([])
     setSelectedCategory('')
 
-    // Square POS URLを作成（client_id必須、noteにSALE IDを含める）
+    // Square POS URLを作成（公式ドキュメント準拠）
     const squareData = {
-      client_id: squareApplicationId,
       amount_money: {
-        amount: totalAmount,
+        amount: String(totalAmount),
         currency_code: 'JPY'
       },
       callback_url: `${window.location.origin}/sales`,
+      client_id: squareApplicationId,
+      version: '1.3',
       location_id: shop.square_location_id,
       notes: `[SALE:${headerData.id}] ${itemDescriptions}`.substring(0, 500),
+      options: {
+        supported_tender_types: ['CREDIT_CARD', 'CASH'],
+      },
     }
     const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify(squareData))}`
 
