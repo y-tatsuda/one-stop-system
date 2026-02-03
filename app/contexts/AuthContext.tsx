@@ -61,11 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // キオスクモードかどうかを判定（URLパラメータ or Square POS戻り時のlocalStorage）
+  // キオスクモードかどうかを判定（URLパラメータから）
   const kioskParam = searchParams.get('kiosk')
-  const hasSquareCallbackKiosk = typeof window !== 'undefined' &&
-    localStorage.getItem('kiosk_square_pending') === 'true'
-  const isKioskRequest = kioskParam === 'true' || hasSquareCallbackKiosk
+  const isKioskRequest = kioskParam === 'true'
 
   // 初期認証チェック（一度だけ実行）
   useEffect(() => {
@@ -76,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const res = await fetch('/api/kiosk/auth')
           const data = await res.json()
           if (data.authenticated) {
-            localStorage.removeItem('kiosk_square_pending')
             setIsKioskMode(true)
             setAuthChecked(true)
             setIsLoading(false)
@@ -97,6 +94,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = localStorage.getItem('auth_token')
 
         if (!token) {
+          // トークンがない場合、KIOSK Cookieがあるかフォールバックチェック
+          // （Square POS戻り時など、URLにkiosk=trueがない場合の救済）
+          try {
+            const kioskRes = await fetch('/api/kiosk/auth')
+            const kioskData = await kioskRes.json()
+            if (kioskData.authenticated) {
+              setIsKioskMode(true)
+              setAuthChecked(true)
+              setIsLoading(false)
+              return
+            }
+          } catch {}
           setStaff(null)
           setAuthChecked(true)
           setIsLoading(false)
