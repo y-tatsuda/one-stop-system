@@ -1,64 +1,62 @@
 /**
  * 価格計算の共有ユーティリティ
- * 買取・販売の両方で使用される計算ロジックを集約
+ *
+ * 【重要】減額ルールの違い
+ * - 買取: バッテリー90%未満は基準価格の10%減額（割合計算）
+ * - 販売: すべてDBマスタから固定金額を取得（モデル・状態ごとに設定）
  */
-
-import { supabase } from './supabase'
 
 // =====================================================
 // 型定義
 // =====================================================
-export type DeductionData = { deduction_type: string; amount: number }
 
+/** 減額マスタの型（DBから取得） */
+export type DeductionData = {
+  deduction_type: string
+  amount: number
+}
+
+/** 買取時の端末状態 */
 export type BuybackCondition = {
-  batteryPercent: number
-  isServiceState: boolean
-  nwStatus: 'ok' | 'triangle' | 'cross'
-  cameraStain: 'none' | 'minor' | 'major'
-  cameraBroken: boolean
-  repairHistory: boolean
+  batteryPercent: number       // バッテリー残量（%）
+  isServiceState: boolean      // サービス状態（バッテリー残量が取得できない）
+  nwStatus: 'ok' | 'triangle' | 'cross'  // ネットワーク利用制限
+  cameraStain: 'none' | 'minor' | 'major' // カメラ染み
+  cameraBroken: boolean        // カメラ故障
+  repairHistory: boolean       // 修理歴
 }
 
+/** 販売時の端末状態 */
 export type SalesCondition = {
-  batteryPercent: number
-  isServiceState: boolean
-  cameraStain: 'none' | 'minor'
-  nwStatus: 'ok' | 'ng'
-}
-
-export type PriceResult = {
-  basePrice: number
-  totalDeduction: number
-  calculatedPrice: number
-  guaranteePrice: number
-  finalPrice: number
-}
-
-export type SalesPriceResult = {
-  basePrice: number
-  deductionTotal: number
-  finalPrice: number
+  batteryStatus: '90' | '80_89' | '79'  // バッテリー状態区分
+  cameraStain: 'none' | 'minor' | 'major'
+  nwStatus: 'ok' | 'triangle' | 'cross'
 }
 
 // =====================================================
-// 定数
+// 定数（買取用）
 // =====================================================
 
-// バッテリー減額率（90%未満で10%減額）
+/** バッテリー減額率（買取時：90%未満で10%減額） */
 export const BATTERY_DEDUCTION_RATE = 0.10
 
-// バッテリー閾値
+/** バッテリー閾値（買取時：この値未満で減額） */
 export const BATTERY_THRESHOLD = 90
 
 // =====================================================
-// 買取価格計算
+// 買取減額計算
 // =====================================================
 
 /**
  * 買取減額を計算する
+ *
+ * 【ルール】
+ * - バッテリー: 90%未満またはサービス状態 → 基準価格の10%減額（割合計算）
+ * - NW利用制限/カメラ染み/カメラ故障/修理歴 → DBマスタから固定金額
+ *
  * @param basePrice 基本買取価格
- * @param condition 状態条件
- * @param deductions DB減額マスタ（固定金額用）
+ * @param condition 端末状態
+ * @param deductions 減額マスタ（m_buyback_deductionsから取得）
  * @returns 総減額金額
  */
 export function calculateBuybackDeduction(
@@ -69,13 +67,12 @@ export function calculateBuybackDeduction(
   let totalDeduction = 0
   const { batteryPercent, isServiceState, nwStatus, cameraStain, cameraBroken, repairHistory } = condition
 
-  // バッテリー減額（90%未満で10%減額）
+  // バッテリー減額（90%未満で基準価格の10%減額）
   if (isServiceState || batteryPercent < BATTERY_THRESHOLD) {
-    // 10%減額（割合計算）
     totalDeduction += Math.round(basePrice * BATTERY_DEDUCTION_RATE)
   }
 
-  // ネットワーク利用制限
+  // ネットワーク利用制限（固定金額）
   if (nwStatus === 'triangle') {
     const d = deductions.find(d => d.deduction_type === 'nw_checking')
     if (d) totalDeduction += d.amount
@@ -84,19 +81,19 @@ export function calculateBuybackDeduction(
     if (d) totalDeduction += d.amount
   }
 
-  // カメラシミ
+  // カメラ染み（固定金額）
   if (cameraStain === 'minor' || cameraStain === 'major') {
     const d = deductions.find(d => d.deduction_type === 'camera_stain')
     if (d) totalDeduction += d.amount
   }
 
-  // カメラ故障
+  // カメラ故障（固定金額）
   if (cameraBroken) {
     const d = deductions.find(d => d.deduction_type === 'camera_broken')
     if (d) totalDeduction += d.amount
   }
 
-  // 修理歴あり
+  // 修理歴あり（固定金額）
   if (repairHistory) {
     const d = deductions.find(d => d.deduction_type === 'repair_history')
     if (d) totalDeduction += d.amount
@@ -105,177 +102,57 @@ export function calculateBuybackDeduction(
   return totalDeduction
 }
 
-/**
- * 買取価格を計算する
- * @param basePrice 基本買取価格
- * @param guaranteePrice 最低保証価格
- * @param condition 状態条件
- * @param deductions DB減額マスタ
- * @returns 計算結果
- */
-export function calculateBuybackPrice(
-  basePrice: number,
-  guaranteePrice: number,
-  condition: BuybackCondition,
-  deductions: DeductionData[]
-): PriceResult {
-  const totalDeduction = calculateBuybackDeduction(basePrice, condition, deductions)
-  const calculatedPrice = basePrice - totalDeduction
-  const finalPrice = Math.max(calculatedPrice, guaranteePrice)
-
-  return {
-    basePrice,
-    totalDeduction,
-    calculatedPrice,
-    guaranteePrice,
-    finalPrice
-  }
-}
-
 // =====================================================
-// 販売価格計算
+// 販売減額計算
 // =====================================================
 
 /**
  * 販売減額を計算する
- * @param basePrice 基本販売価格
- * @param condition 状態条件
- * @param deductions DB減額マスタ（固定金額用）
+ *
+ * 【ルール】
+ * - すべての項目がDBマスタから固定金額（モデルごとに設定）
+ * - バッテリー80-89%: battery_80_89 の金額（例: 1000円）
+ * - バッテリー79%以下/サービス状態: battery_79 の金額（例: 2000円）
+ * - カメラ染み: camera_stain_minor / camera_stain_major
+ * - NW制限: nw_triangle / nw_cross
+ *
+ * @param condition 端末状態
+ * @param deductions 減額マスタ（m_sales_price_deductionsから取得）
  * @returns 総減額金額
  */
 export function calculateSalesDeduction(
-  basePrice: number,
   condition: SalesCondition,
   deductions: DeductionData[]
 ): number {
   let totalDeduction = 0
-  const { batteryPercent, isServiceState } = condition
+  const { batteryStatus, cameraStain, nwStatus } = condition
 
-  // バッテリー減額（90%未満で10%減額）
-  if (isServiceState || batteryPercent < BATTERY_THRESHOLD) {
-    // 10%減額（割合計算）
-    totalDeduction += Math.round(basePrice * BATTERY_DEDUCTION_RATE)
+  // ヘルパー関数
+  const getDeduction = (type: string): number => {
+    const found = deductions.find(d => d.deduction_type === type)
+    return found?.amount || 0
   }
 
-  // 他の減額項目はDBから取得（必要に応じて追加）
+  // バッテリー減額（固定金額）
+  if (batteryStatus === '80_89') {
+    totalDeduction += getDeduction('battery_80_89')
+  } else if (batteryStatus === '79') {
+    totalDeduction += getDeduction('battery_79')
+  }
+
+  // カメラ染み減額（固定金額）
+  if (cameraStain === 'minor') {
+    totalDeduction += getDeduction('camera_stain_minor')
+  } else if (cameraStain === 'major') {
+    totalDeduction += getDeduction('camera_stain_major')
+  }
+
+  // NW制限減額（固定金額）
+  if (nwStatus === 'triangle') {
+    totalDeduction += getDeduction('nw_triangle')
+  } else if (nwStatus === 'cross') {
+    totalDeduction += getDeduction('nw_cross')
+  }
 
   return totalDeduction
-}
-
-/**
- * 販売価格を計算する
- * @param basePrice 基本販売価格
- * @param condition 状態条件
- * @param deductions DB減額マスタ
- * @returns 計算結果
- */
-export function calculateSalesPrice(
-  basePrice: number,
-  condition: SalesCondition,
-  deductions: DeductionData[]
-): SalesPriceResult {
-  const deductionTotal = calculateSalesDeduction(basePrice, condition, deductions)
-  const finalPrice = basePrice - deductionTotal
-
-  return {
-    basePrice,
-    deductionTotal,
-    finalPrice
-  }
-}
-
-// =====================================================
-// データ取得ヘルパー
-// =====================================================
-
-/**
- * 買取価格マスタを取得
- */
-export async function fetchBuybackPrice(
-  model: string,
-  storage: number,
-  rank: string
-): Promise<number> {
-  const { data } = await supabase
-    .from('m_buyback_prices')
-    .select('price')
-    .eq('tenant_id', 1)
-    .eq('model', model)
-    .eq('storage', storage)
-    .eq('rank', rank)
-    .single()
-
-  return data?.price || 0
-}
-
-/**
- * 買取減額マスタを取得
- */
-export async function fetchBuybackDeductions(
-  model: string,
-  storage: number
-): Promise<DeductionData[]> {
-  const { data } = await supabase
-    .from('m_buyback_deductions')
-    .select('deduction_type, amount')
-    .eq('tenant_id', 1)
-    .eq('model', model)
-    .eq('storage', storage)
-    .eq('is_active', true)
-
-  return data || []
-}
-
-/**
- * 最低保証価格を取得
- */
-export async function fetchGuaranteePrice(
-  model: string,
-  storage: number
-): Promise<number> {
-  const { data } = await supabase
-    .from('m_buyback_guarantees')
-    .select('guarantee_price')
-    .eq('tenant_id', 1)
-    .eq('model', model)
-    .eq('storage', storage)
-    .single()
-
-  return data?.guarantee_price || 0
-}
-
-/**
- * 販売価格マスタを取得
- */
-export async function fetchSalesPrice(
-  model: string,
-  storage: number,
-  rank: string
-): Promise<number> {
-  const { data } = await supabase
-    .from('m_sales_prices')
-    .select('price')
-    .eq('tenant_id', 1)
-    .eq('model', model)
-    .eq('storage', storage)
-    .eq('rank', rank)
-    .single()
-
-  return data?.price || 0
-}
-
-/**
- * 販売減額マスタを取得
- */
-export async function fetchSalesDeductions(
-  model: string
-): Promise<DeductionData[]> {
-  const { data } = await supabase
-    .from('m_sales_price_deductions')
-    .select('deduction_type, amount')
-    .eq('tenant_id', 1)
-    .eq('model', model)
-    .eq('is_active', true)
-
-  return data || []
 }

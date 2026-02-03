@@ -477,13 +477,18 @@ export default function BuybackPage() {
     const finalPrice = Math.max(calculatedPrice, guaranteePrice)
 
     // 販売価格減額計算（共有ユーティリティ使用）
+    // バッテリー%から状態区分に変換
+    const getBatteryStatus = (): '90' | '80_89' | '79' => {
+      if (item.isServiceState || batteryPercent <= 79) return '79'
+      if (batteryPercent <= 89) return '80_89'
+      return '90'
+    }
+
     const salesDeductionTotal = calculateSalesDeduction(
-      salesBasePrice,
       {
-        batteryPercent,
-        isServiceState: item.isServiceState,
-        cameraStain: item.cameraStain as 'none' | 'minor',
-        nwStatus: 'ok',
+        batteryStatus: getBatteryStatus(),
+        cameraStain: item.cameraStain as 'none' | 'minor' | 'major',
+        nwStatus: item.nwStatus as 'ok' | 'triangle' | 'cross',
       },
       salesDeductions
     )
