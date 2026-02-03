@@ -29,7 +29,6 @@ type UsedInventory = {
   sales_price: number | null
   status: string
   ec_status: string | null
-  storage_location: string | null  // 保管場所
   memo: string | null
   shop_id: number
   shop: {
@@ -85,7 +84,6 @@ export default function InventoryPage() {
     status: '',
     model: '',
     managementNumber: '',
-    storageLocation: '',
   })
 
   const [selectedItem, setSelectedItem] = useState<UsedInventory | null>(null)
@@ -95,7 +93,6 @@ export default function InventoryPage() {
     sales_price_tax_included: '', // 入力用の税込価格（文字列）
     ec_status: '',
     status: '',
-    storage_location: '',
     shop_id: 0,
     management_number: '',
     memo: '',
@@ -238,7 +235,6 @@ export default function InventoryPage() {
     if (filters.status) query = query.eq('status', filters.status)
     if (filters.model) query = query.ilike('model', `%${filters.model}%`)
     if (filters.managementNumber) query = query.ilike('management_number', `%${filters.managementNumber}%`)
-    if (filters.storageLocation) query = query.ilike('storage_location', `%${filters.storageLocation}%`)
 
     const { data, error } = await query
     if (error) {
@@ -286,7 +282,6 @@ export default function InventoryPage() {
       sales_price_tax_included: String(salesPrice),
       ec_status: item.ec_status || '',
       status: item.status,
-      storage_location: item.storage_location || '',
       shop_id: item.shop_id,
       management_number: item.management_number || '',
       memo: item.memo || '',
@@ -309,7 +304,6 @@ export default function InventoryPage() {
         sales_price: editData.sales_price,
         ec_status: editData.ec_status || null,
         status: editData.status,
-        storage_location: editData.storage_location || null,
         shop_id: editData.shop_id,
         management_number: editData.management_number || null,
         memo: editData.memo || null,
@@ -565,11 +559,7 @@ export default function InventoryPage() {
               <input type="text" value={filters.managementNumber} onChange={(e) => setFilters({ ...filters, managementNumber: e.target.value })} placeholder="IMEI下4桁" className="form-input" style={{ padding: '6px 10px', fontSize: '0.85rem' }} maxLength={4} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: '#6B7280' }}>保管場所</label>
-              <input type="text" value={filters.storageLocation} onChange={(e) => setFilters({ ...filters, storageLocation: e.target.value })} placeholder="保管場所" className="form-input" style={{ padding: '6px 10px', fontSize: '0.85rem' }} />
-            </div>
-            <div>
-              <button onClick={() => setFilters({ shopId: '', status: '', model: '', managementNumber: '', storageLocation: '' })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem', width: '100%' }}>リセット</button>
+              <button onClick={() => setFilters({ shopId: '', status: '', model: '', managementNumber: '' })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem', width: '100%' }}>リセット</button>
             </div>
           </div>
         </div>
@@ -658,7 +648,6 @@ export default function InventoryPage() {
                   <th>容量</th>
                   <th>ランク</th>
                   <th>管理番号</th>
-                  <th>保管場所</th>
                   <th className="text-right">原価</th>
                   <th className="text-right">販売価格</th>
                   <th>EC</th>
@@ -689,7 +678,6 @@ export default function InventoryPage() {
                       <td>{item.storage === 1000 ? '1TB' : `${item.storage}GB`}</td>
                       <td>{item.rank}</td>
                       <td style={{ fontFamily: 'monospace' }}>{item.management_number ? String(item.management_number).padStart(4, '0') : '-'}</td>
-                      <td>{item.storage_location || '-'}</td>
                       <td className="text-right">¥{item.total_cost.toLocaleString()}</td>
                       <td className="text-right">
                         {item.sales_price ? (
@@ -837,7 +825,6 @@ export default function InventoryPage() {
                 <div><label className="form-label" style={{ fontSize: '0.8rem' }}>管理番号</label><input type="text" value={editData.management_number} onChange={(e) => setEditData({ ...editData, management_number: e.target.value.replace(/[^0-9]/g, '').slice(0, 4) })} className="form-input" style={{ fontFamily: 'monospace' }} placeholder="4桁の数字" maxLength={4} /></div>
                 <div><label className="form-label" style={{ fontSize: '0.8rem' }}>EC出品</label><select value={editData.ec_status} onChange={(e) => setEditData({ ...editData, ec_status: e.target.value })} className="form-select"><option value="">未出品</option><option value="shopify">Shopify</option><option value="mercari">メルカリ</option><option value="both">両方</option></select></div>
                 <div><label className="form-label" style={{ fontSize: '0.8rem' }}>ステータス</label><select value={editData.status} onChange={(e) => setEditData({ ...editData, status: e.target.value })} className="form-select"><option value="修理中">修理中</option><option value="販売可">販売可</option><option value="販売済">販売済</option><option value="移動中">移動中</option></select></div>
-                <div><label className="form-label" style={{ fontSize: '0.8rem' }}>保管場所</label><input type="text" value={editData.storage_location} onChange={(e) => setEditData({ ...editData, storage_location: e.target.value })} className="form-input" placeholder="例: 棚A-1, バックヤード" /></div>
                 <div><label className="form-label" style={{ fontSize: '0.8rem' }}>メモ</label><textarea value={editData.memo} onChange={(e) => setEditData({ ...editData, memo: e.target.value })} rows={2} className="form-textarea" /></div>
               </div>
             </div>
