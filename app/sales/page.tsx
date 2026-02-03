@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
 type Shop = {
@@ -124,6 +125,11 @@ const operationGuideMenus = [
 ]
 
 export default function SalesPage() {
+  // KIOSKモード検出
+  const searchParams = useSearchParams()
+  const isKioskMode = searchParams.get('kiosk') === 'true'
+  const kioskShopId = searchParams.get('shop')
+
   const [shops, setShops] = useState<Shop[]>([])
   const [staff, setStaff] = useState<Staff[]>([])
   const [visitSources, setVisitSources] = useState<VisitSource[]>([])
@@ -432,6 +438,13 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
 
     fetchMasterData()
   }, [])
+
+  // KIOSKモード時の店舗自動選択
+  useEffect(() => {
+    if (isKioskMode && kioskShopId && !loading) {
+      setFormData(prev => ({ ...prev, shopId: kioskShopId }))
+    }
+  }, [isKioskMode, kioskShopId, loading])
 
   // モデルに応じて利用可能なメニューをフィルター（原価があるもののみ）
   const getAvailableRepairMenus = (model: string): string[] => {
@@ -1257,11 +1270,44 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     )
   }
 
+  // KIOSKモード時のコンテナスタイル
+  const containerStyle = isKioskMode ? {
+    padding: '32px 40px',
+    maxWidth: '1200px',
+    margin: '0 auto',
+  } : {}
+
   return (
-    <div>
-      <div className="page-header">
-        <h1 className="page-title">売上入力</h1>
-      </div>
+    <div style={containerStyle}>
+      {/* KIOSKモード時のヘッダー */}
+      {isKioskMode && (
+        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button
+            onClick={() => window.location.href = '/buyback-kiosk'}
+            style={{
+              padding: '12px 24px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              background: '#6B7280',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+            }}
+          >
+            ← メニューに戻る
+          </button>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1F2937' }}>販売登録</h1>
+          <div style={{ width: '140px' }}></div>
+        </div>
+      )}
+
+      {/* 通常モード時のヘッダー */}
+      {!isKioskMode && (
+        <div className="page-header">
+          <h1 className="page-title">売上入力</h1>
+        </div>
+      )}
 
       {/* テストモード */}
       <div className="card mb-lg" style={{ background: testMode ? '#FEF3C7' : undefined, border: testMode ? '2px solid #F59E0B' : undefined }}>

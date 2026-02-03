@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
 
-const SalesContent = dynamic(() => import('./sales-content'), { ssr: false })
-
-type Screen = 'menu' | 'sales' | 'settings'
+type Screen = 'menu' | 'settings'
 
 export default function KioskPage() {
   const router = useRouter()
@@ -148,9 +145,9 @@ export default function KioskPage() {
               <span style={styles.menuCardDesc}>iPhoneの買取査定・登録</span>
             </button>
 
-            {/* 販売ボタン */}
+            {/* 販売ボタン - 通常の販売ページに直接遷移 */}
             <button
-              onClick={() => setCurrentScreen('sales')}
+              onClick={() => router.push(`/sales?kiosk=true&shop=${shopInfo?.shopId}`)}
               style={styles.menuCardSales}
             >
               <div style={styles.menuIconSales}>
@@ -253,25 +250,6 @@ export default function KioskPage() {
               </div>
             </div>
           </div>
-        </main>
-      </div>
-    )
-  }
-
-  // 販売画面
-  if (currentScreen === 'sales') {
-    return (
-      <div style={styles.container}>
-        <header style={styles.subHeader}>
-          <button onClick={() => setCurrentScreen('menu')} style={styles.backBtn}>
-            ← メニューに戻る
-          </button>
-          <h1 style={styles.subHeaderTitle}>販売登録</h1>
-          <div style={{ width: '160px' }}></div>
-        </header>
-
-        <main style={styles.contentArea}>
-          {shopInfo && <SalesContent shopId={shopInfo.shopId} shopName={shopInfo.shopName} />}
         </main>
       </div>
     )
