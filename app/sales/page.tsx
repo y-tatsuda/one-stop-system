@@ -1059,10 +1059,11 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     }
     const squareUrl = `square-commerce-v1://payment/create?data=${encodeURIComponent(JSON.stringify(squareData))}`
 
-    // Square POSアプリを起動（iPadの場合）
-    // Webの場合はアラートを表示
-    const isMobile = /iPad|iPhone|iPod/.test(navigator.userAgent)
-    if (isMobile) {
+    // Square POSアプリを起動（iPad/iPhoneの場合）
+    // iPadOS 13以降はuserAgentに"iPad"が含まれないため、タッチ対応+Macで判定
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.userAgent.includes('Macintosh') && 'ontouchend' in document)
+    if (isIOS) {
       window.location.href = squareUrl
     } else {
       alert(`売上を登録しました（ID: ${headerData.id}）\n\n合計金額: ¥${totalAmount.toLocaleString()}\n\nSquare POSアプリで決済してください。\n（iPadからアクセスするとSquareアプリが自動で開きます）`)
