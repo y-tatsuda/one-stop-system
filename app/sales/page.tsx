@@ -527,35 +527,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     fetchIphonePrice()
   }, [iphoneForm.model, iphoneForm.menu, iphoneForm.supplierId])
 
-  // Android価格取得
-  useEffect(() => {
-    async function fetchAndroidPrice() {
-      if (androidForm.model && androidForm.menu) {
-        const { data } = await supabase
-          .from('m_repair_prices_android')
-          .select('price')
-          .eq('tenant_id', 1)
-          .eq('model', androidForm.model)
-          .eq('repair_type', androidForm.menu)
-          .single()
-
-        const { data: costData } = await supabase
-          .from('m_costs_android')
-          .select('cost')
-          .eq('tenant_id', 1)
-          .eq('model', androidForm.model)
-          .eq('parts_type', androidForm.menu)
-          .single()
-
-        setAndroidForm(prev => ({
-          ...prev,
-          unitPrice: data?.price || 0,
-          unitCost: costData?.cost || 0,
-        }))
-      }
-    }
-    fetchAndroidPrice()
-  }, [androidForm.model, androidForm.menu])
+  // Android価格取得（メニュー選択時のonChangeで既に設定されるため、useEffectは不要）
+  // ※ androidRepairPrices から価格・原価を取得済み
 
   // 中古在庫選択時（基準価格と減額マスタを取得）
   useEffect(() => {
