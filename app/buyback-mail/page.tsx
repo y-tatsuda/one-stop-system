@@ -4,10 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { DEFAULT_TENANT_ID } from '../lib/constants'
 import { IphoneModel } from '../lib/types'
-import {
-  calculateBuybackDeduction,
-  type DeductionData
-} from '../lib/pricing'
+import { calculateBuybackDeduction } from '../lib/pricing'
 
 // =====================================================
 // 型定義

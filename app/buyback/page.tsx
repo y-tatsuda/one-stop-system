@@ -405,15 +405,6 @@ export default function BuybackPage() {
       .eq('rank', '美品')
       .single()
 
-    // 減額データ取得（互換性のため残す）
-    const { data: deductionData } = await supabase
-      .from('m_buyback_deductions')
-      .select('deduction_type, amount')
-      .eq('tenant_id', DEFAULT_TENANT_ID)
-      .eq('model', model)
-      .eq('storage', parseInt(storage))
-      .eq('is_active', true)
-
     // 最低保証価格取得
     const { data: guaranteeData } = await supabase
       .from('m_buyback_guarantees')
@@ -448,7 +439,6 @@ export default function BuybackPage() {
 
     // 現在のアイテムの状態を取得して減額計算
     const item = items[index]
-    const deductions = deductionData || []
     const salesDeductions = salesDeductionData || []
     const batteryPercent = parseInt(item.batteryPercent) || 100
 
@@ -463,7 +453,7 @@ export default function BuybackPage() {
         cameraBroken: item.cameraBroken,
         repairHistory: item.repairHistory,
       },
-      deductions,
+      [],
       bihinPrice
     )
 
