@@ -90,6 +90,7 @@ export default function PartsInventoryPage() {
   const [reviewInventory, setReviewInventory] = useState<PartsInventory[]>([])
   const [reviewLoading, setReviewLoading] = useState(false)
   const [reviewSaving, setReviewSaving] = useState(false)
+  const [reviewSelectedShops, setReviewSelectedShops] = useState<number[]>([])
   const [reviewHiddenModels, setReviewHiddenModels] = useState<string[]>([])
   const [reviewHiddenParts, setReviewHiddenParts] = useState<string[]>([])
   const [changedCells, setChangedCells] = useState<Map<string, number>>(new Map())
@@ -496,14 +497,17 @@ export default function PartsInventoryPage() {
     setReviewHiddenModels([...hiddenModels])
     setReviewHiddenParts([...hiddenParts])
     setReviewEditingKey(null)
+    // 全店舗を選択状態にする
+    const allShopIds = shops.map(s => s.id)
+    setReviewSelectedShops(allShopIds)
 
-    if (!selectedShop) return
-
+    // 全店舗のデータを取得
     const { data } = await supabase
       .from('t_parts_inventory')
       .select('*')
       .eq('tenant_id', DEFAULT_TENANT_ID)
-      .eq('shop_id', parseInt(selectedShop))
+      .in('shop_id', allShopIds)
+      .order('shop_id')
       .order('model')
       .order('parts_type')
 
@@ -511,16 +515,32 @@ export default function PartsInventoryPage() {
     setReviewLoading(false)
   }
 
-  // 見直しモーダル: セル変更を記録
-  const handleReviewCellChange = (itemId: number, newValue: number) => {
-    const newMap = new Map(changedCells)
-    newMap.set(itemId.toString(), newValue)
-    setChangedCells(newMap)
+  // 見直しモーダル: 店舗選択切り替え
+  const toggleReviewShop = (shopId: number) => {
+    setReviewSelectedShops(prev => {
+      if (prev.includes(shopId)) {
+        if (prev.length <= 1) return prev // 最低1店舗は選択
+        return prev.filter(id => id !== shopId)
+      }
+      return [...prev, shopId]
+    })
+  }
 
-    // reviewInventory のローカル状態も即更新
-    setReviewInventory(prev => prev.map(item =>
-      item.id === itemId ? { ...item, required_qty: newValue } : item
-    ))
+  // 見直しモーダル: セル変更を記録（複数アイテムを一括対応）
+  const handleReviewCellChangeBatch = (changes: { itemId: number; newValue: number }[]) => {
+    setChangedCells(prev => {
+      const newMap = new Map(prev)
+      for (const { itemId, newValue } of changes) {
+        newMap.set(itemId.toString(), newValue)
+      }
+      return newMap
+    })
+
+    setReviewInventory(prev => prev.map(item => {
+      const change = changes.find(c => c.itemId === item.id)
+      if (change) return { ...item, required_qty: change.newValue }
+      return item
+    }))
     setReviewEditingKey(null)
   }
 
@@ -533,7 +553,8 @@ export default function PartsInventoryPage() {
 
     setReviewSaving(true)
 
-    for (const [idStr, newQty] of changedCells) {
+    const entries = Array.from(changedCells.entries())
+    for (const [idStr, newQty] of entries) {
       const { error } = await supabase
         .from('t_parts_inventory')
         .update({ required_qty: newQty, updated_at: new Date().toISOString() })
@@ -564,25 +585,38 @@ export default function PartsInventoryPage() {
     }
   }
 
-  // 見直しモーダル用: グループ化された在庫データを仕入先別に生成
-  const getReviewGroupedData = (): { modelKey: string; displayName: string; partsType: string; supplierValues: { supplierId: number; supplierName: string; items: PartsInventory[]; totalRequired: number }[] }[] => {
-    const result: { modelKey: string; displayName: string; partsType: string; supplierValues: { supplierId: number; supplierName: string; items: PartsInventory[]; totalRequired: number }[] }[] = []
+  // 見直しモーダル用: 店舗×仕入先 の列定義を生成
+  const getReviewColumns = (): { shopId: number; shopName: string; supplierId: number; supplierName: string }[] => {
+    const cols: { shopId: number; shopName: string; supplierId: number; supplierName: string }[] = []
+    for (const shop of shops) {
+      if (!reviewSelectedShops.includes(shop.id)) continue
+      for (const supplier of suppliers) {
+        cols.push({ shopId: shop.id, shopName: shop.name, supplierId: supplier.id, supplierName: supplier.name })
+      }
+    }
+    return cols
+  }
 
-    // フィルタリング
+  // 見直しモーダル用: グループ化された在庫データを店舗×仕入先別に生成
+  type ReviewCell = { shopId: number; supplierId: number; items: PartsInventory[]; totalRequired: number }
+  type ReviewRow = { modelKey: string; displayName: string; partsType: string; cells: ReviewCell[]; cumulativeRequired: number }
+
+  const getReviewGroupedData = (): ReviewRow[] => {
+    const result: ReviewRow[] = []
+    const columns = getReviewColumns()
+
+    // フィルタリング（選択店舗のみ）
     const filteredInventory = reviewInventory.filter(item => {
+      if (!reviewSelectedShops.includes(item.shop_id)) return false
       if (!PARTS_TYPE_ORDER.includes(item.parts_type)) return false
       if (reviewHiddenParts.includes(item.parts_type)) return false
       return true
     })
 
-    // モデル表示順を取得
     const displayModels = getDisplayModels()
-
-    // 各モデル/グループ × パーツ種別 の組み合わせを生成
     const processedKeys = new Set<string>()
 
     for (const modelOrGroup of displayModels) {
-      // 非表示チェック
       if (PARTS_MODEL_GROUPS[modelOrGroup]) {
         const groupModels = getGroupModels(modelOrGroup)
         if (groupModels.every(m => reviewHiddenModels.includes(m))) continue
@@ -597,10 +631,10 @@ export default function PartsInventoryPage() {
         if (processedKeys.has(key)) continue
         processedKeys.add(key)
 
-        // このモデル/グループ × パーツ種別 に該当する在庫データを仕入先別に集める
-        const supplierValues: { supplierId: number; supplierName: string; items: PartsInventory[]; totalRequired: number }[] = []
+        const cells: ReviewCell[] = []
+        let cumulativeRequired = 0
 
-        for (const supplier of suppliers) {
+        for (const col of columns) {
           let matchingItems: PartsInventory[]
 
           if (PARTS_MODEL_GROUPS[modelOrGroup]) {
@@ -609,37 +643,35 @@ export default function PartsInventoryPage() {
 
             if (isShared) {
               matchingItems = filteredInventory.filter(item =>
-                groupModels.includes(item.model) && item.parts_type === partsType && item.supplier_id === supplier.id
+                groupModels.includes(item.model) && item.parts_type === partsType &&
+                item.shop_id === col.shopId && item.supplier_id === col.supplierId
               )
             } else {
-              // 共有パーツでない場合はスキップ（個別モデルとして表示される）
+              cells.push({ shopId: col.shopId, supplierId: col.supplierId, items: [], totalRequired: 0 })
               continue
             }
           } else {
             matchingItems = filteredInventory.filter(item =>
-              item.model === modelOrGroup && item.parts_type === partsType && item.supplier_id === supplier.id
+              item.model === modelOrGroup && item.parts_type === partsType &&
+              item.shop_id === col.shopId && item.supplier_id === col.supplierId
             )
           }
 
           const totalRequired = matchingItems.reduce((sum, item) => sum + item.required_qty, 0)
+          cumulativeRequired += totalRequired
 
-          supplierValues.push({
-            supplierId: supplier.id,
-            supplierName: supplier.name,
-            items: matchingItems,
-            totalRequired,
-          })
+          cells.push({ shopId: col.shopId, supplierId: col.supplierId, items: matchingItems, totalRequired })
         }
 
-        // データが1件でもある場合のみ追加
-        const hasData = supplierValues.some(sv => sv.items.length > 0)
+        const hasData = cells.some(c => c.items.length > 0)
         if (!hasData) continue
 
         result.push({
           modelKey: modelOrGroup,
           displayName: PARTS_MODEL_GROUPS[modelOrGroup] ? modelOrGroup : getDisplayName(modelOrGroup),
           partsType,
-          supplierValues,
+          cells,
+          cumulativeRequired,
         })
       }
     }
@@ -991,7 +1023,7 @@ export default function PartsInventoryPage() {
       {/* 適正在庫見直しモーダル */}
       {showReviewModal && (
         <div className="modal-overlay" onClick={() => setShowReviewModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90vw', width: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '95vw', width: '1100px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <div className="modal-header">
               <h2 className="modal-title">適正在庫 見直し</h2>
               <button className="modal-close" onClick={() => setShowReviewModal(false)}>✕</button>
@@ -1003,6 +1035,30 @@ export default function PartsInventoryPage() {
                 </div>
               ) : (
                 <>
+                  {/* 店舗選択 */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: 'var(--color-text-light)' }}>店舗</h3>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {shops.map((shop) => (
+                        <button
+                          key={shop.id}
+                          onClick={() => toggleReviewShop(shop.id)}
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: '16px',
+                            border: '1px solid var(--color-border)',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            backgroundColor: reviewSelectedShops.includes(shop.id) ? 'var(--color-primary)' : 'transparent',
+                            color: reviewSelectedShops.includes(shop.id) ? '#fff' : 'var(--color-text)',
+                          }}
+                        >
+                          {shop.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* モデル表示切り替え */}
                   <div style={{ marginBottom: '16px' }}>
                     <h3 style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: 'var(--color-text-light)' }}>モデル</h3>
@@ -1054,6 +1110,8 @@ export default function PartsInventoryPage() {
                   {/* テーブル */}
                   {(() => {
                     const reviewData = getReviewGroupedData()
+                    const columns = getReviewColumns()
+
                     if (reviewData.length === 0) {
                       return (
                         <div className="empty-state">
@@ -1063,7 +1121,7 @@ export default function PartsInventoryPage() {
                     }
 
                     // モデルごとにグループ化
-                    const modelGroups = new Map<string, typeof reviewData>()
+                    const modelGroups = new Map<string, ReviewRow[]>()
                     for (const row of reviewData) {
                       if (!modelGroups.has(row.modelKey)) {
                         modelGroups.set(row.modelKey, [])
@@ -1071,20 +1129,47 @@ export default function PartsInventoryPage() {
                       modelGroups.get(row.modelKey)!.push(row)
                     }
 
+                    // 選択中の店舗名（ヘッダー用）
+                    const selectedShopObjects = shops.filter(s => reviewSelectedShops.includes(s.id))
+                    const showCumulative = reviewSelectedShops.length > 1
+
                     return (
                       <div className="table-wrapper" style={{ border: 'none' }}>
                         <table className="data-table" style={{ fontSize: '0.85rem' }}>
                           <thead>
+                            {/* 店舗グループヘッダー */}
                             <tr>
-                              <th style={{ minWidth: '80px' }}>機種</th>
-                              <th style={{ minWidth: '100px' }}>パーツ</th>
-                              {suppliers.map(s => (
-                                <th key={s.id} className="text-center" style={{ minWidth: '80px' }}>{s.name}</th>
+                              <th rowSpan={2} style={{ minWidth: '70px', verticalAlign: 'middle' }}>機種</th>
+                              <th rowSpan={2} style={{ minWidth: '90px', verticalAlign: 'middle' }}>パーツ</th>
+                              {selectedShopObjects.map(shop => (
+                                <th
+                                  key={shop.id}
+                                  colSpan={suppliers.length}
+                                  className="text-center"
+                                  style={{ borderBottom: 'none', background: 'var(--color-bg-secondary, #f8f9fa)' }}
+                                >
+                                  {shop.name}
+                                </th>
+                              ))}
+                              {showCumulative && (
+                                <th rowSpan={2} className="text-center" style={{ minWidth: '60px', verticalAlign: 'middle', background: 'var(--color-primary-light, #e8f0fe)' }}>
+                                  累計
+                                </th>
+                              )}
+                            </tr>
+                            {/* 仕入先サブヘッダー */}
+                            <tr>
+                              {selectedShopObjects.map(shop => (
+                                suppliers.map(s => (
+                                  <th key={`${shop.id}-${s.id}`} className="text-center" style={{ minWidth: '60px', fontSize: '0.8rem' }}>
+                                    {s.name}
+                                  </th>
+                                ))
                               ))}
                             </tr>
                           </thead>
                           <tbody>
-                            {Array.from(modelGroups.entries()).map(([modelKey, rows]) => (
+                            {Array.from(modelGroups.entries()).map(([, rows]) => (
                               rows.map((row, idx) => (
                                 <tr key={`${row.modelKey}:${row.partsType}`}>
                                   {idx === 0 ? (
@@ -1093,16 +1178,18 @@ export default function PartsInventoryPage() {
                                     </td>
                                   ) : null}
                                   <td>{getPartsTypeLabel(row.partsType)}</td>
-                                  {row.supplierValues.map((sv) => {
-                                    const cellKey = `${row.modelKey}:${row.partsType}:${sv.supplierId}`
+                                  {row.cells.map((cell, cellIdx) => {
+                                    const cellKey = `${row.modelKey}:${row.partsType}:${cell.shopId}:${cell.supplierId}`
                                     const isEditing = reviewEditingKey === cellKey
 
-                                    if (sv.items.length === 0) {
-                                      return <td key={sv.supplierId} className="text-center" style={{ color: 'var(--color-text-light)' }}>-</td>
+                                    if (cell.items.length === 0) {
+                                      return <td key={cellIdx} className="text-center" style={{ color: 'var(--color-text-light)' }}>-</td>
                                     }
 
+                                    const hasChanges = cell.items.some(item => changedCells.has(item.id.toString()))
+
                                     return (
-                                      <td key={sv.supplierId} className="text-center">
+                                      <td key={cellIdx} className="text-center">
                                         {isEditing ? (
                                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                                             <input
@@ -1117,35 +1204,39 @@ export default function PartsInventoryPage() {
                                               onKeyDown={(e) => {
                                                 if (e.key === 'Enter') {
                                                   const newQty = parseInt(reviewEditValue) || 0
-                                                  if (sv.items.length === 1) {
-                                                    handleReviewCellChange(sv.items[0].id, newQty)
+                                                  const changes: { itemId: number; newValue: number }[] = []
+                                                  if (cell.items.length === 1) {
+                                                    changes.push({ itemId: cell.items[0].id, newValue: newQty })
                                                   } else {
-                                                    const perItem = Math.floor(newQty / sv.items.length)
-                                                    const remainder = newQty % sv.items.length
-                                                    sv.items.forEach((item, i) => {
-                                                      handleReviewCellChange(item.id, perItem + (i < remainder ? 1 : 0))
+                                                    const perItem = Math.floor(newQty / cell.items.length)
+                                                    const remainder = newQty % cell.items.length
+                                                    cell.items.forEach((item, i) => {
+                                                      changes.push({ itemId: item.id, newValue: perItem + (i < remainder ? 1 : 0) })
                                                     })
                                                   }
+                                                  handleReviewCellChangeBatch(changes)
                                                 } else if (e.key === 'Escape') {
                                                   setReviewEditingKey(null)
                                                 }
                                               }}
                                               className="form-input"
-                                              style={{ width: '60px', textAlign: 'center', padding: '2px 6px', fontSize: '0.85rem' }}
+                                              style={{ width: '55px', textAlign: 'center', padding: '2px 4px', fontSize: '0.85rem' }}
                                               autoFocus
                                             />
                                             <button
                                               onClick={() => {
                                                 const newQty = parseInt(reviewEditValue) || 0
-                                                if (sv.items.length === 1) {
-                                                  handleReviewCellChange(sv.items[0].id, newQty)
+                                                const changes: { itemId: number; newValue: number }[] = []
+                                                if (cell.items.length === 1) {
+                                                  changes.push({ itemId: cell.items[0].id, newValue: newQty })
                                                 } else {
-                                                  const perItem = Math.floor(newQty / sv.items.length)
-                                                  const remainder = newQty % sv.items.length
-                                                  sv.items.forEach((item, i) => {
-                                                    handleReviewCellChange(item.id, perItem + (i < remainder ? 1 : 0))
+                                                  const perItem = Math.floor(newQty / cell.items.length)
+                                                  const remainder = newQty % cell.items.length
+                                                  cell.items.forEach((item, i) => {
+                                                    changes.push({ itemId: item.id, newValue: perItem + (i < remainder ? 1 : 0) })
                                                   })
                                                 }
+                                                handleReviewCellChangeBatch(changes)
                                               }}
                                               className="btn btn-sm btn-success"
                                               style={{ padding: '2px 6px', minWidth: 'auto', fontSize: '0.75rem' }}
@@ -1164,24 +1255,29 @@ export default function PartsInventoryPage() {
                                           <button
                                             onClick={() => {
                                               setReviewEditingKey(cellKey)
-                                              setReviewEditValue(sv.totalRequired.toString())
+                                              setReviewEditValue(cell.totalRequired.toString())
                                             }}
                                             style={{
                                               padding: '2px 10px',
                                               borderRadius: 'var(--radius)',
                                               border: 'none',
-                                              background: changedCells.has(sv.items[0]?.id.toString()) ? 'var(--color-warning-light, #fff3cd)' : 'transparent',
+                                              background: hasChanges ? 'var(--color-warning-light, #fff3cd)' : 'transparent',
                                               cursor: 'pointer',
                                               color: 'var(--color-text)',
                                               fontSize: '0.85rem',
                                             }}
                                           >
-                                            {sv.totalRequired}
+                                            {cell.totalRequired}
                                           </button>
                                         )}
                                       </td>
                                     )
                                   })}
+                                  {showCumulative && (
+                                    <td className="text-center" style={{ fontWeight: 600, background: 'var(--color-primary-light, #e8f0fe)' }}>
+                                      {row.cumulativeRequired}
+                                    </td>
+                                  )}
                                 </tr>
                               ))
                             ))}
