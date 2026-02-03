@@ -23,6 +23,7 @@ type MailBuybackItem = {
   rank: string
   batteryPercent: string
   isServiceState: boolean
+  imei: string
   nwStatus: 'ok' | 'triangle' | 'cross'
   cameraStain: 'none' | 'minor' | 'major'
   cameraBroken: boolean
@@ -42,7 +43,7 @@ type CustomerInfo = {
   email: string
 }
 
-type Step = 'device' | 'customer' | 'confirm' | 'complete'
+type Step = 'device' | 'customer' | 'confirm' | 'complete' | 'declined'
 
 const createEmptyItem = (): MailBuybackItem => ({
   id: crypto.randomUUID(),
@@ -52,6 +53,7 @@ const createEmptyItem = (): MailBuybackItem => ({
   rank: '',
   batteryPercent: '',
   isServiceState: false,
+  imei: '',
   nwStatus: 'ok',
   cameraStain: 'none',
   cameraBroken: false,
@@ -60,6 +62,15 @@ const createEmptyItem = (): MailBuybackItem => ({
   totalDeduction: 0,
   estimatedPrice: 0,
 })
+
+// ランクの説明
+const RANK_DESCRIPTIONS: { rank: string; description: string }[] = [
+  { rank: '超美品', description: '傷がなく、充放電回数1回未満' },
+  { rank: '美品', description: '画面、本体共に傷無し' },
+  { rank: '良品', description: '画面に傷無し' },
+  { rank: '並品', description: '画面に傷あり' },
+  { rank: 'リペア品', description: '画面割れなど重大な損傷あり' },
+]
 
 // =====================================================
 // メインコンポーネント
@@ -118,15 +129,6 @@ export default function MailBuybackPage() {
   // =====================================================
   // 端末操作
   // =====================================================
-  const addItem = () => {
-    setItems([...items, createEmptyItem()])
-  }
-
-  const removeItem = (index: number) => {
-    if (items.length <= 1) return
-    setItems(items.filter((_, i) => i !== index))
-  }
-
   const updateItem = (index: number, updates: Partial<MailBuybackItem>) => {
     const newItems = [...items]
     newItems[index] = { ...newItems[index], ...updates }
@@ -266,6 +268,7 @@ export default function MailBuybackPage() {
         storage: item.storage,
         rank: item.rank,
         batteryPercent: parseInt(item.batteryPercent) || 100,
+        imei: item.imei,
         nwStatus: item.nwStatus,
         cameraStain: item.cameraStain,
         cameraBroken: item.cameraBroken,
@@ -309,7 +312,7 @@ export default function MailBuybackPage() {
   // ステップインジケーター
   // =====================================================
   const steps: { key: Step; label: string }[] = [
-    { key: 'device', label: '端末情報' },
+    { key: 'device', label: '事前査定' },
     { key: 'customer', label: 'お客様情報' },
     { key: 'confirm', label: '確認' },
   ]
@@ -335,7 +338,7 @@ export default function MailBuybackPage() {
       <div style={{ minHeight: '100vh', background: '#f5f7fb', padding: '24px 16px' }}>
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <img src="/logo.png" alt="ONE STOP" style={{ height: 40 }} />
+            <img src="/logo.png" alt="ONE STOP" style={{ height: 40, display: 'block', margin: '0 auto' }} />
           </div>
           <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>&#x2705;</div>
@@ -382,6 +385,29 @@ export default function MailBuybackPage() {
   }
 
   // =====================================================
+  // 辞退画面
+  // =====================================================
+  if (step === 'declined') {
+    return (
+      <div style={{ minHeight: '100vh', background: '#f5f7fb', padding: '24px 16px' }}>
+        <div style={{ maxWidth: 600, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <img src="/logo.png" alt="ONE STOP" style={{ height: 40, display: 'block', margin: '0 auto' }} />
+          </div>
+          <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#004AAD', marginBottom: 16 }}>
+              買取査定をご利用頂き<br />ありがとうございました
+            </h1>
+            <p style={{ fontSize: 14, color: '#666', lineHeight: 1.8 }}>
+              またのご利用をお待ちしております。
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // =====================================================
   // メインレンダリング
   // =====================================================
   return (
@@ -389,8 +415,8 @@ export default function MailBuybackPage() {
       <div style={{ maxWidth: 700, margin: '0 auto' }}>
         {/* ヘッダー */}
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img src="/logo.png" alt="ONE STOP" style={{ height: 40, marginBottom: 8 }} />
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: '#004AAD' }}>郵送買取 お申込み</h1>
+          <img src="/logo.png" alt="ONE STOP" style={{ height: 40, marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: '#004AAD' }}>事前査定</h1>
         </div>
 
         {/* ステップインジケーター */}
@@ -437,53 +463,78 @@ export default function MailBuybackPage() {
           ))}
         </div>
 
-        {/* STEP1: 端末情報入力 */}
+        {/* STEP1: 事前査定 */}
         {step === 'device' && (
           <div>
-            {items.map((item, index) => (
-              <DeviceItemForm
-                key={item.id}
-                item={item}
-                index={index}
-                iphoneModels={iphoneModels}
-                errors={errors}
-                onUpdate={(updates) => updateItem(index, updates)}
-                onCalculate={(model, storage, rank) => calculatePrice(index, model, storage, rank)}
-                onRemove={items.length > 1 ? () => removeItem(index) : undefined}
-              />
-            ))}
+            <DeviceItemForm
+              key={items[0].id}
+              item={items[0]}
+              index={0}
+              iphoneModels={iphoneModels}
+              errors={errors}
+              onUpdate={(updates) => updateItem(0, updates)}
+              onCalculate={(model, storage, rank) => calculatePrice(0, model, storage, rank)}
+            />
 
-            <button
-              onClick={addItem}
-              className="btn btn-secondary"
-              style={{ width: '100%', marginBottom: 20 }}
-            >
-              + 端末を追加
-            </button>
-
-            {/* 合計金額 */}
-            {items.some(item => item.estimatedPrice > 0) && (
+            {/* 査定結果 */}
+            {items[0].estimatedPrice > 0 && (
               <div className="card" style={{ marginBottom: 20 }}>
                 <div className="card-body" style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>合計見積金額</div>
+                  <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>査定金額</div>
                   <div style={{ fontSize: 28, fontWeight: 700, color: '#004AAD' }}>
-                    ¥{totalEstimatedPrice.toLocaleString()}
+                    ¥{items[0].estimatedPrice.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                    ※ 実際の買取価格は査定後に確定します
+
+                  {/* 分割支払い残の注意 */}
+                  <div style={{
+                    background: '#fffbeb',
+                    borderRadius: 8,
+                    padding: '12px 16px',
+                    marginTop: 16,
+                    textAlign: 'left',
+                    fontSize: 13,
+                    color: '#92400e',
+                    lineHeight: 1.8,
+                  }}>
+                    ドコモ、ソフトバンク、au、楽天の分割支払いが残っている場合、上記の査定金額から減額となります。
                   </div>
                 </div>
               </div>
             )}
+            {items[0].model && items[0].storage && items[0].rank && items[0].estimatedPrice === 0 && items[0].basePrice === 0 && (
+              <div style={{
+                background: '#fef2f2',
+                borderRadius: 10,
+                padding: '14px 18px',
+                textAlign: 'center',
+                border: '1px solid #fecaca',
+                fontSize: 14,
+                color: '#dc2626',
+                marginBottom: 20,
+              }}>
+                この組み合わせの価格データがありません
+              </div>
+            )}
 
-            <button
-              onClick={goToCustomer}
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '14px', fontSize: 16, fontWeight: 600 }}
-              disabled={items.every(item => !item.model)}
-            >
-              次へ：お客様情報入力
-            </button>
+            {/* アクションボタン */}
+            {items[0].estimatedPrice > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <button
+                  onClick={goToCustomer}
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '14px', fontSize: 16, fontWeight: 600 }}
+                >
+                  上記の金額で買取を申し込む
+                </button>
+                <button
+                  onClick={() => setStep('declined')}
+                  className="btn btn-secondary"
+                  style={{ width: '100%', padding: '14px', fontSize: 15 }}
+                >
+                  今回は買取を止めておく
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -624,15 +675,15 @@ export default function MailBuybackPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: 15 }}>
-                          {i + 1}. {item.modelDisplayName} {item.storage}GB
+                          {item.modelDisplayName} {item.storage}GB
                         </div>
                         <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
                           {item.rank}
-                          {item.isServiceState ? ' / バッテリー:サービス状態' : item.batteryPercent ? ` / バッテリー:${item.batteryPercent}%` : ''}
-                          {item.nwStatus !== 'ok' && ` / NW:${item.nwStatus === 'triangle' ? '△' : '×'}`}
+                          {item.batteryPercent ? ` / バッテリー:${item.batteryPercent}%` : ''}
+                          {item.imei && ` / IMEI:${item.imei}`}
                           {item.cameraStain !== 'none' && ` / カメラ染み:${item.cameraStain === 'minor' ? '小' : '大'}`}
-                          {item.cameraBroken && ' / カメラ故障'}
-                          {item.repairHistory && ' / 修理歴あり'}
+                          {item.cameraBroken && ' / カメラ窓破損'}
+                          {item.repairHistory && ' / 非正規修理歴あり'}
                         </div>
                       </div>
                       <div style={{ fontWeight: 700, fontSize: 16, color: '#004AAD' }}>
@@ -736,7 +787,7 @@ export default function MailBuybackPage() {
 
         {/* 注意書きフッター */}
         <div style={{ textAlign: 'center', fontSize: 12, color: '#999', marginTop: 24 }}>
-          ※ 見積金額は端末到着後の査定により変動する場合があります
+          ※ 査定金額は端末到着後の査定により変動する場合があります
         </div>
       </div>
     </div>
@@ -753,7 +804,6 @@ function DeviceItemForm({
   errors,
   onUpdate,
   onCalculate,
-  onRemove,
 }: {
   item: MailBuybackItem
   index: number
@@ -761,7 +811,6 @@ function DeviceItemForm({
   errors: { [key: string]: string }
   onUpdate: (updates: Partial<MailBuybackItem>) => void
   onCalculate: (model: string, storage: string, rank: string) => void
-  onRemove?: () => void
 }) {
   const [availableStorages, setAvailableStorages] = useState<number[]>([])
 
@@ -815,171 +864,162 @@ function DeviceItemForm({
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 className="card-title">{index + 1}台目</h2>
-        {onRemove && (
-          <button onClick={onRemove} className="btn btn-danger btn-sm">削除</button>
-        )}
+      <div className="card-header">
+        <h2 className="card-title">買取査定フォーム</h2>
       </div>
       <div className="card-body">
-        {/* 機種・容量・ランク */}
-        <div className="form-grid-3" style={{ marginBottom: 16 }}>
-          <div className="form-group">
-            <label className="form-label form-label-required">機種</label>
-            <select
-              value={item.model}
-              onChange={(e) => handleModelChange(e.target.value)}
-              className={`form-select ${errors[`item_${index}_model`] ? 'form-input-error' : ''}`}
-            >
-              <option value="">選択してください</option>
-              {iphoneModels.map(m => (
-                <option key={m.model} value={m.model}>{m.display_name}</option>
-              ))}
-            </select>
-            {errors[`item_${index}_model`] && <div className="form-error">{errors[`item_${index}_model`]}</div>}
-          </div>
-          <div className="form-group">
-            <label className="form-label form-label-required">容量</label>
-            <select
-              value={item.storage}
-              onChange={(e) => onUpdate({ storage: e.target.value })}
-              className={`form-select ${errors[`item_${index}_storage`] ? 'form-input-error' : ''}`}
-              disabled={!item.model}
-            >
-              <option value="">選択</option>
-              {availableStorages.map(s => (
-                <option key={s} value={s}>{s >= 1024 ? `${s / 1024}TB` : `${s}GB`}</option>
-              ))}
-            </select>
-            {errors[`item_${index}_storage`] && <div className="form-error">{errors[`item_${index}_storage`]}</div>}
-          </div>
-          <div className="form-group">
-            <label className="form-label form-label-required">ランク</label>
-            <select
-              value={item.rank}
-              onChange={(e) => onUpdate({ rank: e.target.value })}
-              className={`form-select ${errors[`item_${index}_rank`] ? 'form-input-error' : ''}`}
-            >
-              <option value="">選択</option>
-              {RANK_OPTIONS.map(r => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-            {errors[`item_${index}_rank`] && <div className="form-error">{errors[`item_${index}_rank`]}</div>}
-          </div>
+        {/* 機種 */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label form-label-required">機種</label>
+          <select
+            value={item.model}
+            onChange={(e) => handleModelChange(e.target.value)}
+            className={`form-select ${errors[`item_${index}_model`] ? 'form-input-error' : ''}`}
+          >
+            <option value="">選択してください</option>
+            {iphoneModels.map(m => (
+              <option key={m.model} value={m.model}>{m.display_name}</option>
+            ))}
+          </select>
+          {errors[`item_${index}_model`] && <div className="form-error">{errors[`item_${index}_model`]}</div>}
         </div>
 
-        {/* 状態チェック */}
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: '#374151' }}>端末の状態</div>
+        {/* 容量 */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label form-label-required">容量</label>
+          <select
+            value={item.storage}
+            onChange={(e) => onUpdate({ storage: e.target.value })}
+            className={`form-select ${errors[`item_${index}_storage`] ? 'form-input-error' : ''}`}
+            disabled={!item.model}
+          >
+            <option value="">選択</option>
+            {availableStorages.map(s => (
+              <option key={s} value={s}>{s >= 1024 ? `${s / 1024}TB` : `${s}GB`}</option>
+            ))}
+          </select>
+          {errors[`item_${index}_storage`] && <div className="form-error">{errors[`item_${index}_storage`]}</div>}
+        </div>
 
-        <div className="form-grid-2" style={{ marginBottom: 12 }}>
-          <div className="form-group">
-            <label className="form-label">バッテリー残量(%)</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <input
-                type="number"
-                value={item.batteryPercent}
-                onChange={(e) => onUpdate({ batteryPercent: e.target.value })}
-                onBlur={handleBatteryBlur}
-                className="form-input"
-                placeholder="95"
-                min={0}
-                max={100}
-                disabled={item.isServiceState}
-                style={{ flex: 1 }}
-              />
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, whiteSpace: 'nowrap' }}>
-                <input
-                  type="checkbox"
-                  checked={item.isServiceState}
-                  onChange={(e) => onUpdate({ isServiceState: e.target.checked, batteryPercent: e.target.checked ? '' : item.batteryPercent })}
-                  style={{ accentColor: '#004AAD' }}
-                />
-                不明
-              </label>
+        {/* ランク */}
+        <div className="form-group" style={{ marginBottom: 8 }}>
+          <label className="form-label form-label-required">ランク</label>
+          <select
+            value={item.rank}
+            onChange={(e) => onUpdate({ rank: e.target.value })}
+            className={`form-select ${errors[`item_${index}_rank`] ? 'form-input-error' : ''}`}
+          >
+            <option value="">選択</option>
+            {RANK_OPTIONS.map(r => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+          {errors[`item_${index}_rank`] && <div className="form-error">{errors[`item_${index}_rank`]}</div>}
+        </div>
+
+        {/* ランク目安 */}
+        <div style={{
+          background: '#f9fafb',
+          borderRadius: 8,
+          padding: '10px 14px',
+          marginBottom: 8,
+          fontSize: 12,
+          lineHeight: 1.8,
+          color: '#555',
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 2, color: '#374151' }}>ランクの目安</div>
+          {RANK_DESCRIPTIONS.map(rd => (
+            <div key={rd.rank}>
+              <strong>{rd.rank}</strong>：{rd.description}
             </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">NW利用制限</label>
-            <select
-              value={item.nwStatus}
-              onChange={(e) => onUpdate({ nwStatus: e.target.value as 'ok' | 'triangle' | 'cross' })}
-              className="form-select"
-            >
-              <option value="ok">○（問題なし）</option>
-              <option value="triangle">△（確認中）</option>
-              <option value="cross">×（制限あり）</option>
-            </select>
+          ))}
+        </div>
+        <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 16 }}>
+          ※ 背面割れや水没は買取不可です。
+        </div>
+
+        {/* バッテリー残量 */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label">バッテリー残量(%)</label>
+          <input
+            type="number"
+            value={item.batteryPercent}
+            onChange={(e) => onUpdate({ batteryPercent: e.target.value })}
+            onBlur={handleBatteryBlur}
+            className="form-input"
+            placeholder="95"
+            min={0}
+            max={100}
+          />
+          <div style={{ fontSize: 12, color: '#666', marginTop: 4, lineHeight: 1.6 }}>
+            ※ 設定→バッテリー→バッテリーの状態の順番で確認出来ます
           </div>
         </div>
 
-        <div className="form-grid-3" style={{ marginBottom: 16 }}>
-          <div className="form-group">
-            <label className="form-label">カメラ染み</label>
-            <select
-              value={item.cameraStain}
-              onChange={(e) => onUpdate({ cameraStain: e.target.value as 'none' | 'minor' | 'major' })}
-              className="form-select"
-            >
-              <option value="none">なし</option>
-              <option value="minor">小</option>
-              <option value="major">大</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">カメラ故障</label>
-            <select
-              value={item.cameraBroken ? 'yes' : 'no'}
-              onChange={(e) => onUpdate({ cameraBroken: e.target.value === 'yes' })}
-              className="form-select"
-            >
-              <option value="no">なし</option>
-              <option value="yes">あり</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">修理歴</label>
-            <select
-              value={item.repairHistory ? 'yes' : 'no'}
-              onChange={(e) => onUpdate({ repairHistory: e.target.value === 'yes' })}
-              className="form-select"
-            >
-              <option value="no">なし</option>
-              <option value="yes">あり</option>
-            </select>
+        {/* IMEI */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label">IMEI</label>
+          <input
+            type="text"
+            value={item.imei}
+            onChange={(e) => {
+              const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 15)
+              onUpdate({ imei: val })
+            }}
+            className="form-input"
+            placeholder="35XXXXXXXXXXXXX"
+            maxLength={15}
+            inputMode="numeric"
+          />
+          <div style={{ fontSize: 12, color: '#666', marginTop: 4, lineHeight: 1.6 }}>
+            ※ 発信画面で＊＃06＃と入力すると確認出来ます<br />
+            ※ 35からはじまる15桁の数字です
           </div>
         </div>
 
-        {/* 見積価格表示 */}
-        {item.estimatedPrice > 0 && (
-          <div style={{
-            background: '#f0f4ff',
-            borderRadius: 10,
-            padding: '14px 18px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            border: '1px solid #c7d5f5',
-          }}>
-            <span style={{ fontSize: 14, color: '#555' }}>見積買取価格</span>
-            <span style={{ fontSize: 22, fontWeight: 700, color: '#004AAD' }}>
-              ¥{item.estimatedPrice.toLocaleString()}
-            </span>
+        {/* カメラ染み */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label">カメラ染み</label>
+          <select
+            value={item.cameraStain}
+            onChange={(e) => onUpdate({ cameraStain: e.target.value as 'none' | 'minor' | 'major' })}
+            className="form-select"
+          >
+            <option value="none">なし</option>
+            <option value="minor">小</option>
+            <option value="major">大</option>
+          </select>
+          <div style={{ fontSize: 12, color: '#666', marginTop: 4, lineHeight: 1.6 }}>
+            ※ 白い無地の背景にカメラをかざすと確認出来ます<br />
+            このような症状です。(例)
           </div>
-        )}
-        {item.model && item.storage && item.rank && item.estimatedPrice === 0 && item.basePrice === 0 && (
-          <div style={{
-            background: '#fef2f2',
-            borderRadius: 10,
-            padding: '14px 18px',
-            textAlign: 'center',
-            border: '1px solid #fecaca',
-            fontSize: 14,
-            color: '#dc2626',
-          }}>
-            この組み合わせの価格データがありません
-          </div>
-        )}
+        </div>
+
+        {/* カメラ窓の破損 */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label">カメラ窓の破損</label>
+          <select
+            value={item.cameraBroken ? 'yes' : 'no'}
+            onChange={(e) => onUpdate({ cameraBroken: e.target.value === 'yes' })}
+            className="form-select"
+          >
+            <option value="no">なし</option>
+            <option value="yes">あり</option>
+          </select>
+        </div>
+
+        {/* 非正規修理の利用歴 */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label">非正規修理の利用歴</label>
+          <select
+            value={item.repairHistory ? 'yes' : 'no'}
+            onChange={(e) => onUpdate({ repairHistory: e.target.value === 'yes' })}
+            className="form-select"
+          >
+            <option value="no">なし</option>
+            <option value="yes">あり</option>
+          </select>
+        </div>
       </div>
     </div>
   )
