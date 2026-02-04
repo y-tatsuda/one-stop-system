@@ -1343,9 +1343,18 @@ function ItemForm({
               {(() => {
                 const groups: { series: string; label: string; models: typeof iphoneModels }[] = []
                 for (const m of iphoneModels) {
-                  const series = m.model === 'Air' || m.model === '16e'
-                    ? (m.model === 'Air' ? '17' : '16')
-                    : (m.model.match(/^(\d+)/)?.[1] || m.model.replace(/Max$|Pro$/, '') || m.model)
+                  let series: string
+                  if (m.model.startsWith('SE') || m.model === 'SE') {
+                    series = 'SE'
+                  } else if (['X', 'XS', 'XSMax', 'XR'].includes(m.model)) {
+                    series = 'X'
+                  } else if (m.model === 'Air') {
+                    series = '17'
+                  } else if (m.model === '16e') {
+                    series = '16'
+                  } else {
+                    series = m.model.match(/^(\d+)/)?.[1] || m.model
+                  }
                   let group = groups.find(g => g.series === series)
                   if (!group) {
                     group = { series, label: `${series}シリーズ`, models: [] }

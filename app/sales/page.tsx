@@ -27,7 +27,9 @@ type SalesDetail = {
   quantity: number
   unitPrice: number
   unitCost: number
-  discount: number  // 明細ごとの値引き
+  discountType: 'amount' | 'percent'  // 値引き種別
+  discountPercent: number  // %値引きの場合のパーセント値
+  discount: number  // 明細ごとの値引き（金額換算後）
   amount: number    // 値引き後の金額
   cost: number
   profit: number
@@ -72,6 +74,49 @@ const isPartsRepairMenu = (menu: string): boolean => {
   return partsMenus.includes(menu)
 }
 
+// iPhone機種のシリーズグループ化
+const getIphoneModelGroups = (models: {model: string, display_name: string}[]) => {
+  const groupMap = new Map<string, {model: string, display_name: string}[]>()
+  const groupOrder: string[] = []
+
+  for (const m of models) {
+    let series: string
+    if (m.model.startsWith('SE') || m.model === 'SE') {
+      series = 'SE'
+    } else if (['X', 'XS', 'XSMax', 'XR'].includes(m.model)) {
+      series = 'X'
+    } else if (m.model === 'Air') {
+      series = '17'
+    } else if (m.model === '16e') {
+      series = '16'
+    } else {
+      const match = m.model.match(/^(\d+)/)
+      series = match ? match[1] : m.model
+    }
+
+    if (!groupMap.has(series)) {
+      groupMap.set(series, [])
+      groupOrder.push(series)
+    }
+    groupMap.get(series)!.push(m)
+  }
+
+  return groupOrder.map(series => ({
+    series,
+    label: `${series}シリーズ`,
+    models: groupMap.get(series)!,
+  }))
+}
+
+// 税込価格計算（10円単位丸め: 1,2円→切捨て、8,9円→切上げ）
+const calcTaxIncluded = (taxExcluded: number): number => {
+  const taxIncluded = Math.floor(taxExcluded * 1.1)
+  const lastDigit = taxIncluded % 10
+  if (lastDigit <= 2) return taxIncluded - lastDigit
+  if (lastDigit >= 8) return taxIncluded + (10 - lastDigit)
+  return taxIncluded
+}
+
 // データ移行メニュー（固定価格）
 const dataMigrationMenus = [
   { value: 'データ移行', label: 'データ移行', price: 3000 },
@@ -105,52 +150,6 @@ export default function SalesPage() {
 
   // Square Application ID
   const [squareApplicationId, setSquareApplicationId] = useState<string | null>(null)
-
-  // テストモード
-  const [testMode, setTestMode] = useState(false)
-  const [testModeReduceInventory, setTestModeReduceInventory] = useState(false)
-  const [deletingTestData, setDeletingTestData] = useState(false)
-
-  // テストデータ削除
-  const deleteTestData = async () => {
-    if (!confirm('【テスト】と記録された売上データをすべて削除しますか？\n\nこの操作は取り消せません。')) {
-      return
-    }
-
-    setDeletingTestData(true)
-    try {
-      // テストデータの売上IDを取得
-      const { data: testSales } = await supabase
-        .from('t_sales')
-        .select('id')
-        .like('memo', '%【テスト】%')
-
-      if (!testSales || testSales.length === 0) {
-        alert('削除対象のテストデータがありません')
-        setDeletingTestData(false)
-        return
-      }
-
-      const saleIds = testSales.map(s => s.id)
-
-      // 明細を削除
-      await supabase
-        .from('t_sales_details')
-        .delete()
-        .in('sales_id', saleIds)
-
-      // 売上を削除
-      await supabase
-        .from('t_sales')
-        .delete()
-        .in('id', saleIds)
-
-      alert(`${saleIds.length}件のテストデータを削除しました`)
-    } catch (error: any) {
-      alert('削除に失敗しました: ' + error.message)
-    }
-    setDeletingTestData(false)
-  }
 
   // 【新規】iPhone機種リスト（機種マスタから取得）
   const [iphoneModels, setIphoneModels] = useState<{model: string, display_name: string}[]>([])
@@ -640,6 +639,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity: 1,
       unitPrice: iphoneForm.unitPrice,
       unitCost: iphoneForm.unitCost,
+      discountType: 'amount',
+      discountPercent: 0,
       discount: 0,
       amount,
       cost,
@@ -672,6 +673,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity: 1,
       unitPrice: ipadForm.unitPrice,
       unitCost: ipadForm.unitCost,
+      discountType: 'amount',
+      discountPercent: 0,
       discount: 0,
       amount,
       cost,
@@ -704,6 +707,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity: 1,
       unitPrice: androidForm.unitPrice,
       unitCost: androidForm.unitCost,
+      discountType: 'amount',
+      discountPercent: 0,
       discount: 0,
       amount,
       cost,
@@ -747,6 +752,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity: 1,
       unitPrice: usedSalesForm.unitPrice,
       unitCost: usedSalesForm.unitCost,
+      discountType: 'amount',
+      discountPercent: 0,
       discount: 0,
       amount,
       cost,
@@ -794,6 +801,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity,
       unitPrice: accessoryForm.unitPrice,
       unitCost: accessoryForm.unitCost,
+      discountType: 'amount',
+      discountPercent: 0,
       discount: 0,
       amount,
       cost,
@@ -826,6 +835,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity: 1,
       unitPrice: dataMigrationForm.unitPrice,
       unitCost: 0,
+      discountType: 'amount',
+      discountPercent: 0,
       discount: 0,
       amount,
       cost: 0,
@@ -858,6 +869,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       quantity: 1,
       unitPrice: operationGuideForm.unitPrice,
       unitCost: 0,
+      discountType: 'amount',
+      discountPercent: 0,
       discount: 0,
       amount,
       cost: 0,
@@ -872,13 +885,37 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     setDetails(details.filter(d => d.id !== id))
   }
 
-  // 明細の値引き更新
+  // 明細の値引き更新（金額指定）
   const updateDetailDiscount = (id: string, discount: number) => {
     setDetails(details.map(d => {
       if (d.id === id) {
         const newAmount = (d.unitPrice * d.quantity) - discount
         const newProfit = newAmount - d.cost
-        return { ...d, discount, amount: newAmount, profit: newProfit }
+        return { ...d, discount, discountPercent: 0, amount: newAmount, profit: newProfit }
+      }
+      return d
+    }))
+  }
+
+  // 明細の値引き種別切替
+  const updateDetailDiscountType = (id: string, discountType: 'amount' | 'percent') => {
+    setDetails(details.map(d => {
+      if (d.id === id) {
+        const baseAmount = d.unitPrice * d.quantity
+        return { ...d, discountType, discountPercent: 0, discount: 0, amount: baseAmount, profit: baseAmount - d.cost }
+      }
+      return d
+    }))
+  }
+
+  // 明細の値引き更新（%指定、税抜から計算）
+  const updateDetailDiscountPercent = (id: string, percent: number) => {
+    setDetails(details.map(d => {
+      if (d.id === id) {
+        const discount = Math.floor(d.unitPrice * d.quantity * percent / 100)
+        const newAmount = (d.unitPrice * d.quantity) - discount
+        const newProfit = newAmount - d.cost
+        return { ...d, discountPercent: percent, discount, amount: newAmount, profit: newProfit }
       }
       return d
     }))
@@ -968,7 +1005,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         total_profit: totalProfit,
         sale_type: 'sale',
         square_payment_id: pendingPaymentId,
-        memo: testMode ? '【テスト】Square決済予定' : 'Square決済予定',
+        memo: 'Square決済予定',
       })
       .select('id')
       .single()
@@ -1000,38 +1037,36 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
 
     await supabase.from('t_sales_details').insert(detailRecords)
 
-    // 中古在庫のステータス更新（テストモードで在庫減らさない場合はスキップ）
-    if (!testMode || testModeReduceInventory) {
-      for (const detail of details) {
-        if (detail.usedInventoryId) {
-          await supabase
-            .from('t_used_inventory')
-            .update({ status: '販売済' })
-            .eq('id', detail.usedInventoryId)
-        }
+    // 中古在庫のステータス更新
+    for (const detail of details) {
+      if (detail.usedInventoryId) {
+        await supabase
+          .from('t_used_inventory')
+          .update({ status: '販売済' })
+          .eq('id', detail.usedInventoryId)
       }
+    }
 
-      // iPhone修理のパーツ在庫を減算
-      for (const detail of details) {
-        if (detail.category === 'iPhone修理' && detail.model && detail.menu && detail.supplierId) {
-          if (!isPartsRepairMenu(detail.menu)) continue
-          const partsType = getPartsTypeFromMenu(detail.menu)
-          const { data: invData } = await supabase
+    // iPhone修理のパーツ在庫を減算
+    for (const detail of details) {
+      if (detail.category === 'iPhone修理' && detail.model && detail.menu && detail.supplierId) {
+        if (!isPartsRepairMenu(detail.menu)) continue
+        const partsType = getPartsTypeFromMenu(detail.menu)
+        const { data: invData } = await supabase
+          .from('t_parts_inventory')
+          .select('id, actual_qty')
+          .eq('tenant_id', DEFAULT_TENANT_ID)
+          .eq('shop_id', parseInt(formData.shopId))
+          .eq('model', detail.model)
+          .eq('parts_type', partsType)
+          .eq('supplier_id', detail.supplierId)
+          .single()
+        if (invData) {
+          const newQty = Math.max(0, (invData.actual_qty || 0) - detail.quantity)
+          await supabase
             .from('t_parts_inventory')
-            .select('id, actual_qty')
-            .eq('tenant_id', DEFAULT_TENANT_ID)
-            .eq('shop_id', parseInt(formData.shopId))
-            .eq('model', detail.model)
-            .eq('parts_type', partsType)
-            .eq('supplier_id', detail.supplierId)
-            .single()
-          if (invData) {
-            const newQty = Math.max(0, (invData.actual_qty || 0) - detail.quantity)
-            await supabase
-              .from('t_parts_inventory')
-              .update({ actual_qty: newQty })
-              .eq('id', invData.id)
-          }
+            .update({ actual_qty: newQty })
+            .eq('id', invData.id)
         }
       }
     }
@@ -1041,9 +1076,11 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     setSelectedCategory('')
 
     // Square POS URLを作成（公式ドキュメント準拠）
+    // 税込価格（10円単位丸め）をSquareに送信
+    const squareTaxIncludedAmount = calcTaxIncluded(totalAmount)
     const squareData = {
       amount_money: {
-        amount: String(totalAmount),
+        amount: String(squareTaxIncludedAmount),
         currency_code: 'JPY'
       },
       callback_url: `${window.location.origin}/sales`,
@@ -1064,7 +1101,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     if (isIOS) {
       window.location.href = squareUrl
     } else {
-      alert(`売上を登録しました（ID: ${headerData.id}）\n\n合計金額: ¥${totalAmount.toLocaleString()}\n\nSquare POSアプリで決済してください。\n（iPadからアクセスするとSquareアプリが自動で開きます）`)
+      alert(`売上を登録しました（ID: ${headerData.id}）\n\n合計金額（税抜）: ¥${totalAmount.toLocaleString()}\n決済金額（税込）: ¥${squareTaxIncludedAmount.toLocaleString()}\n\nSquare POSアプリで決済してください。\n（iPadからアクセスするとSquareアプリが自動で開きます）`)
     }
   }
 
@@ -1095,7 +1132,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         total_amount: totalAmount,
         total_cost: totalCost,
         total_profit: totalProfit,
-        memo: testMode ? '【テスト】' : null,
+        memo: null,
       })
       .select('id')
       .single()
@@ -1134,69 +1171,67 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       return
     }
 
-    // 中古在庫のステータス更新（テストモードで在庫減らさない場合はスキップ）
-    if (!testMode || testModeReduceInventory) {
-      for (const detail of details) {
-        if (detail.usedInventoryId) {
-          const { error: updateError } = await supabase
-            .from('t_used_inventory')
-            .update({ status: '販売済' })
-            .eq('id', detail.usedInventoryId)
+    // 中古在庫のステータス更新
+    for (const detail of details) {
+      if (detail.usedInventoryId) {
+        const { error: updateError } = await supabase
+          .from('t_used_inventory')
+          .update({ status: '販売済' })
+          .eq('id', detail.usedInventoryId)
 
-          if (updateError) {
-            console.error('在庫ステータス更新エラー:', updateError)
-            alert('売上は登録されましたが、在庫ステータスの更新に失敗しました。\n中古在庫管理画面で手動でステータスを「販売済」に変更してください。')
-            setDetails([])
-            setSelectedCategory('')
-            return
-          }
+        if (updateError) {
+          console.error('在庫ステータス更新エラー:', updateError)
+          alert('売上は登録されましたが、在庫ステータスの更新に失敗しました。\n中古在庫管理画面で手動でステータスを「販売済」に変更してください。')
+          setDetails([])
+          setSelectedCategory('')
+          return
         }
       }
+    }
 
-      // iPhone修理のパーツ在庫を減算
-      for (const detail of details) {
-        if (detail.category === 'iPhone修理' && detail.model && detail.menu && detail.supplierId) {
-          // パーツを使用する修理メニューのみ在庫を減算
-          if (!isPartsRepairMenu(detail.menu)) {
-            continue
-          }
+    // iPhone修理のパーツ在庫を減算
+    for (const detail of details) {
+      if (detail.category === 'iPhone修理' && detail.model && detail.menu && detail.supplierId) {
+        // パーツを使用する修理メニューのみ在庫を減算
+        if (!isPartsRepairMenu(detail.menu)) {
+          continue
+        }
 
-          // メニューからパーツ種別を取得
-          const partsType = getPartsTypeFromMenu(detail.menu)
+        // メニューからパーツ種別を取得
+        const partsType = getPartsTypeFromMenu(detail.menu)
 
-          // 在庫レコードを取得して減算
-          const { data: invData, error: invFetchError } = await supabase
+        // 在庫レコードを取得して減算
+        const { data: invData, error: invFetchError } = await supabase
+          .from('t_parts_inventory')
+          .select('id, actual_qty')
+          .eq('tenant_id', DEFAULT_TENANT_ID)
+          .eq('shop_id', parseInt(formData.shopId))
+          .eq('model', detail.model)
+          .eq('parts_type', partsType)
+          .eq('supplier_id', detail.supplierId)
+          .single()
+
+        if (invFetchError) {
+          console.error('パーツ在庫取得エラー:', invFetchError, { model: detail.model, partsType, supplierId: detail.supplierId })
+          // 在庫が見つからなくても売上登録は完了しているのでエラーにはしない
+          continue
+        }
+
+        if (invData) {
+          const newQty = Math.max(0, (invData.actual_qty || 0) - detail.quantity)
+          const { error: invUpdateError } = await supabase
             .from('t_parts_inventory')
-            .select('id, actual_qty')
-            .eq('tenant_id', DEFAULT_TENANT_ID)
-            .eq('shop_id', parseInt(formData.shopId))
-            .eq('model', detail.model)
-            .eq('parts_type', partsType)
-            .eq('supplier_id', detail.supplierId)
-            .single()
+            .update({ actual_qty: newQty })
+            .eq('id', invData.id)
 
-          if (invFetchError) {
-            console.error('パーツ在庫取得エラー:', invFetchError, { model: detail.model, partsType, supplierId: detail.supplierId })
-            // 在庫が見つからなくても売上登録は完了しているのでエラーにはしない
-            continue
-          }
-
-          if (invData) {
-            const newQty = Math.max(0, (invData.actual_qty || 0) - detail.quantity)
-            const { error: invUpdateError } = await supabase
-              .from('t_parts_inventory')
-              .update({ actual_qty: newQty })
-              .eq('id', invData.id)
-
-            if (invUpdateError) {
-              console.error('パーツ在庫更新エラー:', invUpdateError)
-            }
+          if (invUpdateError) {
+            console.error('パーツ在庫更新エラー:', invUpdateError)
           }
         }
       }
     }
 
-    alert(testMode ? '【テスト】売上を登録しました' : '売上を登録しました')
+    alert('売上を登録しました')
     // フォームリセット
     setDetails([])
     setSelectedCategory('')
@@ -1248,56 +1283,6 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
           <h1 className="page-title">売上入力</h1>
         </div>
       )}
-
-      {/* テストモード */}
-      <div className="card mb-lg" style={{ background: testMode ? '#FEF3C7' : undefined, border: testMode ? '2px solid #F59E0B' : undefined }}>
-        <div className="card-body" style={{ padding: '12px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={testMode}
-                onChange={(e) => setTestMode(e.target.checked)}
-                style={{ width: '18px', height: '18px' }}
-              />
-              <span style={{ fontWeight: '600', color: testMode ? '#B45309' : undefined }}>
-                テストモード {testMode && '(有効)'}
-              </span>
-            </label>
-            {testMode && (
-              <>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={testModeReduceInventory}
-                    onChange={(e) => setTestModeReduceInventory(e.target.checked)}
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                  <span>在庫も減らす</span>
-                </label>
-                <span style={{ fontSize: '0.85rem', color: '#92400E' }}>
-                  ※テストデータはmemoに【テスト】と記録されます
-                </span>
-                <button
-                  onClick={deleteTestData}
-                  disabled={deletingTestData}
-                  style={{
-                    padding: '6px 12px',
-                    background: '#DC2626',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {deletingTestData ? '削除中...' : 'テストデータ一括削除'}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* 基本情報 */}
       <div className="card mb-lg">
@@ -1550,8 +1535,12 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   className="form-select"
                 >
                   <option value="">選択してください</option>
-                  {iphoneModels.map((m) => (
-                    <option key={m.model} value={m.model}>{m.display_name}</option>
+                  {getIphoneModelGroups(iphoneModels).map((group) => (
+                    <optgroup key={group.series} label={group.label}>
+                      {group.models.map((m) => (
+                        <option key={m.model} value={m.model}>{m.display_name}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
@@ -2154,19 +2143,51 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                           />
                         </td>
                         <td className="text-right">
-                          <input
-                            type="tel"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            className="form-input"
-                            style={{ width: '80px', textAlign: 'right', padding: '4px 8px' }}
-                            value={detail.discount || ''}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/[^0-9]/g, '')
-                              updateDetailDiscount(detail.id, parseInt(value) || 0)
-                            }}
-                            placeholder="0"
-                          />
+                          <div style={{ display: 'flex', gap: '2px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                            <select
+                              className="form-select"
+                              style={{ width: '48px', padding: '4px 2px', fontSize: '0.8rem', textAlign: 'center' }}
+                              value={detail.discountType}
+                              onChange={(e) => updateDetailDiscountType(detail.id, e.target.value as 'amount' | 'percent')}
+                            >
+                              <option value="amount">¥</option>
+                              <option value="percent">%</option>
+                            </select>
+                            {detail.discountType === 'amount' ? (
+                              <input
+                                type="tel"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                className="form-input"
+                                style={{ width: '70px', textAlign: 'right', padding: '4px 8px' }}
+                                value={detail.discount || ''}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/[^0-9]/g, '')
+                                  updateDetailDiscount(detail.id, parseInt(value) || 0)
+                                }}
+                                placeholder="0"
+                              />
+                            ) : (
+                              <input
+                                type="tel"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                className="form-input"
+                                style={{ width: '50px', textAlign: 'right', padding: '4px 8px' }}
+                                value={detail.discountPercent || ''}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/[^0-9]/g, '')
+                                  updateDetailDiscountPercent(detail.id, parseInt(value) || 0)
+                                }}
+                                placeholder="0"
+                              />
+                            )}
+                          </div>
+                          {detail.discountType === 'percent' && detail.discount > 0 && (
+                            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', textAlign: 'right' }}>
+                              -¥{detail.discount.toLocaleString()}
+                            </div>
+                          )}
                         </td>
                         <td className="text-right">¥{detail.amount.toLocaleString()}</td>
                         <td className="text-right">
@@ -2213,7 +2234,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                     </tr>
                   )}
                   <tr style={{ background: '#F3F4F6' }}>
-                    <td colSpan={5} className="font-semibold" style={{ fontSize: '1.1rem' }}>合計</td>
+                    <td colSpan={5} className="font-semibold" style={{ fontSize: '1.1rem' }}>合計（税抜）</td>
                     <td className="text-right" style={{ color: totalDiscount > 0 ? '#DC2626' : undefined }}>
                       {totalDiscount > 0 ? `-¥${totalDiscount.toLocaleString()}` : '-'}
                     </td>
@@ -2226,6 +2247,11 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                       </div>
                     </td>
                     <td></td>
+                  </tr>
+                  <tr style={{ background: '#E5E7EB' }}>
+                    <td colSpan={6} className="font-semibold" style={{ fontSize: '1.1rem', color: 'var(--color-primary)' }}>決済金額（税込）</td>
+                    <td className="text-right font-semibold" style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>¥{calcTaxIncluded(totalAmount).toLocaleString()}</td>
+                    <td colSpan={3}></td>
                   </tr>
                 </tfoot>
               </table>
