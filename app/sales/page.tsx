@@ -117,6 +117,19 @@ const calcTaxIncluded = (taxExcluded: number): number => {
   return taxIncluded
 }
 
+// 税抜価格計算（税込から逆算）
+const calcTaxExcluded = (taxIncluded: number): number => {
+  return Math.floor(taxIncluded / 1.1)
+}
+
+// 粗利計算（中古販売は税抜換算してから原価を引く）
+const calcProfit = (category: string, amount: number, cost: number): number => {
+  if (category === '中古販売') {
+    return calcTaxExcluded(amount) - cost
+  }
+  return amount - cost
+}
+
 // データ移行メニュー（固定価格）
 const dataMigrationMenus = [
   { value: 'データ移行', label: 'データ移行', price: 3000 },
@@ -737,7 +750,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
 
     const amount = usedSalesForm.unitPrice
     const cost = usedSalesForm.unitCost
-    const profit = amount - cost
+    const profit = calcProfit('中古販売', amount, cost)
     const newDetail: SalesDetail = {
       id: Date.now().toString(),
       category: '中古販売',
@@ -890,8 +903,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     setDetails(details.map(d => {
       if (d.id === id) {
         const newAmount = (d.unitPrice * d.quantity) - discount
-        const newProfit = newAmount - d.cost
-        return { ...d, discount, discountPercent: 0, amount: newAmount, profit: newProfit }
+        return { ...d, discount, discountPercent: 0, amount: newAmount, profit: calcProfit(d.category, newAmount, d.cost) }
       }
       return d
     }))
@@ -902,7 +914,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     setDetails(details.map(d => {
       if (d.id === id) {
         const baseAmount = d.unitPrice * d.quantity
-        return { ...d, discountType, discountPercent: 0, discount: 0, amount: baseAmount, profit: baseAmount - d.cost }
+        return { ...d, discountType, discountPercent: 0, discount: 0, amount: baseAmount, profit: calcProfit(d.category, baseAmount, d.cost) }
       }
       return d
     }))
@@ -914,8 +926,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       if (d.id === id) {
         const discount = Math.floor(d.unitPrice * d.quantity * percent / 100)
         const newAmount = (d.unitPrice * d.quantity) - discount
-        const newProfit = newAmount - d.cost
-        return { ...d, discountPercent: percent, discount, amount: newAmount, profit: newProfit }
+        return { ...d, discountPercent: percent, discount, amount: newAmount, profit: calcProfit(d.category, newAmount, d.cost) }
       }
       return d
     }))
@@ -926,8 +937,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     setDetails(details.map(d => {
       if (d.id === id) {
         const newAmount = (unitPrice * d.quantity) - d.discount
-        const newProfit = newAmount - d.cost
-        return { ...d, unitPrice, amount: newAmount, profit: newProfit }
+        return { ...d, unitPrice, amount: newAmount, profit: calcProfit(d.category, newAmount, d.cost) }
       }
       return d
     }))
@@ -937,8 +947,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
   const updateDetailUnitCost = (id: string, cost: number) => {
     setDetails(details.map(d => {
       if (d.id === id) {
-        const newProfit = d.amount - cost
-        return { ...d, cost, profit: newProfit }
+        return { ...d, cost, profit: calcProfit(d.category, d.amount, cost) }
       }
       return d
     }))
@@ -949,7 +958,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
   const totalDiscount = details.reduce((sum, d) => sum + d.discount, 0)
   const totalAmount = details.reduce((sum, d) => sum + d.amount, 0)
   const totalCost = details.reduce((sum, d) => sum + d.cost, 0)
-  const totalProfit = totalAmount - totalCost
+  const totalProfit = details.reduce((sum, d) => sum + d.profit, 0)
 
   // 税込合計（中古販売は既に税込のため変換不要、その他のみ×1.1＋丸め）
   const usedSalesAmount = details.filter(d => d.category === '中古販売').reduce((sum, d) => sum + d.amount, 0)
@@ -1885,27 +1894,27 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                       </div>
                     </div>
 
-                    {/* 価格表示（税抜・税込両方表示） */}
+                    {/* 価格表示（中古は税込ベース） */}
                     <div className="form-grid form-grid-4">
                       <div className="form-group">
-                        <label className="form-label">基準価格（税抜）</label>
+                        <label className="form-label">基準価格（税込）</label>
                         <div style={{ padding: '8px 12px', background: 'var(--color-bg)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
                           <div style={{ fontWeight: '600' }}>¥{usedSalesForm.basePrice.toLocaleString()}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>税込 ¥{Math.floor(usedSalesForm.basePrice * 1.1).toLocaleString()}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>税抜 ¥{calcTaxExcluded(usedSalesForm.basePrice).toLocaleString()}</div>
                         </div>
                       </div>
                       <div className="form-group">
-                        <label className="form-label">減額合計（税抜）</label>
+                        <label className="form-label">減額合計（税込）</label>
                         <div style={{ padding: '8px 12px', background: usedSalesForm.deductionTotal > 0 ? 'var(--color-danger-light)' : 'var(--color-bg)', borderRadius: '6px', border: usedSalesForm.deductionTotal > 0 ? '1px solid var(--color-danger)' : '1px solid var(--color-border)' }}>
                           <div style={{ fontWeight: '600', color: usedSalesForm.deductionTotal > 0 ? 'var(--color-danger)' : 'inherit' }}>-¥{usedSalesForm.deductionTotal.toLocaleString()}</div>
-                          <div style={{ fontSize: '0.75rem', color: usedSalesForm.deductionTotal > 0 ? 'var(--color-danger)' : 'var(--color-text-secondary)' }}>税込 -¥{Math.floor(usedSalesForm.deductionTotal * 1.1).toLocaleString()}</div>
+                          <div style={{ fontSize: '0.75rem', color: usedSalesForm.deductionTotal > 0 ? 'var(--color-danger)' : 'var(--color-text-secondary)' }}>税抜 -¥{calcTaxExcluded(usedSalesForm.deductionTotal).toLocaleString()}</div>
                         </div>
                       </div>
                       <div className="form-group">
-                        <label className="form-label">販売価格（税抜）</label>
+                        <label className="form-label">販売価格（税込）</label>
                         <div style={{ padding: '8px 12px', background: 'var(--color-primary-light)', borderRadius: '6px', border: '1px solid var(--color-primary)' }}>
                           <div style={{ fontWeight: '700', fontSize: '1.1rem' }}>¥{usedSalesForm.unitPrice.toLocaleString()}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: '600' }}>税込 ¥{Math.floor(usedSalesForm.unitPrice * 1.1).toLocaleString()}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: '600' }}>税抜 ¥{calcTaxExcluded(usedSalesForm.unitPrice).toLocaleString()}</div>
                         </div>
                         <input
                           type="tel"
@@ -1922,10 +1931,9 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">原価（税抜）</label>
+                        <label className="form-label">原価</label>
                         <div style={{ padding: '8px 12px', background: 'var(--color-bg)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
                           <div style={{ fontWeight: '600' }}>¥{usedSalesForm.unitCost.toLocaleString()}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>税込 ¥{Math.floor(usedSalesForm.unitCost * 1.1).toLocaleString()}</div>
                         </div>
                       </div>
                     </div>
