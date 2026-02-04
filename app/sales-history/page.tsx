@@ -455,7 +455,7 @@ export default function SalesHistoryPage() {
                 <tbody>
                   {salesRecords.map(sale => (
                     <tr key={sale.id} style={{
-                      background: sale.sale_type === 'cancel' ? '#FEF2F2' :
+                      background: sale.sale_type === 'cancel' ? 'var(--color-danger-light)' :
                                   sale.sale_type === 'refund' ? '#FFF7ED' : 'inherit'
                     }}>
                       <td>{sale.id}</td>
@@ -470,7 +470,7 @@ export default function SalesHistoryPage() {
                           <span className="badge badge-warning">返金</span>
                         )}
                         {sale.original_sale_id && (
-                          <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
                             元: #{sale.original_sale_id}
                           </div>
                         )}
@@ -486,12 +486,12 @@ export default function SalesHistoryPage() {
                         ))}
                       </td>
                       <td className="text-right" style={{
-                        color: sale.total_amount < 0 ? '#DC2626' : 'inherit'
+                        color: sale.total_amount < 0 ? 'var(--color-danger)' : 'inherit'
                       }}>
                         {formatCurrency(sale.total_amount)}
                       </td>
                       <td className="text-right" style={{
-                        color: (sale.total_profit || 0) < 0 ? '#DC2626' : 'inherit'
+                        color: (sale.total_profit || 0) < 0 ? 'var(--color-danger)' : 'inherit'
                       }}>
                         {formatCurrency(sale.total_profit || 0)}
                       </td>
@@ -519,7 +519,7 @@ export default function SalesHistoryPage() {
                           </div>
                         )}
                         {(sale.sale_type === 'cancel' || sale.sale_type === 'refund') && (
-                          <span style={{ color: '#6B7280', fontSize: '0.85rem' }}>-</span>
+                          <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>-</span>
                         )}
                       </td>
                     </tr>
@@ -646,7 +646,7 @@ export default function SalesHistoryPage() {
                 <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
                   売上合計: {formatCurrency(editTotalAmount)}
                 </div>
-                <div style={{ color: '#6B7280' }}>
+                <div style={{ color: 'var(--color-text-secondary)' }}>
                   原価: {formatCurrency(editTotalCost)} / 利益: {formatCurrency(editTotalProfit)}
                 </div>
               </div>
@@ -673,7 +673,7 @@ export default function SalesHistoryPage() {
             </div>
             <div className="modal-body">
               <p>以下の売上を削除しますか？</p>
-              <div style={{ background: '#F3F4F6', padding: '16px', borderRadius: '8px', marginTop: '12px' }}>
+              <div style={{ background: 'var(--color-bg)', padding: '16px', borderRadius: '8px', marginTop: '12px' }}>
                 <div><strong>ID:</strong> {selectedSale.id}</div>
                 <div><strong>日付:</strong> {selectedSale.sale_date}</div>
                 <div><strong>店舗:</strong> {selectedSale.shop_name}</div>
@@ -687,7 +687,7 @@ export default function SalesHistoryPage() {
                   ))}
                 </div>
               </div>
-              <p style={{ color: '#DC2626', marginTop: '16px' }}>
+              <p style={{ color: 'var(--color-danger)', marginTop: '16px' }}>
                 ※ この操作は取り消せません。通常は「取消/返金」ボタンを使用してください。
               </p>
             </div>
@@ -712,7 +712,7 @@ export default function SalesHistoryPage() {
               <button className="modal-close" onClick={() => setShowCancelModal(false)}>×</button>
             </div>
             <div className="modal-body">
-              <div style={{ background: '#F3F4F6', padding: '16px', borderRadius: '8px', marginBottom: '20px' }}>
+              <div style={{ background: 'var(--color-bg)', padding: '16px', borderRadius: '8px', marginBottom: '20px' }}>
                 <div><strong>ID:</strong> {selectedSale.id}</div>
                 <div><strong>日付:</strong> {selectedSale.sale_date}</div>
                 <div><strong>店舗:</strong> {selectedSale.shop_name}</div>
@@ -723,7 +723,7 @@ export default function SalesHistoryPage() {
                     <div key={i} style={{ marginLeft: '16px', fontSize: '0.9rem' }}>
                       ・{d.category}: {d.model} {d.menu}
                       {d.used_inventory_id && (
-                        <span style={{ color: '#6B7280', marginLeft: '8px' }}>
+                        <span style={{ color: 'var(--color-text-secondary)', marginLeft: '8px' }}>
                           (在庫ID: {d.used_inventory_id})
                         </span>
                       )}
@@ -759,7 +759,7 @@ export default function SalesHistoryPage() {
 
               {/* 在庫復元オプション */}
               {selectedSale.details.some(d => d.used_inventory_id || d.category === '中古販売') && (
-                <div style={{ background: '#EFF6FF', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
+                <div style={{ background: 'var(--color-info-light)', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
                   <h4 style={{ marginBottom: '12px', fontSize: '1rem' }}>在庫オプション</h4>
 
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '12px' }}>
@@ -788,7 +788,7 @@ export default function SalesHistoryPage() {
                 </div>
               )}
 
-              <div style={{ background: '#FEF3C7', padding: '12px', borderRadius: '8px', fontSize: '0.9rem' }}>
+              <div style={{ background: 'var(--color-warning-light)', padding: '12px', borderRadius: '8px', fontSize: '0.9rem' }}>
                 <strong>処理内容:</strong>
                 <ul style={{ margin: '8px 0 0 16px', paddingLeft: '0' }}>
                   <li>マイナス売上（{formatCurrency(-selectedSale.total_amount)}）を登録します</li>

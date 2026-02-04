@@ -112,7 +112,7 @@ export default function InventoryPage() {
 
     return {
       status: statusText,
-      color: expired ? '#6B7280' : stage === 0 ? '#059669' : stage < 3 ? '#D97706' : '#DC2626',
+      color: expired ? 'var(--color-text-secondary)' : stage === 0 ? 'var(--color-success)' : stage < 3 ? 'var(--color-warning)' : 'var(--color-danger)',
       daysLeft: daysUntilExpiry,
       daysSinceSale,
       expired,
@@ -447,57 +447,6 @@ export default function InventoryPage() {
 
   return (
     <div className="container">
-      <style jsx>{`
-        .filter-grid {
-          display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          gap: 12px;
-          align-items: end;
-        }
-        .summary-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 10px;
-        }
-        .shop-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 10px;
-          margin-top: 10px;
-        }
-        .summary-card {
-          background: #F8FAFC;
-          border-radius: 6px;
-          padding: 10px 12px;
-        }
-        .summary-label {
-          font-size: 0.7rem;
-          color: #6B7280;
-          margin-bottom: 2px;
-        }
-        .summary-value {
-          font-size: 1.1rem;
-          font-weight: 700;
-          line-height: 1.2;
-        }
-        .summary-sub {
-          font-size: 0.65rem;
-          color: #6B7280;
-          margin-top: 2px;
-        }
-        @media (max-width: 768px) {
-          .filter-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-          .summary-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-          .shop-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
-
       <div className="page-header">
         <h1 className="page-title">中古在庫管理</h1>
         <p className="page-subtitle">中古iPhoneの在庫状況を管理します</p>
@@ -508,14 +457,14 @@ export default function InventoryPage() {
         <div className="card-body" style={{ padding: '12px 16px' }}>
           <div className="filter-grid">
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: '#6B7280' }}>店舗</label>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: 'var(--color-text-secondary)' }}>店舗</label>
               <select value={filters.shopId} onChange={(e) => setFilters({ ...filters, shopId: e.target.value })} className="form-select" style={{ padding: '6px 10px', fontSize: '0.85rem' }}>
                 <option value="">全店舗</option>
                 {shops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: '#6B7280' }}>ステータス</label>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: 'var(--color-text-secondary)' }}>ステータス</label>
               <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="form-select" style={{ padding: '6px 10px', fontSize: '0.85rem' }}>
                 <option value="">すべて</option>
                 <option value="修理中">修理中</option>
@@ -525,11 +474,11 @@ export default function InventoryPage() {
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: '#6B7280' }}>機種</label>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: 'var(--color-text-secondary)' }}>機種</label>
               <input type="text" value={filters.model} onChange={(e) => setFilters({ ...filters, model: e.target.value })} placeholder="機種名" className="form-input" style={{ padding: '6px 10px', fontSize: '0.85rem' }} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: '#6B7280' }}>管理番号</label>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: 'var(--color-text-secondary)' }}>管理番号</label>
               <input type="text" value={filters.managementNumber} onChange={(e) => setFilters({ ...filters, managementNumber: e.target.value })} placeholder="IMEI下4桁" className="form-input" style={{ padding: '6px 10px', fontSize: '0.85rem' }} maxLength={4} />
             </div>
             <div>
@@ -550,7 +499,7 @@ export default function InventoryPage() {
             </div>
             <div className="summary-card">
               <p className="summary-label">45日以上</p>
-              <p className="summary-value" style={{ color: '#D97706' }}>{over45Days}台</p>
+              <p className="summary-value" style={{ color: 'var(--color-warning)' }}>{over45Days}台</p>
             </div>
             <div className="summary-card">
               <p className="summary-label">90日以上</p>
@@ -558,7 +507,7 @@ export default function InventoryPage() {
             </div>
             <div className="summary-card">
               <p className="summary-label">EC未出品</p>
-              <p className="summary-value" style={{ color: '#DC2626' }}>{totalNoEc}台</p>
+              <p className="summary-value" style={{ color: 'var(--color-danger)' }}>{totalNoEc}台</p>
             </div>
           </div>
           <div className="shop-grid">
@@ -569,9 +518,9 @@ export default function InventoryPage() {
                   <div>
                     <span style={{ fontWeight: '600', fontSize: '0.85rem' }}>{shop.name}</span>
                     <span style={{ marginLeft: '8px', fontWeight: '700' }}>{stats.total}台</span>
-                    {showRepairingCount && <span style={{ fontSize: '0.7rem', color: '#6B7280', marginLeft: '6px' }}>（販売可{stats.inStock}/修理中{stats.repairing}）</span>}
+                    {showRepairingCount && <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', marginLeft: '6px' }}>（販売可{stats.inStock}/修理中{stats.repairing}）</span>}
                   </div>
-                  {stats.noEc > 0 && <span style={{ fontSize: '0.75rem', color: '#DC2626' }}>未出品{stats.noEc}</span>}
+                  {stats.noEc > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--color-danger)' }}>未出品{stats.noEc}</span>}
                 </div>
               )
             })}
@@ -581,7 +530,7 @@ export default function InventoryPage() {
 
       {/* 在庫一覧 */}
       <div className="card">
-        <div className="card-header" style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="card-header flex-between" style={{ padding: '10px 16px' }}>
           <h2 className="card-title" style={{ fontSize: '0.95rem' }}>在庫一覧（{inventory.length}件）</h2>
           {selectedIds.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -659,7 +608,7 @@ export default function InventoryPage() {
                         {item.sales_price ? (
                           <div>
                             <div style={{ fontWeight: '600' }}>¥{Math.floor(item.sales_price * 1.1).toLocaleString()}</div>
-                            <div style={{ fontSize: '0.7rem', color: '#6B7280' }}>税抜 ¥{item.sales_price.toLocaleString()}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>税抜 ¥{item.sales_price.toLocaleString()}</div>
                           </div>
                         ) : '-'}
                       </td>
@@ -688,7 +637,7 @@ export default function InventoryPage() {
             alignItems: 'center',
             gap: '8px',
             padding: '16px',
-            borderTop: '1px solid #E5E7EB'
+            borderTop: '1px solid var(--color-border)'
           }}>
             <button
               onClick={() => setCurrentPage(1)}
@@ -706,7 +655,7 @@ export default function InventoryPage() {
             >
               ‹
             </button>
-            <span style={{ fontSize: '0.85rem', color: '#6B7280', margin: '0 8px' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', margin: '0 8px' }}>
               {currentPage} / {totalPages} ページ
               <span style={{ marginLeft: '8px', fontSize: '0.75rem' }}>
                 （{startIndex + 1}-{Math.min(endIndex, inventory.length)} / {inventory.length}件）
@@ -741,41 +690,41 @@ export default function InventoryPage() {
               <button onClick={() => setShowDetailModal(false)} className="modal-close">✕</button>
             </div>
             <div className="modal-body">
-              <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '12px', marginBottom: '12px' }}>
+              <div className="info-box" style={{ marginBottom: '12px' }}>
                 <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>商品情報</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '0.8rem' }}>
-                  <div><span style={{ color: '#6B7280' }}>機種:</span> <span style={{ fontWeight: '500' }}>{getDisplayName(selectedItem.model)}</span></div>
-                  <div><span style={{ color: '#6B7280' }}>容量:</span> <span style={{ fontWeight: '500' }}>{selectedItem.storage === 1000 ? '1TB' : `${selectedItem.storage}GB`}</span></div>
-                  <div><span style={{ color: '#6B7280' }}>ランク:</span> <span style={{ fontWeight: '500' }}>{selectedItem.rank}</span></div>
-                  <div><span style={{ color: '#6B7280' }}>IMEI:</span> <span style={{ fontFamily: 'monospace' }}>{selectedItem.imei || '-'}</span></div>
-                  <div><span style={{ color: '#6B7280' }}>管理番号:</span> <span style={{ fontFamily: 'monospace', fontWeight: '500' }}>{selectedItem.management_number ? String(selectedItem.management_number).padStart(4, '0') : '-'}</span></div>
-                  <div><span style={{ color: '#6B7280' }}>滞留:</span> <span>{calculateDaysInStock(selectedItem.arrival_date)}日</span></div>
+                <div className="detail-grid detail-grid-3">
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>機種:</span> <span style={{ fontWeight: '500' }}>{getDisplayName(selectedItem.model)}</span></div>
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>容量:</span> <span style={{ fontWeight: '500' }}>{selectedItem.storage === 1000 ? '1TB' : `${selectedItem.storage}GB`}</span></div>
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>ランク:</span> <span style={{ fontWeight: '500' }}>{selectedItem.rank}</span></div>
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>IMEI:</span> <span style={{ fontFamily: 'monospace' }}>{selectedItem.imei || '-'}</span></div>
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>管理番号:</span> <span style={{ fontFamily: 'monospace', fontWeight: '500' }}>{selectedItem.management_number ? String(selectedItem.management_number).padStart(4, '0') : '-'}</span></div>
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>滞留:</span> <span>{calculateDaysInStock(selectedItem.arrival_date)}日</span></div>
                 </div>
               </div>
-              <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '12px', marginBottom: '12px' }}>
+              <div className="info-box" style={{ marginBottom: '12px' }}>
                 <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>状態・価格</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '0.8rem' }}>
-                  <div><span style={{ color: '#6B7280' }}>バッテリー:</span> <span style={{ fontWeight: '500' }}>{selectedItem.is_service_state ? 'サービス' : selectedItem.battery_percent ? `${selectedItem.battery_percent}%` : '-'}</span></div>
-                  <div><span style={{ color: '#6B7280' }}>NW制限:</span> <span style={{ fontWeight: '500' }}>{getNwStatusDisplay(selectedItem.nw_status)}</span></div>
-                  <div><span style={{ color: '#6B7280' }}>カメラ染み:</span> <span style={{ fontWeight: '500' }}>{getCameraStainDisplay(selectedItem.camera_stain_level)}</span></div>
-                  <div><span style={{ color: '#6B7280' }}>買取価格:</span> <span style={{ fontWeight: '500' }}>¥{selectedItem.buyback_price.toLocaleString()}</span></div>
-                  <div><span style={{ color: '#6B7280' }}>修理費:</span> <span style={{ fontWeight: '500' }}>¥{selectedItem.repair_cost.toLocaleString()}</span></div>
-                  <div><span style={{ color: '#6B7280' }}>原価合計:</span> <span style={{ fontWeight: '700' }}>¥{selectedItem.total_cost.toLocaleString()}</span><span style={{ fontSize: '0.7rem', color: '#6B7280', marginLeft: '4px' }}>(税込¥{Math.floor(selectedItem.total_cost * 1.1).toLocaleString()})</span></div>
+                <div className="detail-grid detail-grid-3">
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>バッテリー:</span> <span style={{ fontWeight: '500' }}>{selectedItem.is_service_state ? 'サービス' : selectedItem.battery_percent ? `${selectedItem.battery_percent}%` : '-'}</span></div>
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>NW制限:</span> <span style={{ fontWeight: '500' }}>{getNwStatusDisplay(selectedItem.nw_status)}</span></div>
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>カメラ染み:</span> <span style={{ fontWeight: '500' }}>{getCameraStainDisplay(selectedItem.camera_stain_level)}</span></div>
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>買取価格:</span> <span style={{ fontWeight: '500' }}>¥{selectedItem.buyback_price.toLocaleString()}</span></div>
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>修理費:</span> <span style={{ fontWeight: '500' }}>¥{selectedItem.repair_cost.toLocaleString()}</span></div>
+                  <div><span style={{ color: 'var(--color-text-secondary)' }}>原価合計:</span> <span style={{ fontWeight: '700' }}>¥{selectedItem.total_cost.toLocaleString()}</span><span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', marginLeft: '4px' }}>(税込¥{Math.floor(selectedItem.total_cost * 1.1).toLocaleString()})</span></div>
                 </div>
               </div>
-              <div style={{ background: '#FFF7ED', borderRadius: '6px', padding: '12px', marginBottom: '12px', border: '1px solid #FED7AA' }}>
+              <div className="info-box info-box-warning" style={{ marginBottom: '12px' }}>
                 <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px', color: '#9A3412' }}>売却者情報（古物商法）</h3>
                 {(selectedItem as any).buyback ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '0.8rem' }}>
-                    <div><span style={{ color: '#6B7280' }}>氏名:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_name || '-'}</span></div>
-                    <div><span style={{ color: '#6B7280' }}>生年月日:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_birth_date ? `${(selectedItem as any).buyback.customer_birth_date}（${toWareki((selectedItem as any).buyback.customer_birth_date)}）` : '-'}</span></div>
-                    <div><span style={{ color: '#6B7280' }}>年齢:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_age != null ? `${(selectedItem as any).buyback.customer_age}歳` : '-'}</span></div>
-                    <div><span style={{ color: '#6B7280' }}>住所:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_postal_code || (selectedItem as any).buyback.customer_address ? `〒${(selectedItem as any).buyback.customer_postal_code || ''} ${(selectedItem as any).buyback.customer_address || ''} ${(selectedItem as any).buyback.customer_address_detail || ''}` : '-'}</span></div>
-                    <div><span style={{ color: '#6B7280' }}>職業:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_occupation || '-'}</span></div>
-                    <div><span style={{ color: '#6B7280' }}>電話番号:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_phone || '-'}</span></div>
+                  <div className="detail-grid detail-grid-2">
+                    <div><span style={{ color: 'var(--color-text-secondary)' }}>氏名:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_name || '-'}</span></div>
+                    <div><span style={{ color: 'var(--color-text-secondary)' }}>生年月日:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_birth_date ? `${(selectedItem as any).buyback.customer_birth_date}（${toWareki((selectedItem as any).buyback.customer_birth_date)}）` : '-'}</span></div>
+                    <div><span style={{ color: 'var(--color-text-secondary)' }}>年齢:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_age != null ? `${(selectedItem as any).buyback.customer_age}歳` : '-'}</span></div>
+                    <div><span style={{ color: 'var(--color-text-secondary)' }}>住所:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_postal_code || (selectedItem as any).buyback.customer_address ? `〒${(selectedItem as any).buyback.customer_postal_code || ''} ${(selectedItem as any).buyback.customer_address || ''} ${(selectedItem as any).buyback.customer_address_detail || ''}` : '-'}</span></div>
+                    <div><span style={{ color: 'var(--color-text-secondary)' }}>職業:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_occupation || '-'}</span></div>
+                    <div><span style={{ color: 'var(--color-text-secondary)' }}>電話番号:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).buyback.customer_phone || '-'}</span></div>
                   </div>
                 ) : (
-                  <p style={{ fontSize: '0.8rem', color: '#6B7280' }}>売却者情報なし</p>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>売却者情報なし</p>
                 )}
               </div>
               {/* 保証確認 */}
@@ -785,23 +734,23 @@ export default function InventoryPage() {
                 const salePriceTaxIncluded = selectedItem.sales_price ? Math.floor(selectedItem.sales_price * 1.1) : 0
                 return (
                   <div style={{
-                    background: warranty.expired ? '#F3F4F6' : '#ECFDF5',
+                    background: warranty.expired ? 'var(--color-bg)' : '#ECFDF5',
                     borderRadius: '6px',
                     padding: '12px',
                     marginBottom: '12px',
-                    border: `1px solid ${warranty.expired ? '#D1D5DB' : '#A7F3D0'}`,
+                    border: `1px solid ${warranty.expired ? 'var(--color-border-dark)' : '#A7F3D0'}`,
                   }}>
-                    <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px', color: warranty.expired ? '#6B7280' : '#065F46' }}>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px', color: warranty.expired ? 'var(--color-text-secondary)' : '#065F46' }}>
                       保証確認
                     </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '0.8rem', marginBottom: '10px' }}>
-                      <div><span style={{ color: '#6B7280' }}>販売日:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).sale_date}</span></div>
-                      <div><span style={{ color: '#6B7280' }}>経過日数:</span> <span style={{ fontWeight: '600', color: warranty.color }}>{warranty.daysSinceSale}日</span></div>
-                      <div><span style={{ color: '#6B7280' }}>保証残日数:</span> <span style={{ fontWeight: '600', color: warranty.expired ? '#6B7280' : '#059669' }}>{warranty.expired ? '終了' : `${warranty.daysLeft}日`}</span></div>
+                    <div className="detail-grid detail-grid-3" style={{ marginBottom: '10px' }}>
+                      <div><span className="detail-label">販売日:</span> <span className="detail-value">{(selectedItem as any).sale_date}</span></div>
+                      <div><span className="detail-label">経過日数:</span> <span style={{ fontWeight: '600', color: warranty.color }}>{warranty.daysSinceSale}日</span></div>
+                      <div><span className="detail-label">保証残日数:</span> <span style={{ fontWeight: '600', color: warranty.expired ? 'var(--color-text-secondary)' : 'var(--color-success)' }}>{warranty.expired ? '終了' : `${warranty.daysLeft}日`}</span></div>
                     </div>
                     {salePriceTaxIncluded > 0 && (
                       <div style={{ background: 'white', borderRadius: '4px', padding: '8px 10px', marginBottom: '10px', fontSize: '0.8rem' }}>
-                        <span style={{ color: '#6B7280' }}>購入金額（税込）:</span> <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>¥{salePriceTaxIncluded.toLocaleString()}</span>
+                        <span style={{ color: 'var(--color-text-secondary)' }}>購入金額（税込）:</span> <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>¥{salePriceTaxIncluded.toLocaleString()}</span>
                       </div>
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -814,9 +763,9 @@ export default function InventoryPage() {
                             justifyContent: 'space-between',
                             padding: '6px 10px',
                             borderRadius: '4px',
-                            background: s.isActive ? '#059669' : s.isPast ? '#F3F4F6' : 'white',
-                            color: s.isActive ? 'white' : s.isPast ? '#9CA3AF' : '#374151',
-                            border: `1px solid ${s.isActive ? '#059669' : s.isPast ? '#E5E7EB' : '#D1D5DB'}`,
+                            background: s.isActive ? 'var(--color-success)' : s.isPast ? 'var(--color-bg)' : 'white',
+                            color: s.isActive ? 'white' : s.isPast ? 'var(--color-text-light)' : 'var(--color-text)',
+                            border: `1px solid ${s.isActive ? 'var(--color-success)' : s.isPast ? 'var(--color-border)' : 'var(--color-border-dark)'}`,
                             fontSize: '0.78rem',
                             textDecoration: s.isPast ? 'line-through' : 'none',
                           }}
@@ -830,7 +779,7 @@ export default function InventoryPage() {
                       ))}
                     </div>
                     {!warranty.expired && (
-                      <div style={{ marginTop: '8px', padding: '6px 10px', background: 'white', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '0.78rem', textAlign: 'center' }}>
+                      <div style={{ marginTop: '8px', padding: '6px 10px', background: 'white', borderRadius: '4px', border: '1px solid var(--color-border-dark)', fontSize: '0.78rem', textAlign: 'center' }}>
                         <span style={{ fontWeight: '600', color: warranty.color }}>現在: {warranty.status}</span>
                       </div>
                     )}
@@ -854,18 +803,18 @@ export default function InventoryPage() {
                     placeholder="税抜価格を入力"
                   />
                   {editData.sales_price > 0 && (
-                    <div style={{ marginTop: '8px', padding: '8px 12px', background: '#F0FDF4', borderRadius: '6px', fontSize: '0.85rem' }}>
+                    <div className="info-box info-box-success" style={{ marginTop: '8px', fontSize: '0.85rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ color: '#6B7280' }}>税込価格:</span>
+                        <span style={{ color: 'var(--color-text-secondary)' }}>税込価格:</span>
                         <span style={{ fontWeight: '600' }}>¥{Math.floor(editData.sales_price * 1.1).toLocaleString()}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ color: '#6B7280' }}>原価:</span>
+                        <span style={{ color: 'var(--color-text-secondary)' }}>原価:</span>
                         <span style={{ fontWeight: '600' }}>¥{selectedItem.total_cost.toLocaleString()}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #D1FAE5', paddingTop: '4px' }}>
-                        <span style={{ color: '#059669', fontWeight: '600' }}>粗利:</span>
-                        <span style={{ fontWeight: '700', color: editData.sales_price - selectedItem.total_cost >= 0 ? '#059669' : '#DC2626' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--color-success-light)', paddingTop: '4px' }}>
+                        <span style={{ color: 'var(--color-success)', fontWeight: '600' }}>粗利:</span>
+                        <span style={{ fontWeight: '700', color: editData.sales_price - selectedItem.total_cost >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
                           ¥{(editData.sales_price - selectedItem.total_cost).toLocaleString()}
                         </span>
                       </div>
@@ -896,25 +845,25 @@ export default function InventoryPage() {
               <button onClick={() => { setShowRepairModal(false); setSelectedParts([]) }} className="modal-close">✕</button>
             </div>
             <div className="modal-body">
-              <div style={{ background: '#E8F0FE', borderRadius: '6px', padding: '10px', marginBottom: '12px', fontSize: '0.85rem' }}>
+              <div className="info-box info-box-info" style={{ marginBottom: '12px', fontSize: '0.85rem' }}>
                 <span style={{ fontWeight: '500' }}>{getDisplayName(selectedItem.model)}</span>
                 <span style={{ marginLeft: '6px' }}>{selectedItem.storage}GB</span>
-                <span style={{ color: '#6B7280', marginLeft: '6px' }}>（{selectedItem.management_number ? String(selectedItem.management_number).padStart(4, '0') : '-'}）</span>
+                <span style={{ color: 'var(--color-text-secondary)', marginLeft: '6px' }}>（{selectedItem.management_number ? String(selectedItem.management_number).padStart(4, '0') : '-'}）</span>
               </div>
-              <p style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '10px' }}>使用パーツを選択:</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginBottom: '10px' }}>使用パーツを選択:</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
                 {getRepairTypes(selectedItem.model).map((repair) => {
                   const qty = getPartsQty(repair.partsType)
                   const isSelected = selectedParts.includes(repair.key)
                   const willBeNegative = isSelected && qty <= 0
                   return (
-                    <label key={repair.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '6px', border: `1px solid ${isSelected ? '#004AAD' : '#E5E7EB'}`, background: isSelected ? '#E8F0FE' : 'white', cursor: 'pointer', fontSize: '0.85rem' }}>
+                    <label key={repair.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '6px', border: `1px solid ${isSelected ? 'var(--color-primary)' : 'var(--color-border)'}`, background: isSelected ? 'var(--color-primary-light)' : 'white', cursor: 'pointer', fontSize: '0.85rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <input type="checkbox" checked={isSelected} onChange={() => togglePart(repair.key)} />
                         <span style={{ fontWeight: '500' }}>{repair.label}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ color: qty <= 0 ? '#DC2626' : '#6B7280' }}>在庫:{qty}</span>
+                        <span style={{ color: qty <= 0 ? 'var(--color-danger)' : 'var(--color-text-secondary)' }}>在庫:{qty}</span>
                         {willBeNegative && <span>⚠️</span>}
                       </div>
                     </label>
@@ -927,7 +876,7 @@ export default function InventoryPage() {
                 const repair = repairTypesList.find(r => r.key === key)
                 return repair && getPartsQty(repair.partsType) <= 0
               }) && (
-                <div style={{ background: '#FEF3C7', border: '1px solid #D97706', borderRadius: '6px', padding: '10px', marginBottom: '12px' }}>
+                <div style={{ background: 'var(--color-warning-light)', border: '1px solid var(--color-warning)', borderRadius: '6px', padding: '10px', marginBottom: '12px' }}>
                   <p style={{ fontWeight: '600', color: '#92400E', fontSize: '0.85rem', marginBottom: '4px' }}>⚠️ 以下のパーツは在庫が0のためマイナスになります</p>
                   <ul style={{ paddingLeft: '20px', fontSize: '0.8rem', color: '#92400E', margin: 0 }}>
                     {selectedParts.map(key => {

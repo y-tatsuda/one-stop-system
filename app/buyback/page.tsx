@@ -903,7 +903,7 @@ ${bankInfo.accountHolder}
                 padding: '12px 24px',
                 fontSize: '1rem',
                 fontWeight: '600',
-                background: '#6B7280',
+                background: 'var(--color-text-secondary)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
@@ -912,7 +912,7 @@ ${bankInfo.accountHolder}
             >
               ← メニューに戻る
             </button>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1F2937' }}>買取登録</h1>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--color-text)' }}>買取登録</h1>
             <div style={{ width: '140px' }}></div>
           </div>
         )}
@@ -969,7 +969,7 @@ ${bankInfo.accountHolder}
       {!isKioskMode && (
         <h1 className="page-title">
           買取入力
-          <span style={{ fontSize: '0.9rem', marginLeft: '12px', padding: '4px 12px', background: buybackType === 'store' ? '#004AAD' : '#6B7280', color: 'white', borderRadius: '20px' }}>
+          <span style={{ fontSize: '0.9rem', marginLeft: '12px', padding: '4px 12px', background: buybackType === 'store' ? 'var(--color-primary)' : 'var(--color-text-secondary)', color: 'white', borderRadius: '20px' }}>
             {buybackType === 'store' ? '店頭買取' : '郵送買取'}
           </span>
         </h1>
@@ -988,8 +988,8 @@ ${bankInfo.accountHolder}
               style={{
                 padding: '8px 16px',
                 borderRadius: '20px',
-                background: phase === p ? '#004AAD' : '#E5E7EB',
-                color: phase === p ? 'white' : '#6B7280',
+                background: phase === p ? 'var(--color-primary)' : 'var(--color-border)',
+                color: phase === p ? 'white' : 'var(--color-text-secondary)',
                 fontWeight: phase === p ? '600' : '400',
                 fontSize: '0.9rem',
               }}
@@ -1047,8 +1047,8 @@ ${bankInfo.accountHolder}
                   padding: '10px 20px',
                   borderRadius: '8px',
                   border: 'none',
-                  background: activeItemIndex === index ? '#004AAD' : '#E5E7EB',
-                  color: activeItemIndex === index ? 'white' : '#374151',
+                  background: activeItemIndex === index ? 'var(--color-primary)' : 'var(--color-border)',
+                  color: activeItemIndex === index ? 'white' : 'var(--color-text)',
                   fontWeight: '600',
                   cursor: 'pointer',
                 }}
@@ -1064,7 +1064,7 @@ ${bankInfo.accountHolder}
                 borderRadius: '8px',
                 border: '2px dashed #9CA3AF',
                 background: 'transparent',
-                color: '#6B7280',
+                color: 'var(--color-text-secondary)',
                 fontWeight: '600',
                 cursor: 'pointer',
               }}
@@ -1599,7 +1599,7 @@ function ItemForm({
         </div>
 
         {/* 修理が必要 */}
-        <div className="card mb-lg" style={{ background: '#F9FAFB' }}>
+        <div className="card mb-lg" style={{ background: 'var(--color-bg)' }}>
           <div className="card-header">
             <label className="form-check" style={{ margin: 0 }}>
               <input
@@ -1633,8 +1633,8 @@ function ItemForm({
                         padding: '16px 12px',
                         borderRadius: '10px',
                         border: 'none',
-                        background: isDisabled ? '#E5E7EB' : isSelected ? '#004AAD' : '#6B7280',
-                        color: isDisabled ? '#9CA3AF' : 'white',
+                        background: isDisabled ? 'var(--color-border)' : isSelected ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                        color: isDisabled ? 'var(--color-text-light)' : 'white',
                         fontWeight: '600',
                         cursor: isDisabled ? 'not-allowed' : 'pointer',
                         textAlign: 'left',
@@ -1657,7 +1657,7 @@ function ItemForm({
         </div>
 
         {/* 他店対抗価格 */}
-        <div className="card mb-lg" style={{ background: '#FEF3C7' }}>
+        <div className="card mb-lg" style={{ background: 'var(--color-warning-light)' }}>
           <div className="card-header">
             <label className="form-check" style={{ margin: 0 }}>
               <input
@@ -1719,32 +1719,32 @@ function ItemForm({
           <div className="card-body">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }}>
               <div>
-                <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>基本買取価格</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>基本買取価格</div>
                 <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>¥{item.basePrice.toLocaleString()}</div>
               </div>
               <div>
-                <div style={{ fontSize: '0.85rem', color: '#DC2626' }}>減額合計</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: '600', color: '#DC2626' }}>-¥{item.totalDeduction.toLocaleString()}</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-danger)' }}>減額合計</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '600', color: 'var(--color-danger)' }}>-¥{item.totalDeduction.toLocaleString()}</div>
               </div>
               <div>
-                <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>最低保証</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>最低保証</div>
                 <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>¥{item.guaranteePrice.toLocaleString()}</div>
               </div>
-              <div style={{ background: '#004AAD', padding: '12px', borderRadius: '8px', color: 'white' }}>
+              <div style={{ background: 'var(--color-primary)', padding: '12px', borderRadius: '8px', color: 'white' }}>
                 <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>最終買取価格</div>
                 <div style={{ fontSize: '1.4rem', fontWeight: '700' }}>¥{item.finalPrice.toLocaleString()}</div>
               </div>
             </div>
-            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E5E7EB', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }}>
+            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--color-border)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }}>
               <div>
-                <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>販売予定価格</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>販売予定価格</div>
                 <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>¥{item.salesPrice.toLocaleString()}</div>
               </div>
               <div>
-                <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>商品原価</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>商品原価</div>
                 <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>¥{(item.finalPrice + item.repairCost).toLocaleString()}</div>
               </div>
-              <div style={{ background: item.expectedProfit >= 0 ? '#059669' : '#DC2626', padding: '12px', borderRadius: '8px', color: 'white' }}>
+              <div style={{ background: item.expectedProfit >= 0 ? 'var(--color-success)' : 'var(--color-danger)', padding: '12px', borderRadius: '8px', color: 'white' }}>
                 <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>想定粗利</div>
                 <div style={{ fontSize: '1.4rem', fontWeight: '700' }}>
                   ¥{item.expectedProfit.toLocaleString()}
@@ -1793,12 +1793,12 @@ function CustomerViewScreen({
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
       <div className="card" style={{ textAlign: 'center' }}>
         <div className="card-body" style={{ padding: '40px 24px' }}>
-          <h2 style={{ fontSize: '2rem', marginBottom: '32px', color: '#004AAD' }}>査定結果</h2>
+          <h2 style={{ fontSize: '2rem', marginBottom: '32px', color: 'var(--color-primary)' }}>査定結果</h2>
           
           {items.map((item, index) => {
             const modelName = iphoneModels.find(m => m.model === item.model)?.display_name || item.model
             return (
-              <div key={item.id} style={{ marginBottom: '24px', padding: '20px', background: '#F9FAFB', borderRadius: '12px', textAlign: 'left' }}>
+              <div key={item.id} style={{ marginBottom: '24px', padding: '20px', background: 'var(--color-bg)', borderRadius: '12px', textAlign: 'left' }}>
                 <div style={{ fontWeight: '700', fontSize: '1.2rem', marginBottom: '16px' }}>
                   {items.length > 1 && `${index + 1}台目: `}{modelName} {item.storage}GB {item.rank}
                 </div>
@@ -1816,7 +1816,7 @@ function CustomerViewScreen({
                       const pct = isSevere ? '20' : '10'
                       const label = item.isServiceState ? 'サービス' : item.batteryPercent + '%'
                       return (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#DC2626' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: 'var(--color-danger)' }}>
                           <span>バッテリー減額（{label}・{pct}%減）</span>
                           <span>-¥{Math.round((item.bihinPrice || item.basePrice) * rate).toLocaleString()}</span>
                         </div>
@@ -1825,13 +1825,13 @@ function CustomerViewScreen({
                   </>
                 )}
                 
-                <div style={{ borderTop: '2px solid #E5E7EB', marginTop: '12px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1.2rem', color: '#004AAD' }}>
+                <div style={{ borderTop: '2px solid #E5E7EB', marginTop: '12px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1.2rem', color: 'var(--color-primary)' }}>
                   <span>買取価格</span>
                   <span>¥{item.finalPrice.toLocaleString()}</span>
                 </div>
                 
                 {item.specialPriceEnabled && (
-                  <div style={{ marginTop: '8px', fontSize: '0.9rem', color: '#6B7280' }}>
+                  <div style={{ marginTop: '8px', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>
                     （他店対抗価格適用）
                   </div>
                 )}
@@ -1840,21 +1840,21 @@ function CustomerViewScreen({
           })}
 
           {items.length > 1 && (
-            <div style={{ padding: '20px', background: '#004AAD', borderRadius: '12px', color: 'white', marginBottom: '32px' }}>
+            <div style={{ padding: '20px', background: 'var(--color-primary)', borderRadius: '12px', color: 'white', marginBottom: '32px' }}>
               <div style={{ fontSize: '1rem', marginBottom: '8px' }}>合計買取価格</div>
               <div style={{ fontSize: '2rem', fontWeight: '700' }}>¥{totalBuybackPrice.toLocaleString()}</div>
             </div>
           )}
 
           {items.length === 1 && (
-            <div style={{ padding: '20px', background: '#004AAD', borderRadius: '12px', color: 'white', marginBottom: '32px' }}>
+            <div style={{ padding: '20px', background: 'var(--color-primary)', borderRadius: '12px', color: 'white', marginBottom: '32px' }}>
               <div style={{ fontSize: '1rem', marginBottom: '8px' }}>買取価格</div>
               <div style={{ fontSize: '2.5rem', fontWeight: '700' }}>¥{totalBuybackPrice.toLocaleString()}</div>
             </div>
           )}
 
-          <div style={{ background: '#FEF3C7', padding: '16px', borderRadius: '8px', marginBottom: '20px', textAlign: 'left' }}>
-            <p style={{ fontSize: '0.95rem', color: '#92400E', margin: 0 }}>
+          <div style={{ background: 'var(--color-warning-light)', padding: '16px', borderRadius: '8px', marginBottom: '20px', textAlign: 'left' }}>
+            <p style={{ fontSize: '0.95rem', color: 'var(--color-warning-darker)', margin: 0 }}>
               ※ これは事前査定の金額です。本査定（動作チェック）の結果により、金額が変更になる場合があります。
             </p>
           </div>
@@ -1961,8 +1961,8 @@ function CustomerInputScreen({
     <div style={{ maxWidth: buybackType === 'store' ? '600px' : '800px', margin: '0 auto' }}>
       {/* 店頭買取: 買取価格表示 */}
       {buybackType === 'store' && (
-        <div className="card mb-lg" style={{ background: hasPriceChange ? '#FEF3C7' : '#F0F9FF' }}>
-          <div className="card-header" style={{ background: hasPriceChange ? '#F59E0B' : '#004AAD', color: 'white' }}>
+        <div className="card mb-lg" style={{ background: hasPriceChange ? 'var(--color-warning-light)' : '#F0F9FF' }}>
+          <div className="card-header" style={{ background: hasPriceChange ? '#F59E0B' : 'var(--color-primary)', color: 'white' }}>
             <h2 className="card-title" style={{ color: 'white', margin: 0 }}>
               {hasPriceChange ? '⚠️ 買取価格が変更されました' : '✓ 買取価格（確定）'}
             </h2>
@@ -1978,17 +1978,17 @@ function CustomerInputScreen({
                   {item.priceChanged ? (
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ color: '#6B7280', textDecoration: 'line-through' }}>事前査定: ¥{item.preliminaryPrice.toLocaleString()}</span>
-                        <span style={{ fontWeight: '700', color: '#D97706' }}>→ ¥{item.finalPrice.toLocaleString()}</span>
+                        <span style={{ color: 'var(--color-text-secondary)', textDecoration: 'line-through' }}>事前査定: ¥{item.preliminaryPrice.toLocaleString()}</span>
+                        <span style={{ fontWeight: '700', color: 'var(--color-warning)' }}>→ ¥{item.finalPrice.toLocaleString()}</span>
                       </div>
-                      <div style={{ fontSize: '0.85rem', color: '#92400E', background: '#FEF9C3', padding: '8px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-warning-darker)', background: '#FEF9C3', padding: '8px', borderRadius: '4px' }}>
                         理由: {item.priceChangeReason}
                       </div>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span>買取価格</span>
-                      <span style={{ fontWeight: '700', color: '#004AAD' }}>¥{item.finalPrice.toLocaleString()}</span>
+                      <span style={{ fontWeight: '700', color: 'var(--color-primary)' }}>¥{item.finalPrice.toLocaleString()}</span>
                     </div>
                   )}
                 </div>
@@ -1998,18 +1998,18 @@ function CustomerInputScreen({
             {/* 合計 */}
             <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '2px solid #004AAD' }}>
               {hasPriceChange && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#6B7280' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: 'var(--color-text-secondary)' }}>
                   <span>事前査定合計</span>
                   <span style={{ textDecoration: 'line-through' }}>¥{totalPreliminaryPrice.toLocaleString()}</span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1.3rem' }}>
                 <span>最終買取価格</span>
-                <span style={{ color: hasPriceChange ? '#D97706' : '#004AAD' }}>¥{totalBuybackPrice.toLocaleString()}</span>
+                <span style={{ color: hasPriceChange ? 'var(--color-warning)' : 'var(--color-primary)' }}>¥{totalBuybackPrice.toLocaleString()}</span>
               </div>
               {hasPriceChange && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
-                  <span style={{ fontSize: '0.9rem', color: totalBuybackPrice < totalPreliminaryPrice ? '#DC2626' : '#059669' }}>
+                  <span style={{ fontSize: '0.9rem', color: totalBuybackPrice < totalPreliminaryPrice ? 'var(--color-danger)' : 'var(--color-success)' }}>
                     （{totalBuybackPrice < totalPreliminaryPrice ? '' : '+'}¥{(totalBuybackPrice - totalPreliminaryPrice).toLocaleString()}）
                   </span>
                 </div>
@@ -2026,7 +2026,7 @@ function CustomerInputScreen({
             <h2 className="card-title">同意事項</h2>
           </div>
           <div className="card-body">
-            <p style={{ marginBottom: '20px', color: '#6B7280' }}>以下のすべての項目に同意してください。</p>
+            <p style={{ marginBottom: '20px', color: 'var(--color-text-secondary)' }}>以下のすべての項目に同意してください。</p>
             {consentItems.map((text, index) => (
               <label key={index} className="form-check" style={{ marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                 <input
@@ -2151,12 +2151,12 @@ function CustomerInputScreen({
               className="form-input"
             />
             {customerInfo.birthDate && (
-              <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#6B7280' }}>
+              <div style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
                 {toWareki(customerInfo.birthDate)}
               </div>
             )}
             {customerInfo.age !== null && (
-              <div style={{ marginTop: '4px', fontSize: '0.9rem', color: customerInfo.isMinor ? '#DC2626' : '#374151', fontWeight: customerInfo.isMinor ? '600' : '400' }}>
+              <div style={{ marginTop: '4px', fontSize: '0.9rem', color: customerInfo.isMinor ? 'var(--color-danger)' : 'var(--color-text)', fontWeight: customerInfo.isMinor ? '600' : '400' }}>
                 年齢: {customerInfo.age}歳
                 {customerInfo.isMinor && ' （18歳未満）'}
               </div>
@@ -2265,10 +2265,10 @@ function CustomerInputScreen({
 
       {/* 18歳未満の警告 */}
       {customerInfo.isMinor && (
-        <div className="card mb-lg" style={{ background: '#FEF3C7', border: '2px solid #F59E0B' }}>
+        <div className="card mb-lg" style={{ background: 'var(--color-warning-light)', border: '2px solid #F59E0B' }}>
           <div className="card-body" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontSize: '1.5rem' }}>⚠️</span>
-            <span style={{ fontWeight: '600', color: '#92400E' }}>
+            <span style={{ fontWeight: '600', color: 'var(--color-warning-darker)' }}>
               18歳未満のお客様です。保護者または後見人の同意が必要です。
             </span>
           </div>
@@ -2283,7 +2283,7 @@ function CustomerInputScreen({
           </div>
           <div className="card-body">
             <div className="form-group mb-md">
-              <label className="form-check" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: '#FEF3C7', borderRadius: '8px' }}>
+              <label className="form-check" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'var(--color-warning-light)', borderRadius: '8px' }}>
                 <input
                   type="checkbox"
                   checked={customerInfo.guardianConsent}
@@ -2410,12 +2410,12 @@ function CustomerInputScreen({
 
       {/* 店頭買取: お客様への案内メッセージ */}
       {buybackType === 'store' && (
-        <div className="card mb-lg" style={{ background: '#FEF3C7', border: '2px solid #F59E0B' }}>
+        <div className="card mb-lg" style={{ background: 'var(--color-warning-light)', border: '2px solid #F59E0B' }}>
           <div className="card-body" style={{ textAlign: 'center', padding: '24px' }}>
             <p style={{ fontSize: '1.1rem', marginBottom: '16px' }}>
               入力が完了したら下のボタンを押してください。
             </p>
-            <p style={{ color: '#92400E' }}>
+            <p style={{ color: 'var(--color-warning-darker)' }}>
               本人確認書類と一緒にiPadをスタッフへお返しください。
             </p>
           </div>
@@ -2471,17 +2471,17 @@ function VerificationScreen({
         <div className="card-body">
           <table style={{ width: '100%' }}>
             <tbody>
-              <tr><td style={{ padding: '8px 0', color: '#6B7280', width: '120px' }}>氏名</td><td style={{ fontWeight: '600' }}>{customerInfo.name}</td></tr>
+              <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)', width: '120px' }}>氏名</td><td style={{ fontWeight: '600' }}>{customerInfo.name}</td></tr>
               {customerInfo.nameKana && (
-                <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>フリガナ</td><td style={{ fontWeight: '600' }}>{customerInfo.nameKana}</td></tr>
+                <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>フリガナ</td><td style={{ fontWeight: '600' }}>{customerInfo.nameKana}</td></tr>
               )}
-              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>生年月日</td><td style={{ fontWeight: '600' }}>{customerInfo.birthDate}（{toWareki(customerInfo.birthDate)}）{customerInfo.age}歳{customerInfo.isMinor && <span style={{ color: '#DC2626' }}> ※18歳未満</span>}</td></tr>
-              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>住所</td><td style={{ fontWeight: '600' }}>〒{customerInfo.postalCode} {customerInfo.address} {customerInfo.addressDetail}</td></tr>
-              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>職業</td><td style={{ fontWeight: '600' }}>{customerInfo.occupation}</td></tr>
-              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>電話番号</td><td style={{ fontWeight: '600' }}>{customerInfo.phone}</td></tr>
-              <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>本人確認書類</td><td style={{ fontWeight: '600' }}>{ID_TYPE_OPTIONS.find(opt => opt.value === customerInfo.idType)?.label || customerInfo.idDocumentType}</td></tr>
+              <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>生年月日</td><td style={{ fontWeight: '600' }}>{customerInfo.birthDate}（{toWareki(customerInfo.birthDate)}）{customerInfo.age}歳{customerInfo.isMinor && <span style={{ color: 'var(--color-danger)' }}> ※18歳未満</span>}</td></tr>
+              <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>住所</td><td style={{ fontWeight: '600' }}>〒{customerInfo.postalCode} {customerInfo.address} {customerInfo.addressDetail}</td></tr>
+              <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>職業</td><td style={{ fontWeight: '600' }}>{customerInfo.occupation}</td></tr>
+              <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>電話番号</td><td style={{ fontWeight: '600' }}>{customerInfo.phone}</td></tr>
+              <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>本人確認書類</td><td style={{ fontWeight: '600' }}>{ID_TYPE_OPTIONS.find(opt => opt.value === customerInfo.idType)?.label || customerInfo.idDocumentType}</td></tr>
               {customerInfo.idNumber && (
-                <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>書類番号</td><td style={{ fontWeight: '600' }}>{customerInfo.idNumber}</td></tr>
+                <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>書類番号</td><td style={{ fontWeight: '600' }}>{customerInfo.idNumber}</td></tr>
               )}
             </tbody>
           </table>
@@ -2497,21 +2497,21 @@ function VerificationScreen({
           <div className="card-body">
             <table style={{ width: '100%' }}>
               <tbody>
-                <tr><td style={{ padding: '8px 0', color: '#6B7280', width: '120px' }}>同意</td><td style={{ fontWeight: '600', color: customerInfo.guardianConsent ? '#059669' : '#DC2626' }}>{customerInfo.guardianConsent ? '✓ 同意済み' : '未同意'}</td></tr>
-                <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>続柄</td><td style={{ fontWeight: '600' }}>{GUARDIAN_RELATIONSHIP_OPTIONS.find(opt => opt.value === customerInfo.guardianRelationship)?.label || ''}</td></tr>
-                <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>氏名</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianName}</td></tr>
+                <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)', width: '120px' }}>同意</td><td style={{ fontWeight: '600', color: customerInfo.guardianConsent ? 'var(--color-success)' : 'var(--color-danger)' }}>{customerInfo.guardianConsent ? '✓ 同意済み' : '未同意'}</td></tr>
+                <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>続柄</td><td style={{ fontWeight: '600' }}>{GUARDIAN_RELATIONSHIP_OPTIONS.find(opt => opt.value === customerInfo.guardianRelationship)?.label || ''}</td></tr>
+                <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>氏名</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianName}</td></tr>
                 {customerInfo.guardianNameKana && (
-                  <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>フリガナ</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianNameKana}</td></tr>
+                  <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>フリガナ</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianNameKana}</td></tr>
                 )}
-                <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>電話番号</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianPhone}</td></tr>
+                <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>電話番号</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianPhone}</td></tr>
                 {customerInfo.guardianAddress && (
-                  <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>住所</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianAddress}</td></tr>
+                  <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>住所</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianAddress}</td></tr>
                 )}
                 {customerInfo.guardianIdType && (
-                  <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>本人確認書類</td><td style={{ fontWeight: '600' }}>{ID_TYPE_OPTIONS.find(opt => opt.value === customerInfo.guardianIdType)?.label || ''}</td></tr>
+                  <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>本人確認書類</td><td style={{ fontWeight: '600' }}>{ID_TYPE_OPTIONS.find(opt => opt.value === customerInfo.guardianIdType)?.label || ''}</td></tr>
                 )}
                 {customerInfo.guardianIdNumber && (
-                  <tr><td style={{ padding: '8px 0', color: '#6B7280' }}>書類番号</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianIdNumber}</td></tr>
+                  <tr><td style={{ padding: '8px 0', color: 'var(--color-text-secondary)' }}>書類番号</td><td style={{ fontWeight: '600' }}>{customerInfo.guardianIdNumber}</td></tr>
                 )}
               </tbody>
             </table>
@@ -2533,14 +2533,14 @@ function VerificationScreen({
               </div>
             )
           })}
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', marginTop: '8px', borderTop: '2px solid #004AAD', fontWeight: '700', fontSize: '1.2rem', color: '#004AAD' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', marginTop: '8px', borderTop: '2px solid #004AAD', fontWeight: '700', fontSize: '1.2rem', color: 'var(--color-primary)' }}>
             <span>合計買取価格</span>
             <span>¥{totalBuybackPrice.toLocaleString()}</span>
           </div>
         </div>
       </div>
 
-      <div className="card mb-lg" style={{ background: '#FEF3C7' }}>
+      <div className="card mb-lg" style={{ background: 'var(--color-warning-light)' }}>
         <div className="card-body">
           <label className="form-check" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <input
@@ -2605,7 +2605,7 @@ function PaymentScreen({
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <div className="card mb-lg" style={{ background: '#004AAD', color: 'white', textAlign: 'center' }}>
+      <div className="card mb-lg" style={{ background: 'var(--color-primary)', color: 'white', textAlign: 'center' }}>
         <div className="card-body" style={{ padding: '32px' }}>
           <div style={{ fontSize: '1.1rem', marginBottom: '8px' }}>お渡し金額</div>
           <div style={{ fontSize: '2.5rem', fontWeight: '700' }}>¥{totalBuybackPrice.toLocaleString()}</div>
@@ -2646,14 +2646,14 @@ function PaymentScreen({
           <div className="card-body">
             {/* 振込済みチェックボックス */}
             <div className="form-group mb-md">
-              <label className="form-check" style={{ display: 'inline-flex', alignItems: 'center', padding: '12px 16px', background: bankInfo.isAlreadyPaid ? '#DCFCE7' : '#F3F4F6', borderRadius: '8px', cursor: 'pointer' }}>
+              <label className="form-check" style={{ display: 'inline-flex', alignItems: 'center', padding: '12px 16px', background: bankInfo.isAlreadyPaid ? 'var(--color-success-light)' : 'var(--color-bg)', borderRadius: '8px', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={bankInfo.isAlreadyPaid}
                   onChange={(e) => setBankInfo({ ...bankInfo, isAlreadyPaid: e.target.checked })}
                   style={{ marginRight: '8px' }}
                 />
-                <span style={{ fontWeight: 600, color: bankInfo.isAlreadyPaid ? '#059669' : '#374151' }}>振込済み（既に振込完了している場合）</span>
+                <span style={{ fontWeight: 600, color: bankInfo.isAlreadyPaid ? 'var(--color-success)' : 'var(--color-text)' }}>振込済み（既に振込完了している場合）</span>
               </label>
             </div>
 
@@ -2861,8 +2861,8 @@ function OperationCheckScreen({
                   padding: '10px 20px',
                   borderRadius: '8px',
                   border: 'none',
-                  background: activeItemIndex === index ? '#004AAD' : isCompleted ? '#059669' : '#E5E7EB',
-                  color: activeItemIndex === index || isCompleted ? 'white' : '#374151',
+                  background: activeItemIndex === index ? 'var(--color-primary)' : isCompleted ? 'var(--color-success)' : 'var(--color-border)',
+                  color: activeItemIndex === index || isCompleted ? 'white' : 'var(--color-text)',
                   fontWeight: '600',
                   cursor: 'pointer',
                 }}
@@ -2885,8 +2885,8 @@ function OperationCheckScreen({
         </div>
         <div className="card-body">
           <div style={{ marginBottom: '24px', padding: '16px', background: '#F0F9FF', borderRadius: '8px' }}>
-            <div style={{ fontSize: '0.9rem', color: '#6B7280', marginBottom: '4px' }}>事前査定価格</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#004AAD' }}>
+            <div style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>事前査定価格</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--color-primary)' }}>
               ¥{activeItem?.preliminaryPrice.toLocaleString()}
             </div>
           </div>
@@ -2899,13 +2899,13 @@ function OperationCheckScreen({
               return (
                 <div key={checkItem.key} style={{
                   padding: '12px',
-                  background: isChecked ? '#F9FAFB' : '#FEF3C7',
+                  background: isChecked ? 'var(--color-bg)' : '#FEF3C7',
                   borderRadius: '8px',
                   border: isChecked ? '1px solid #E5E7EB' : '2px solid #F59E0B'
                 }}>
                   <div style={{ fontWeight: '600', marginBottom: '8px', fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>{checkItem.label}</span>
-                    {!isChecked && <span style={{ fontSize: '0.75rem', color: '#D97706', fontWeight: '500' }}>未選択</span>}
+                    {!isChecked && <span style={{ fontSize: '0.75rem', color: 'var(--color-warning)', fontWeight: '500' }}>未選択</span>}
                   </div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     {['normal', 'minor', 'abnormal'].map(status => (
@@ -2921,7 +2921,7 @@ function OperationCheckScreen({
                             }
                           })}
                         />
-                        <span style={{ color: status === 'normal' ? '#059669' : status === 'minor' ? '#D97706' : '#DC2626' }}>
+                        <span style={{ color: status === 'normal' ? 'var(--color-success)' : status === 'minor' ? 'var(--color-warning)' : 'var(--color-danger)' }}>
                           {status === 'normal' ? '正常' : status === 'minor' ? '軽度異常' : '異常'}
                         </span>
                       </label>
@@ -2939,7 +2939,7 @@ function OperationCheckScreen({
                             }
                           })}
                         />
-                        <span style={{ color: '#6B7280' }}>対象外</span>
+                        <span style={{ color: 'var(--color-text-secondary)' }}>対象外</span>
                       </label>
                     )}
                   </div>
@@ -2994,8 +2994,8 @@ function OperationCheckScreen({
             <div style={{ borderTop: '2px solid #E5E7EB', paddingTop: '24px' }}>
               <div style={{ textAlign: 'center', padding: '24px', background: '#ECFDF5', borderRadius: '8px' }}>
                 <div style={{ fontSize: '2rem', marginBottom: '8px' }}>✓</div>
-                <h4 style={{ color: '#059669', marginBottom: '8px' }}>価格確定済み</h4>
-                <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#059669', marginBottom: '16px' }}>
+                <h4 style={{ color: 'var(--color-success)', marginBottom: '8px' }}>価格確定済み</h4>
+                <div style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--color-success)', marginBottom: '16px' }}>
                   ¥{activeItem?.preliminaryPrice.toLocaleString()}
                 </div>
                 <button
@@ -3008,7 +3008,7 @@ function OperationCheckScreen({
             </div>
           ) : (
             <div style={{ borderTop: '2px solid #E5E7EB', paddingTop: '24px' }}>
-              <h4 style={{ marginBottom: '16px', color: '#D97706' }}>価格修正</h4>
+              <h4 style={{ marginBottom: '16px', color: 'var(--color-warning)' }}>価格修正</h4>
 
               <div className="form-grid-2 mb-lg">
                 <div className="form-group">
@@ -3043,18 +3043,18 @@ function OperationCheckScreen({
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', padding: '16px', background: '#FEF3C7', borderRadius: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', padding: '16px', background: 'var(--color-warning-light)', borderRadius: '8px' }}>
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: '#92400E' }}>事前査定価格</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-warning-darker)' }}>事前査定価格</div>
                   <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>¥{activeItem?.preliminaryPrice.toLocaleString()}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: '#92400E' }}>修正後価格</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#D97706' }}>¥{activeItem?.finalPrice.toLocaleString()}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-warning-darker)' }}>修正後価格</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: '700', color: 'var(--color-warning)' }}>¥{activeItem?.finalPrice.toLocaleString()}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: '#92400E' }}>差額</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: '600', color: activeItem && activeItem.finalPrice < activeItem.preliminaryPrice ? '#DC2626' : '#059669' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-warning-darker)' }}>差額</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: '600', color: activeItem && activeItem.finalPrice < activeItem.preliminaryPrice ? 'var(--color-danger)' : 'var(--color-success)' }}>
                     {activeItem && activeItem.finalPrice < activeItem.preliminaryPrice ? '-' : '+'}
                     ¥{Math.abs((activeItem?.finalPrice || 0) - (activeItem?.preliminaryPrice || 0)).toLocaleString()}
                   </div>

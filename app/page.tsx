@@ -508,7 +508,7 @@ export default function Home() {
                       position: 'absolute',
                       top: '-8px',
                       right: '-8px',
-                      background: '#DC2626',
+                      background: 'var(--color-danger)',
                       color: 'white',
                       fontSize: '11px',
                       fontWeight: 'bold',
@@ -685,16 +685,16 @@ export default function Home() {
             <>
               {/* 今日の目標・実績 */}
               <div style={{ marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#6B7280' }}>目標達成状況</h3>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: 'var(--color-text-secondary)' }}>目標達成状況</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                   {/* 売上目標 */}
                   <div style={{ padding: '16px', borderRadius: '12px', background: '#F0F9FF', border: '1px solid #BAE6FD' }}>
                     <div style={{ fontSize: '0.8rem', color: '#0369A1', marginBottom: '8px' }}>売上</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '1.5rem', fontWeight: '700', color: '#0284C7' }}>
+                      <span style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--color-info)' }}>
                         ¥{todaySummary.salesAmount.toLocaleString()}
                       </span>
-                      <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
                         / ¥{goals.dailySales.toLocaleString()}
                       </span>
                     </div>
@@ -707,7 +707,7 @@ export default function Home() {
                         transition: 'width 0.3s',
                       }} />
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: '#6B7280', marginTop: '4px', textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '4px', textAlign: 'right' }}>
                       進捗 {Math.round((todaySummary.salesAmount / goals.dailySales) * 100)}%
                     </div>
                   </div>
@@ -719,7 +719,7 @@ export default function Home() {
                       <span style={{ fontSize: '1.5rem', fontWeight: '700', color: '#22C55E' }}>
                         ¥{todaySummary.salesProfit.toLocaleString()}
                       </span>
-                      <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
                         / ¥{goals.dailyProfit.toLocaleString()}
                       </span>
                     </div>
@@ -732,7 +732,7 @@ export default function Home() {
                         transition: 'width 0.3s',
                       }} />
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: '#6B7280', marginTop: '4px', textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '4px', textAlign: 'right' }}>
                       進捗 {Math.round((todaySummary.salesProfit / goals.dailyProfit) * 100)}%
                     </div>
                   </div>
@@ -767,7 +767,7 @@ export default function Home() {
 
               {/* 店舗別集計 */}
               <div style={{ marginBottom: '20px' }}>
-                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#6B7280' }}>店舗別売上</h3>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: 'var(--color-text-secondary)' }}>店舗別売上</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
                   {shopSummaries.map(summary => (
                     <div
@@ -775,15 +775,15 @@ export default function Home() {
                       style={{
                         padding: '12px',
                         borderRadius: '8px',
-                        background: selectedSalesShop === summary.shopId ? '#E0F2FE' : '#F9FAFB',
-                        border: selectedSalesShop === summary.shopId ? '2px solid #0284C7' : '1px solid #E5E7EB',
+                        background: selectedSalesShop === summary.shopId ? 'var(--color-info-light)' : 'var(--color-bg)',
+                        border: selectedSalesShop === summary.shopId ? '2px solid var(--color-info)' : '1px solid var(--color-border)',
                         cursor: 'pointer',
                       }}
                       onClick={() => setSelectedSalesShop(selectedSalesShop === summary.shopId ? null : summary.shopId)}
                     >
                       <div style={{ fontWeight: '600', marginBottom: '4px' }}>{summary.shopName}</div>
-                      <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>{summary.salesCount}件</div>
-                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0284C7' }}>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>{summary.salesCount}件</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--color-info)' }}>
                         ¥{summary.salesAmount.toLocaleString()}
                       </div>
                       <div style={{ fontSize: '0.85rem', color: '#22C55E' }}>
@@ -797,7 +797,7 @@ export default function Home() {
               {/* 売上一覧 */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: '600', color: '#6B7280' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--color-text-secondary)' }}>
                     本日の売上一覧 {selectedSalesShop ? `(${shops.find(s => s.id === selectedSalesShop)?.name})` : '(全店)'}
                   </h3>
                   <a href="/sales-correction" className="btn btn-sm btn-secondary">
@@ -805,7 +805,7 @@ export default function Home() {
                   </a>
                 </div>
                 {filteredTodaySales.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '20px', color: '#9CA3AF' }}>
+                  <div style={{ textAlign: 'center', padding: '20px', color: 'var(--color-text-light)' }}>
                     本日の売上はありません
                   </div>
                 ) : (
@@ -835,7 +835,7 @@ export default function Home() {
                                 </div>
                               ))}
                               {sale.details.length > 2 && (
-                                <div style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
                                   他{sale.details.length - 2}件
                                 </div>
                               )}
@@ -874,16 +874,16 @@ export default function Home() {
             <>
               {/* 今月の目標・実績 */}
               <div style={{ marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#6B7280' }}>月間目標達成状況</h3>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: 'var(--color-text-secondary)' }}>月間目標達成状況</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                   {/* 売上目標 */}
                   <div style={{ padding: '16px', borderRadius: '12px', background: '#F0F9FF', border: '1px solid #BAE6FD' }}>
                     <div style={{ fontSize: '0.8rem', color: '#0369A1', marginBottom: '8px' }}>売上</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '1.5rem', fontWeight: '700', color: '#0284C7' }}>
+                      <span style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--color-info)' }}>
                         ¥{monthlyData.salesAmount.toLocaleString()}
                       </span>
-                      <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
                         / ¥{goals.monthlySales.toLocaleString()}
                       </span>
                     </div>
@@ -896,7 +896,7 @@ export default function Home() {
                         transition: 'width 0.3s',
                       }} />
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#6B7280', marginTop: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '8px' }}>
                       <span>進捗 {Math.round((monthlyData.salesAmount / goals.monthlySales) * 100)}%</span>
                       <span>着地予想 ¥{(() => {
                         const now = new Date()
@@ -915,7 +915,7 @@ export default function Home() {
                       <span style={{ fontSize: '1.5rem', fontWeight: '700', color: '#22C55E' }}>
                         ¥{monthlyData.salesProfit.toLocaleString()}
                       </span>
-                      <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
                         / ¥{goals.monthlyProfit.toLocaleString()}
                       </span>
                     </div>
@@ -928,7 +928,7 @@ export default function Home() {
                         transition: 'width 0.3s',
                       }} />
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#6B7280', marginTop: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '8px' }}>
                       <span>進捗 {Math.round((monthlyData.salesProfit / goals.monthlyProfit) * 100)}%</span>
                       <span>着地予想 ¥{(() => {
                         const now = new Date()
@@ -989,7 +989,7 @@ export default function Home() {
             </div>
             <div className="modal-body">
               <p>この売上を削除しますか？</p>
-              <p style={{ color: '#DC2626', marginTop: '8px', fontSize: '0.9rem' }}>
+              <p style={{ color: 'var(--color-danger)', marginTop: '8px', fontSize: '0.9rem' }}>
                 ※ この操作は取り消せません
               </p>
             </div>

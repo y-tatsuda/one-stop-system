@@ -1282,7 +1282,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
               padding: '12px 24px',
               fontSize: '1rem',
               fontWeight: '600',
-              background: '#6B7280',
+              background: 'var(--color-text-secondary)',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -1291,7 +1291,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
           >
             ← メニューに戻る
           </button>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1F2937' }}>販売登録</h1>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--color-text)' }}>販売登録</h1>
           <div style={{ width: '140px' }}></div>
         </div>
       )}
@@ -2244,16 +2244,16 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   {totalDiscount > 0 && (
                     <tr>
                       <td colSpan={5} className="font-semibold">小計</td>
-                      <td className="text-right" style={{ color: '#DC2626' }}>-¥{totalDiscount.toLocaleString()}</td>
+                      <td className="text-right" style={{ color: 'var(--color-danger)' }}>-¥{totalDiscount.toLocaleString()}</td>
                       <td className="text-right font-semibold">¥{subtotal.toLocaleString()}</td>
                       <td className="text-right font-semibold">¥{totalCost.toLocaleString()}</td>
                       <td className="text-right font-semibold">-</td>
                       <td></td>
                     </tr>
                   )}
-                  <tr style={{ background: '#F3F4F6' }}>
+                  <tr style={{ background: 'var(--color-bg)' }}>
                     <td colSpan={5} className="font-semibold" style={{ fontSize: '1.1rem' }}>合計（税抜）</td>
-                    <td className="text-right" style={{ color: totalDiscount > 0 ? '#DC2626' : undefined }}>
+                    <td className="text-right" style={{ color: totalDiscount > 0 ? 'var(--color-danger)' : undefined }}>
                       {totalDiscount > 0 ? `-¥${totalDiscount.toLocaleString()}` : '-'}
                     </td>
                     <td className="text-right font-semibold" style={{ fontSize: '1.1rem' }}>¥{totalAmount.toLocaleString()}</td>
@@ -2266,7 +2266,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                     </td>
                     <td></td>
                   </tr>
-                  <tr style={{ background: '#E5E7EB' }}>
+                  <tr style={{ background: 'var(--color-border)' }}>
                     <td colSpan={6} className="font-semibold" style={{ fontSize: '1.1rem', color: 'var(--color-primary)' }}>決済金額（税込）</td>
                     <td className="text-right font-semibold" style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>¥{taxIncludedTotal.toLocaleString()}</td>
                     <td colSpan={3}></td>

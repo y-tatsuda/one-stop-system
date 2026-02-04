@@ -1588,16 +1588,16 @@ export default function MasterManagementPage() {
 
                 {/* 顧客情報 */}
                 {(imeiResult.buyback || imeiResult.customer) && (
-                  <div style={{ padding: '20px', background: '#FEF3C7', borderRadius: 'var(--radius)', border: '1px solid #F59E0B' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '16px', color: '#B45309' }}>顧客情報（警察照会用）</h3>
+                  <div style={{ padding: '20px', background: 'var(--color-warning-light)', borderRadius: 'var(--radius)', border: '1px solid var(--color-warning)' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '16px', color: 'var(--color-warning-dark)' }}>顧客情報（警察照会用）</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>氏名</span><div style={{ fontWeight: 600 }}>{imeiResult.customer?.name || imeiResult.buyback?.customer_name}</div></div>
-                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>フリガナ</span><div>{imeiResult.customer?.name_kana || '-'}</div></div>
-                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>生年月日</span><div>{imeiResult.customer?.birth_date || '-'}</div></div>
-                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>電話番号</span><div style={{ fontFamily: 'monospace' }}>{imeiResult.customer?.phone || imeiResult.buyback?.customer_phone}</div></div>
-                      <div style={{ gridColumn: 'span 2' }}><span style={{ fontSize: '0.8rem', color: '#92400E' }}>住所</span><div>{imeiResult.customer?.address || imeiResult.buyback?.customer_address}</div></div>
-                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>本人確認書類</span><div>{imeiResult.customer?.id_type || imeiResult.buyback?.id_document_type || '-'}</div></div>
-                      <div><span style={{ fontSize: '0.8rem', color: '#92400E' }}>書類番号</span><div style={{ fontFamily: 'monospace' }}>{imeiResult.customer?.id_number || '-'}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-warning-darker)' }}>氏名</span><div style={{ fontWeight: 600 }}>{imeiResult.customer?.name || imeiResult.buyback?.customer_name}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-warning-darker)' }}>フリガナ</span><div>{imeiResult.customer?.name_kana || '-'}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-warning-darker)' }}>生年月日</span><div>{imeiResult.customer?.birth_date || '-'}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-warning-darker)' }}>電話番号</span><div style={{ fontFamily: 'monospace' }}>{imeiResult.customer?.phone || imeiResult.buyback?.customer_phone}</div></div>
+                      <div style={{ gridColumn: 'span 2' }}><span style={{ fontSize: '0.8rem', color: 'var(--color-warning-darker)' }}>住所</span><div>{imeiResult.customer?.address || imeiResult.buyback?.customer_address}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-warning-darker)' }}>本人確認書類</span><div>{imeiResult.customer?.id_type || imeiResult.buyback?.id_document_type || '-'}</div></div>
+                      <div><span style={{ fontSize: '0.8rem', color: 'var(--color-warning-darker)' }}>書類番号</span><div style={{ fontFamily: 'monospace' }}>{imeiResult.customer?.id_number || '-'}</div></div>
                     </div>
                   </div>
                 )}
