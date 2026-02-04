@@ -189,7 +189,11 @@ export default function InventoryPage() {
     if (filters.shopId) query = query.eq('shop_id', parseInt(filters.shopId))
     if (filters.status) query = query.eq('status', filters.status)
     if (filters.model) query = query.ilike('model', `%${filters.model}%`)
-    if (filters.managementNumber) query = query.ilike('management_number', `%${filters.managementNumber}%`)
+    if (filters.managementNumber) {
+      const num = filters.managementNumber
+      // 先頭ゼロ欠落データにも対応: 0パディング済み値と数値一致の両方で検索
+      query = query.or(`management_number.ilike.%${num}%,management_number.eq.${parseInt(num)}`)
+    }
 
     const { data, error } = await query
     if (error) {

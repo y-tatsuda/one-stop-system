@@ -1841,7 +1841,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                     {usedInventory
                       .filter(inv => {
                         if (!usedSalesForm.searchNumber) return true
-                        const mgmtNum = inv.management_number || ''
+                        const mgmtNum = (inv.management_number || '').padStart(4, '0')
                         return mgmtNum.includes(usedSalesForm.searchNumber)
                       })
                       .map((inv) => (
