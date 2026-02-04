@@ -132,6 +132,7 @@ type BuybackItem = {
   specialPrice: string
   specialPriceReason: string
   finalPrice: number
+  salesBasePrice: number
   salesPrice: number
   expectedProfit: number
   memo: string
@@ -212,6 +213,7 @@ const createEmptyItem = (): BuybackItem => ({
   specialPrice: '',
   specialPriceReason: '',
   finalPrice: 0,
+  salesBasePrice: 0,
   salesPrice: 0,
   expectedProfit: 0,
   memo: '',
@@ -502,8 +504,9 @@ export default function BuybackPage() {
       calculatedPrice,
       guaranteePrice,
       finalPrice: item.specialPriceEnabled && item.specialPrice ? parseInt(item.specialPrice) : finalPrice,
+      salesBasePrice,
       salesPrice,
-      expectedProfit: item.specialPriceEnabled && item.specialPrice 
+      expectedProfit: item.specialPriceEnabled && item.specialPrice
         ? salesPrice - (parseInt(item.specialPrice) + item.repairCost)
         : expectedProfit,
     })
@@ -1233,6 +1236,9 @@ function ItemForm({
   onCalculate: (model: string, storage: string, rank: string) => void
   onRemove?: () => void
 }) {
+  // 販売減額マスタのキャッシュ（機種ごと、減額の同期再計算に使用）
+  const [salesDeductions, setSalesDeductions] = useState<{ deduction_type: string; amount: number }[]>([])
+
   const [availableStorages, setAvailableStorages] = useState<number[]>([])
   const [partsCosts, setPartsCosts] = useState<CostData[]>([])
 
@@ -1277,17 +1283,91 @@ function ItemForm({
     fetchPartsCosts()
   }, [item.model])
 
-  // 価格計算トリガー（減額項目の変更時も再計算、batteryPercentはonBlurで処理）
+  // 機種変更時に販売減額マスタを取得（同期再計算用キャッシュ）
+  useEffect(() => {
+    async function fetchSalesDeductions() {
+      if (!item.model) { setSalesDeductions([]); return }
+      const { data } = await supabase
+        .from('m_sales_price_deductions')
+        .select('deduction_type, amount')
+        .eq('tenant_id', DEFAULT_TENANT_ID)
+        .eq('model', item.model)
+        .eq('is_active', true)
+      setSalesDeductions(data || [])
+    }
+    fetchSalesDeductions()
+  }, [item.model])
+
+  // 減額の同期再計算（Supabase問い合わせなし。評価項目変更時に使用）
+  const recalculatePrices = useCallback((fieldUpdates: Partial<BuybackItem>) => {
+    const merged = { ...item, ...fieldUpdates }
+    if (!merged.basePrice) return fieldUpdates // まだ初期計算前
+
+    const batteryPercent = parseInt(merged.batteryPercent) || 100
+
+    const totalDeduction = calculateBuybackDeduction(
+      merged.basePrice,
+      {
+        batteryPercent,
+        isServiceState: merged.isServiceState,
+        nwStatus: merged.nwStatus as 'ok' | 'triangle' | 'cross',
+        cameraStain: merged.cameraStain as 'none' | 'minor' | 'major',
+        cameraBroken: merged.cameraBroken,
+        repairHistory: merged.repairHistory,
+      },
+      [],
+      merged.bihinPrice
+    )
+
+    const calculatedPrice = merged.basePrice - totalDeduction
+    const finalPrice = Math.max(calculatedPrice, merged.guaranteePrice)
+
+    const getBatteryStatus = (): '90' | '80_89' | '79' => {
+      if (merged.isServiceState || batteryPercent <= 79) return '79'
+      if (batteryPercent <= 89) return '80_89'
+      return '90'
+    }
+
+    const salesDeductionTotal = calculateSalesDeduction(
+      {
+        batteryStatus: getBatteryStatus(),
+        cameraStain: merged.cameraStain as 'none' | 'minor' | 'major',
+        nwStatus: merged.nwStatus as 'ok' | 'triangle' | 'cross',
+      },
+      salesDeductions
+    )
+
+    const salesPrice = merged.salesBasePrice - salesDeductionTotal
+    const effectiveFinal = merged.specialPriceEnabled && merged.specialPrice ? parseInt(merged.specialPrice) : finalPrice
+    const totalCost = effectiveFinal + merged.repairCost
+    const expectedProfit = salesPrice - totalCost
+
+    return {
+      ...fieldUpdates,
+      totalDeduction,
+      calculatedPrice,
+      finalPrice: effectiveFinal,
+      salesPrice,
+      expectedProfit,
+    }
+  }, [item, salesDeductions])
+
+  // 評価項目変更ハンドラ（同期再計算付き、チカチカしない）
+  const handleAssessmentChange = useCallback((updates: Partial<BuybackItem>) => {
+    onUpdate(recalculatePrices(updates))
+  }, [onUpdate, recalculatePrices])
+
+  // 価格計算トリガー（機種・容量・ランク変更時のみSupabaseから取得）
   useEffect(() => {
     if (item.model && item.storage && item.rank) {
       onCalculate(item.model, item.storage, item.rank)
     }
-  }, [item.model, item.storage, item.rank, item.isServiceState, item.nwStatus, item.cameraStain, item.cameraBroken, item.repairHistory])
+  }, [item.model, item.storage, item.rank])
 
-  // バッテリー入力完了時の再計算
+  // バッテリー入力完了時の再計算（同期）
   const handleBatteryBlur = () => {
-    if (item.model && item.storage && item.rank) {
-      onCalculate(item.model, item.storage, item.rank)
+    if (item.basePrice) {
+      onUpdate(recalculatePrices({ batteryPercent: item.batteryPercent }))
     }
   }
 
@@ -1458,7 +1538,7 @@ function ItemForm({
                 <input
                   type="checkbox"
                   checked={item.isServiceState}
-                  onChange={(e) => onUpdate({ isServiceState: e.target.checked })}
+                  onChange={(e) => handleAssessmentChange({ isServiceState: e.target.checked })}
                 />
                 <span>サービス状態</span>
               </label>
@@ -1468,7 +1548,7 @@ function ItemForm({
             <label className="form-label form-label-required">NW制限</label>
             <select
               value={item.nwStatus}
-              onChange={(e) => onUpdate({ nwStatus: e.target.value })}
+              onChange={(e) => handleAssessmentChange({ nwStatus: e.target.value })}
               className="form-select"
             >
               <option value="ok">○（制限なし）</option>
@@ -1480,7 +1560,7 @@ function ItemForm({
             <label className="form-label form-label-required">カメラ染み</label>
             <select
               value={item.cameraStain}
-              onChange={(e) => onUpdate({ cameraStain: e.target.value })}
+              onChange={(e) => handleAssessmentChange({ cameraStain: e.target.value })}
               className="form-select"
             >
               <option value="none">なし</option>
@@ -1495,7 +1575,7 @@ function ItemForm({
             <input
               type="checkbox"
               checked={item.cameraBroken}
-              onChange={(e) => onUpdate({ cameraBroken: e.target.checked })}
+              onChange={(e) => handleAssessmentChange({ cameraBroken: e.target.checked })}
             />
             <span>カメラ窓破損</span>
           </label>
@@ -1503,7 +1583,7 @@ function ItemForm({
             <input
               type="checkbox"
               checked={item.repairHistory}
-              onChange={(e) => onUpdate({ repairHistory: e.target.checked })}
+              onChange={(e) => handleAssessmentChange({ repairHistory: e.target.checked })}
             />
             <span>修理歴あり</span>
           </label>
