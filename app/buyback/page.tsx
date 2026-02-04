@@ -1663,7 +1663,17 @@ function ItemForm({
               <input
                 type="checkbox"
                 checked={item.specialPriceEnabled}
-                onChange={(e) => onUpdate({ specialPriceEnabled: e.target.checked })}
+                onChange={(e) => {
+                  const enabled = e.target.checked
+                  if (enabled) {
+                    onUpdate({ specialPriceEnabled: true })
+                  } else {
+                    // OFF時は通常価格に戻す
+                    const normalFinal = Math.max(item.calculatedPrice, item.guaranteePrice)
+                    const normalProfit = item.salesPrice - (normalFinal + item.repairCost)
+                    onUpdate({ specialPriceEnabled: false, specialPrice: '', specialPriceReason: '', finalPrice: normalFinal, expectedProfit: normalProfit })
+                  }
+                }}
                 style={{ width: '20px', height: '20px' }}
               />
               <span className="card-title" style={{ margin: 0 }}>他店対抗価格を適用</span>
@@ -2339,18 +2349,14 @@ function CustomerInputScreen({
                   value={customerInfo.guardianPostalCode}
                   onChange={async (e) => {
                     const code = e.target.value.replace(/\D/g, '').slice(0, 7)
-                    const newInfo = { ...customerInfo, guardianPostalCode: code }
-                    setCustomerInfo(newInfo)
+                    setCustomerInfo({ ...customerInfo, guardianPostalCode: code })
                     if (code.length === 7) {
                       try {
                         const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${code}`)
                         const data = await res.json()
                         if (data.results && data.results[0]) {
                           const result = data.results[0]
-                          setCustomerInfo({
-                            ...newInfo,
-                            guardianAddress: `${result.address1}${result.address2}${result.address3}`
-                          })
+                          setCustomerInfo({ ...customerInfo, guardianPostalCode: code, guardianAddress: `${result.address1}${result.address2}${result.address3}` })
                         }
                       } catch (err) {
                         console.error('住所取得エラー:', err)
@@ -2806,9 +2812,8 @@ function OperationCheckScreen({
 
   const handleRankChange = async (index: number, newRank: string) => {
     const item = items[index]
-    onUpdateItem(index, { rank: newRank })
 
-    // 新しいランクで価格を再計算（簡易版：本来はcalculatePricesを呼ぶべき）
+    // 新しいランクで価格を再計算
     const { data: priceData } = await supabase
       .from('m_buyback_prices')
       .select('price')
@@ -2818,19 +2823,19 @@ function OperationCheckScreen({
       .eq('rank', newRank)
       .single()
 
-    if (priceData) {
-      const newBasePrice = priceData.price
-      const newCalculatedPrice = newBasePrice - item.totalDeduction
-      const newFinalPrice = Math.max(newCalculatedPrice, item.guaranteePrice)
-      const newExpectedProfit = item.salesPrice - (newFinalPrice + item.repairCost)
+    const newBasePrice = priceData?.price || item.basePrice
+    const newCalculatedPrice = newBasePrice - item.totalDeduction
+    const newFinalPrice = Math.max(newCalculatedPrice, item.guaranteePrice)
+    const newExpectedProfit = item.salesPrice - (newFinalPrice + item.repairCost)
 
-      onUpdateItem(index, {
-        basePrice: newBasePrice,
-        calculatedPrice: newCalculatedPrice,
-        finalPrice: newFinalPrice,
-        expectedProfit: newExpectedProfit,
-      })
-    }
+    // rank と価格を1回のupdateで設定（stale closure回避）
+    onUpdateItem(index, {
+      rank: newRank,
+      basePrice: newBasePrice,
+      calculatedPrice: newCalculatedPrice,
+      finalPrice: newFinalPrice,
+      expectedProfit: newExpectedProfit,
+    })
   }
 
   return (

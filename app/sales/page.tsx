@@ -1049,7 +1049,12 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       profit: d.profit,
     }))
 
-    await supabase.from('t_sales_details').insert(detailRecords)
+    const { error: detailError } = await supabase.from('t_sales_details').insert(detailRecords)
+    if (detailError) {
+      console.error('Sales detail insert error:', detailError)
+      alert('販売明細の保存に失敗しました')
+      return
+    }
 
     // 中古在庫のステータス更新
     for (const detail of details) {
