@@ -220,19 +220,19 @@ export default function InventoryPage() {
     // 販売済みの端末の販売日を取得
     const inventoryWithSaleDate = await Promise.all((data || []).map(async (item) => {
       if (item.status === '販売済') {
-        // t_sales_detailsからsale_idを取得し、t_salesからsale_dateを取得
+        // t_sales_detailsからsales_idを取得し、t_salesからsale_dateを取得
         const { data: detailData } = await supabase
           .from('t_sales_details')
-          .select('sale_id')
+          .select('sales_id')
           .eq('used_inventory_id', item.id)
           .limit(1)
           .single()
 
-        if (detailData?.sale_id) {
+        if (detailData?.sales_id) {
           const { data: salesData } = await supabase
             .from('t_sales')
             .select('sale_date')
-            .eq('id', detailData.sale_id)
+            .eq('id', detailData.sales_id)
             .single()
 
           return {

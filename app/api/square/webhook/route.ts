@@ -352,7 +352,7 @@ async function revertInventoryStatus(saleId: number) {
     const { data: details } = await supabase
       .from('t_sales_details')
       .select('used_inventory_id')
-      .eq('sale_id', saleId)
+      .eq('sales_id', saleId)
       .not('used_inventory_id', 'is', null)
 
     if (!details || details.length === 0) {
