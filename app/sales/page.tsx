@@ -951,6 +951,11 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
   const totalCost = details.reduce((sum, d) => sum + d.cost, 0)
   const totalProfit = totalAmount - totalCost
 
+  // 税込合計（中古販売は既に税込のため変換不要、その他のみ×1.1＋丸め）
+  const usedSalesAmount = details.filter(d => d.category === '中古販売').reduce((sum, d) => sum + d.amount, 0)
+  const otherSalesAmount = totalAmount - usedSalesAmount
+  const taxIncludedTotal = usedSalesAmount + (otherSalesAmount > 0 ? calcTaxIncluded(otherSalesAmount) : 0)
+
   // Squareで決済
   const handleSquareCheckout = async () => {
     if (!formData.shopId) {
@@ -1076,8 +1081,8 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     setSelectedCategory('')
 
     // Square POS URLを作成（公式ドキュメント準拠）
-    // 税込価格（10円単位丸め）をSquareに送信
-    const squareTaxIncludedAmount = calcTaxIncluded(totalAmount)
+    // 税込価格をSquareに送信（中古販売は既に税込、その他は×1.1＋丸め）
+    const squareTaxIncludedAmount = taxIncludedTotal
     const squareData = {
       amount_money: {
         amount: String(squareTaxIncludedAmount),
@@ -2250,7 +2255,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   </tr>
                   <tr style={{ background: '#E5E7EB' }}>
                     <td colSpan={6} className="font-semibold" style={{ fontSize: '1.1rem', color: 'var(--color-primary)' }}>決済金額（税込）</td>
-                    <td className="text-right font-semibold" style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>¥{calcTaxIncluded(totalAmount).toLocaleString()}</td>
+                    <td className="text-right font-semibold" style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>¥{taxIncludedTotal.toLocaleString()}</td>
                     <td colSpan={3}></td>
                   </tr>
                 </tfoot>
