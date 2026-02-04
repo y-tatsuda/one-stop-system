@@ -70,34 +70,53 @@ export default function InventoryPage() {
     const diffTime = today.getTime() - sale.getTime()
     const daysSinceSale = Math.floor(diffTime / (1000 * 60 * 60 * 24))
 
-    if (daysSinceSale > 360) {
-      return { status: '保証終了', color: '#6B7280', daysLeft: 0 }
-    }
+    const expired = daysSinceSale > 360
 
     // 現在の保証段階を計算
-    const stage = Math.floor(daysSinceSale / 60) // 0-5
-    const refundRate = 100 - (stage * 10)
-    const repairRate = stage * 10
+    const stage = expired ? -1 : Math.floor(daysSinceSale / 60) // 0-5
+    const refundRate = stage >= 0 ? 100 - (stage * 10) : 0
+    const repairRate = stage >= 0 ? stage * 10 : 0
 
     // 次の段階までの日数
     const nextStageDay = (stage + 1) * 60
-    const daysUntilNextStage = nextStageDay - daysSinceSale
+    const daysUntilNextStage = expired ? 0 : nextStageDay - daysSinceSale
 
     // 保証終了までの日数
     const daysUntilExpiry = 360 - daysSinceSale
 
     let statusText = ''
-    if (stage === 0) {
+    if (expired) {
+      statusText = '保証終了'
+    } else if (stage === 0) {
       statusText = `全額返金/無償修理（残${daysUntilNextStage}日）`
     } else if (stage < 6) {
       statusText = `${refundRate}%返金/${repairRate}%負担（残${daysUntilNextStage}日）`
     }
 
+    // 全段階の情報を生成
+    const stages = [
+      { days: 60, label: '60日以内', refund: '全額返金', repair: '無償修理' },
+      { days: 120, label: '120日以内', refund: '90％返金', repair: '10%負担で修理' },
+      { days: 180, label: '180日以内', refund: '80％返金', repair: '20%負担で修理' },
+      { days: 240, label: '240日以内', refund: '70％返金', repair: '30%負担で修理' },
+      { days: 300, label: '300日以内', refund: '60％返金', repair: '40%負担で修理' },
+      { days: 360, label: '360日以内', refund: '50％返金', repair: '50%負担で修理' },
+    ].map((s) => {
+      const deadline = new Date(sale)
+      deadline.setDate(deadline.getDate() + s.days)
+      const deadlineStr = `${deadline.getFullYear()}年${deadline.getMonth() + 1}月${deadline.getDate()}日`
+      const isActive = !expired && daysSinceSale < s.days && (s.days === 60 || daysSinceSale >= s.days - 60)
+      const isPast = daysSinceSale >= s.days
+      return { ...s, deadline: deadlineStr, isActive, isPast }
+    })
+
     return {
       status: statusText,
-      color: stage === 0 ? '#059669' : stage < 3 ? '#D97706' : '#DC2626',
+      color: expired ? '#6B7280' : stage === 0 ? '#059669' : stage < 3 ? '#D97706' : '#DC2626',
       daysLeft: daysUntilExpiry,
-      daysSinceSale
+      daysSinceSale,
+      expired,
+      stages,
     }
   }
 
@@ -759,6 +778,66 @@ export default function InventoryPage() {
                   <p style={{ fontSize: '0.8rem', color: '#6B7280' }}>売却者情報なし</p>
                 )}
               </div>
+              {/* 保証確認 */}
+              {selectedItem.status === '販売済' && (selectedItem as any).sale_date && (() => {
+                const warranty = getWarrantyInfo((selectedItem as any).sale_date)
+                if (!warranty) return null
+                const salePriceTaxIncluded = selectedItem.sales_price ? Math.floor(selectedItem.sales_price * 1.1) : 0
+                return (
+                  <div style={{
+                    background: warranty.expired ? '#F3F4F6' : '#ECFDF5',
+                    borderRadius: '6px',
+                    padding: '12px',
+                    marginBottom: '12px',
+                    border: `1px solid ${warranty.expired ? '#D1D5DB' : '#A7F3D0'}`,
+                  }}>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px', color: warranty.expired ? '#6B7280' : '#065F46' }}>
+                      保証確認
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '0.8rem', marginBottom: '10px' }}>
+                      <div><span style={{ color: '#6B7280' }}>販売日:</span> <span style={{ fontWeight: '500' }}>{(selectedItem as any).sale_date}</span></div>
+                      <div><span style={{ color: '#6B7280' }}>経過日数:</span> <span style={{ fontWeight: '600', color: warranty.color }}>{warranty.daysSinceSale}日</span></div>
+                      <div><span style={{ color: '#6B7280' }}>保証残日数:</span> <span style={{ fontWeight: '600', color: warranty.expired ? '#6B7280' : '#059669' }}>{warranty.expired ? '終了' : `${warranty.daysLeft}日`}</span></div>
+                    </div>
+                    {salePriceTaxIncluded > 0 && (
+                      <div style={{ background: 'white', borderRadius: '4px', padding: '8px 10px', marginBottom: '10px', fontSize: '0.8rem' }}>
+                        <span style={{ color: '#6B7280' }}>購入金額（税込）:</span> <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>¥{salePriceTaxIncluded.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {warranty.stages.map((s) => (
+                        <div
+                          key={s.days}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '6px 10px',
+                            borderRadius: '4px',
+                            background: s.isActive ? '#059669' : s.isPast ? '#F3F4F6' : 'white',
+                            color: s.isActive ? 'white' : s.isPast ? '#9CA3AF' : '#374151',
+                            border: `1px solid ${s.isActive ? '#059669' : s.isPast ? '#E5E7EB' : '#D1D5DB'}`,
+                            fontSize: '0.78rem',
+                            textDecoration: s.isPast ? 'line-through' : 'none',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontWeight: '600', minWidth: '70px' }}>【{s.label}】</span>
+                            <span>{s.deadline}まで</span>
+                          </div>
+                          <span style={{ fontWeight: '500' }}>{s.refund} or {s.repair}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {!warranty.expired && (
+                      <div style={{ marginTop: '8px', padding: '6px 10px', background: 'white', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '0.78rem', textAlign: 'center' }}>
+                        <span style={{ fontWeight: '600', color: warranty.color }}>現在: {warranty.status}</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                 <div>
                   <label className="form-label" style={{ fontSize: '0.8rem' }}>販売価格（税抜）</label>
