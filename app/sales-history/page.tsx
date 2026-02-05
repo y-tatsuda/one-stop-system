@@ -435,10 +435,10 @@ export default function SalesHistoryPage() {
         </div>
         <div className="card-body">
           {salesRecords.length === 0 ? (
-            <p className="text-center text-muted">該当する売上がありません</p>
+            <p className="text-center text-secondary">該当する売上がありません</p>
           ) : (
-            <div className="table-container">
-              <table className="table">
+            <div className="table-wrapper">
+              <table className="data-table">
                 <thead>
                   <tr>
                     <th>ID</th>
@@ -534,7 +534,7 @@ export default function SalesHistoryPage() {
       {/* 編集モーダル */}
       {showEditModal && selectedSale && (
         <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="modal-content modal-lg" onClick={e => e.stopPropagation()}>
+          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">売上編集（ID: {selectedSale.id}）</h3>
               <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
@@ -579,8 +579,8 @@ export default function SalesHistoryPage() {
 
               {/* 明細 */}
               <h4 style={{ marginBottom: '12px' }}>明細</h4>
-              <div className="table-container mb-md">
-                <table className="table">
+              <div className="table-wrapper mb-md">
+                <table className="data-table">
                   <thead>
                     <tr>
                       <th>カテゴリ</th>
@@ -666,7 +666,7 @@ export default function SalesHistoryPage() {
       {/* 削除確認モーダル */}
       {showDeleteConfirm && selectedSale && (
         <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">売上削除確認</h3>
               <button className="modal-close" onClick={() => setShowDeleteConfirm(false)}>×</button>
@@ -706,7 +706,7 @@ export default function SalesHistoryPage() {
       {/* 取り消し/返金モーダル */}
       {showCancelModal && selectedSale && (
         <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">取り消し / 返金</h3>
               <button className="modal-close" onClick={() => setShowCancelModal(false)}>×</button>

@@ -1068,18 +1068,20 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
 
     // iPhone修理のパーツ在庫を減算
     for (const detail of details) {
-      if (detail.category === 'iPhone修理' && detail.model && detail.menu && detail.supplierId) {
+      if (detail.category === 'iPhone修理' && detail.model && detail.menu) {
         if (!isPartsRepairMenu(detail.menu)) continue
         const partsType = getPartsTypeFromMenu(detail.menu)
-        const { data: invData } = await supabase
+        let invQuery = supabase
           .from('t_parts_inventory')
           .select('id, actual_qty')
           .eq('tenant_id', DEFAULT_TENANT_ID)
           .eq('shop_id', parseInt(formData.shopId))
           .eq('model', detail.model)
           .eq('parts_type', partsType)
-          .eq('supplier_id', detail.supplierId)
-          .single()
+        if (detail.supplierId) {
+          invQuery = invQuery.eq('supplier_id', detail.supplierId)
+        }
+        const { data: invData } = await invQuery.limit(1).single()
         if (invData) {
           const newQty = Math.max(0, (invData.actual_qty || 0) - detail.quantity)
           await supabase
@@ -1106,7 +1108,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       client_id: squareApplicationId,
       version: '1.3',
       location_id: shop.square_location_id,
-      notes: `[SALE:${headerData.id}] ${itemDescriptions}`.substring(0, 500),
+      notes: itemDescriptions.substring(0, 500),
       options: {
         supported_tender_types: ['CREDIT_CARD', 'CASH'],
       },
@@ -1210,7 +1212,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
 
     // iPhone修理のパーツ在庫を減算
     for (const detail of details) {
-      if (detail.category === 'iPhone修理' && detail.model && detail.menu && detail.supplierId) {
+      if (detail.category === 'iPhone修理' && detail.model && detail.menu) {
         // パーツを使用する修理メニューのみ在庫を減算
         if (!isPartsRepairMenu(detail.menu)) {
           continue
@@ -1220,15 +1222,17 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         const partsType = getPartsTypeFromMenu(detail.menu)
 
         // 在庫レコードを取得して減算
-        const { data: invData, error: invFetchError } = await supabase
+        let invQuery = supabase
           .from('t_parts_inventory')
           .select('id, actual_qty')
           .eq('tenant_id', DEFAULT_TENANT_ID)
           .eq('shop_id', parseInt(formData.shopId))
           .eq('model', detail.model)
           .eq('parts_type', partsType)
-          .eq('supplier_id', detail.supplierId)
-          .single()
+        if (detail.supplierId) {
+          invQuery = invQuery.eq('supplier_id', detail.supplierId)
+        }
+        const { data: invData, error: invFetchError } = await invQuery.limit(1).single()
 
         if (invFetchError) {
           console.error('パーツ在庫取得エラー:', invFetchError, { model: detail.model, partsType, supplierId: detail.supplierId })
