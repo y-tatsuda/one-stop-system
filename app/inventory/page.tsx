@@ -191,10 +191,11 @@ export default function InventoryPage() {
     fetchData()
   }, [])
 
+  // 店舗・ステータス変更時は即時検索（セレクトボックスなので）
   useEffect(() => {
     setCurrentPage(1)
     fetchInventory()
-  }, [filters])
+  }, [filters.shopId, filters.status])
 
   const fetchInventory = async () => {
     setLoading(true)
@@ -475,14 +476,32 @@ export default function InventoryPage() {
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: 'var(--color-text-secondary)' }}>機種</label>
-              <input type="text" value={filters.model} onChange={(e) => setFilters({ ...filters, model: e.target.value })} placeholder="機種名" className="form-input" style={{ padding: '6px 10px', fontSize: '0.85rem' }} />
+              <input
+                type="text"
+                value={filters.model}
+                onChange={(e) => setFilters({ ...filters, model: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') { setCurrentPage(1); fetchInventory(); } }}
+                placeholder="機種名"
+                className="form-input"
+                style={{ padding: '6px 10px', fontSize: '0.85rem' }}
+              />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: 'var(--color-text-secondary)' }}>管理番号</label>
-              <input type="text" value={filters.managementNumber} onChange={(e) => setFilters({ ...filters, managementNumber: e.target.value })} placeholder="IMEI下4桁" className="form-input" style={{ padding: '6px 10px', fontSize: '0.85rem' }} maxLength={4} />
+              <input
+                type="text"
+                value={filters.managementNumber}
+                onChange={(e) => setFilters({ ...filters, managementNumber: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') { setCurrentPage(1); fetchInventory(); } }}
+                placeholder="IMEI下4桁"
+                className="form-input"
+                style={{ padding: '6px 10px', fontSize: '0.85rem' }}
+                maxLength={4}
+              />
             </div>
-            <div>
-              <button onClick={() => setFilters({ shopId: '', status: '', model: '', managementNumber: '' })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem', width: '100%' }}>リセット</button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+              <button onClick={() => { setCurrentPage(1); fetchInventory(); }} className="btn btn-primary" style={{ padding: '6px 16px', fontSize: '0.85rem' }}>検索</button>
+              <button onClick={() => setFilters({ shopId: '', status: '', model: '', managementNumber: '' })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>リセット</button>
             </div>
           </div>
         </div>
