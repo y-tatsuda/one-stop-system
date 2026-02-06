@@ -38,6 +38,11 @@ export default function InventoryPage() {
     shop_id: 0,
     management_number: '',
     memo: '',
+    // 状態情報（編集可能）
+    battery_percent: null as number | null,
+    is_service_state: false,
+    nw_status: '' as string,
+    camera_stain_level: '' as string,
   })
 
   // 一括変更用
@@ -260,6 +265,11 @@ export default function InventoryPage() {
       shop_id: item.shop_id,
       management_number: item.management_number || '',
       memo: item.memo || '',
+      // 状態情報
+      battery_percent: item.battery_percent,
+      is_service_state: item.is_service_state || false,
+      nw_status: item.nw_status || '',
+      camera_stain_level: item.camera_stain_level || '',
     })
     setShowDetailModal(true)
   }
@@ -282,6 +292,11 @@ export default function InventoryPage() {
         shop_id: editData.shop_id,
         management_number: editData.management_number || null,
         memo: editData.memo || null,
+        // 状態情報
+        battery_percent: editData.is_service_state ? null : editData.battery_percent,
+        is_service_state: editData.is_service_state,
+        nw_status: editData.nw_status || null,
+        camera_stain_level: editData.camera_stain_level || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', selectedItem.id)
@@ -721,11 +736,68 @@ export default function InventoryPage() {
                 </div>
               </div>
               <div className="info-box" style={{ marginBottom: '12px' }}>
-                <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>状態・価格</h3>
+                <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>状態（編集可）</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>バッテリー</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={editData.is_service_state ? '' : (editData.battery_percent ?? '')}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, '')
+                          const percent = value ? Math.min(100, parseInt(value)) : null
+                          setEditData({ ...editData, battery_percent: percent, is_service_state: false })
+                        }}
+                        disabled={editData.is_service_state}
+                        className="form-input"
+                        style={{ width: '60px', textAlign: 'center' }}
+                        placeholder="%"
+                      />
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={editData.is_service_state}
+                          onChange={(e) => setEditData({ ...editData, is_service_state: e.target.checked, battery_percent: e.target.checked ? null : editData.battery_percent })}
+                          style={{ width: '16px', height: '16px' }}
+                        />
+                        サービス
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>NW制限</label>
+                    <select
+                      value={editData.nw_status}
+                      onChange={(e) => setEditData({ ...editData, nw_status: e.target.value })}
+                      className="form-select"
+                    >
+                      <option value="">未設定</option>
+                      <option value="ok">○</option>
+                      <option value="triangle">△</option>
+                      <option value="cross">×</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>カメラ染み</label>
+                    <select
+                      value={editData.camera_stain_level}
+                      onChange={(e) => setEditData({ ...editData, camera_stain_level: e.target.value })}
+                      className="form-select"
+                    >
+                      <option value="">未設定</option>
+                      <option value="none">なし</option>
+                      <option value="minor">少</option>
+                      <option value="major">多</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="info-box" style={{ marginBottom: '12px' }}>
+                <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>価格</h3>
                 <div className="detail-grid detail-grid-3">
-                  <div><span style={{ color: 'var(--color-text-secondary)' }}>バッテリー:</span> <span style={{ fontWeight: '500' }}>{selectedItem.is_service_state ? 'サービス' : selectedItem.battery_percent ? `${selectedItem.battery_percent}%` : '-'}</span></div>
-                  <div><span style={{ color: 'var(--color-text-secondary)' }}>NW制限:</span> <span style={{ fontWeight: '500' }}>{getNwStatusDisplay(selectedItem.nw_status)}</span></div>
-                  <div><span style={{ color: 'var(--color-text-secondary)' }}>カメラ染み:</span> <span style={{ fontWeight: '500' }}>{getCameraStainDisplay(selectedItem.camera_stain_level)}</span></div>
                   <div><span style={{ color: 'var(--color-text-secondary)' }}>買取価格:</span> <span style={{ fontWeight: '500' }}>¥{selectedItem.buyback_price.toLocaleString()}</span></div>
                   <div><span style={{ color: 'var(--color-text-secondary)' }}>修理費:</span> <span style={{ fontWeight: '500' }}>¥{selectedItem.repair_cost.toLocaleString()}</span></div>
                   <div><span style={{ color: 'var(--color-text-secondary)' }}>原価合計:</span> <span style={{ fontWeight: '700' }}>¥{selectedItem.total_cost.toLocaleString()}</span><span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', marginLeft: '4px' }}>(税込¥{Math.floor(selectedItem.total_cost * 1.1).toLocaleString()})</span></div>

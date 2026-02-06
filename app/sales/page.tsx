@@ -2191,23 +2191,61 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                           />
                         </td>
                         <td className="text-right">
-                          <div style={{ display: 'flex', gap: '2px', alignItems: 'center', justifyContent: 'flex-end' }}>
-                            <select
-                              className="form-select"
-                              style={{ width: '48px', padding: '4px 2px', fontSize: '0.8rem', textAlign: 'center' }}
-                              value={detail.discountType}
-                              onChange={(e) => updateDetailDiscountType(detail.id, e.target.value as 'amount' | 'percent')}
-                            >
-                              <option value="amount">¥</option>
-                              <option value="percent">%</option>
-                            </select>
+                          <div style={{
+                            padding: '4px 6px',
+                            borderRadius: '6px',
+                            background: detail.discount > 0 ? 'var(--color-danger-light)' : 'transparent',
+                            border: detail.discount > 0 ? '2px solid var(--color-danger)' : '2px solid transparent',
+                          }}>
+                            {/* ¥/% 切替ボタン */}
+                            <div style={{ display: 'flex', gap: '2px', marginBottom: '4px', justifyContent: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => updateDetailDiscountType(detail.id, 'amount')}
+                                style={{
+                                  padding: '3px 10px',
+                                  fontSize: '0.85rem',
+                                  fontWeight: '600',
+                                  border: 'none',
+                                  borderRadius: '4px 0 0 4px',
+                                  cursor: 'pointer',
+                                  background: detail.discountType === 'amount' ? 'var(--color-primary)' : 'var(--color-bg)',
+                                  color: detail.discountType === 'amount' ? 'white' : 'var(--color-text)',
+                                }}
+                              >
+                                ¥
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateDetailDiscountType(detail.id, 'percent')}
+                                style={{
+                                  padding: '3px 10px',
+                                  fontSize: '0.85rem',
+                                  fontWeight: '600',
+                                  border: 'none',
+                                  borderRadius: '0 4px 4px 0',
+                                  cursor: 'pointer',
+                                  background: detail.discountType === 'percent' ? 'var(--color-primary)' : 'var(--color-bg)',
+                                  color: detail.discountType === 'percent' ? 'white' : 'var(--color-text)',
+                                }}
+                              >
+                                %
+                              </button>
+                            </div>
+                            {/* 入力フィールド */}
                             {detail.discountType === 'amount' ? (
                               <input
                                 type="tel"
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 className="form-input"
-                                style={{ width: '70px', textAlign: 'right', padding: '4px 8px' }}
+                                style={{
+                                  width: '80px',
+                                  textAlign: 'right',
+                                  padding: '4px 8px',
+                                  fontWeight: detail.discount > 0 ? '600' : 'normal',
+                                  color: detail.discount > 0 ? 'var(--color-danger)' : 'inherit',
+                                }}
                                 value={detail.discount || ''}
                                 onChange={(e) => {
                                   const value = e.target.value.replace(/[^0-9]/g, '')
@@ -2221,7 +2259,13 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 className="form-input"
-                                style={{ width: '50px', textAlign: 'right', padding: '4px 8px' }}
+                                style={{
+                                  width: '60px',
+                                  textAlign: 'right',
+                                  padding: '4px 8px',
+                                  fontWeight: detail.discountPercent > 0 ? '600' : 'normal',
+                                  color: detail.discountPercent > 0 ? 'var(--color-danger)' : 'inherit',
+                                }}
                                 value={detail.discountPercent || ''}
                                 onChange={(e) => {
                                   const value = e.target.value.replace(/[^0-9]/g, '')
@@ -2230,12 +2274,19 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                                 placeholder="0"
                               />
                             )}
+                            {/* 金額換算表示 */}
+                            {detail.discount > 0 && (
+                              <div style={{
+                                fontSize: '0.8rem',
+                                color: 'var(--color-danger)',
+                                fontWeight: '700',
+                                textAlign: 'center',
+                                marginTop: '2px',
+                              }}>
+                                -¥{detail.discount.toLocaleString()}
+                              </div>
+                            )}
                           </div>
-                          {detail.discountType === 'percent' && detail.discount > 0 && (
-                            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', textAlign: 'right' }}>
-                              -¥{detail.discount.toLocaleString()}
-                            </div>
-                          )}
                         </td>
                         <td className="text-right">¥{detail.amount.toLocaleString()}</td>
                         <td className="text-right">
