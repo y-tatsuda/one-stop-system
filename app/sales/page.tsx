@@ -1005,6 +1005,14 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
   const otherSalesAmount = totalAmount - usedSalesAmount
   const taxIncludedTotal = usedSalesAmount + (otherSalesAmount > 0 ? calcTaxIncluded(otherSalesAmount) : 0)
 
+  // =====================================================
+  // 【重要】税抜合計の計算（表示用）
+  // - 中古販売: 税込で入力されているため÷1.1で税抜に変換
+  // - その他（修理・データ移行等）: 既に税抜なのでそのまま
+  // =====================================================
+  const usedSalesTaxExcluded = Math.floor(usedSalesAmount / 1.1)
+  const totalAmountTaxExcluded = usedSalesTaxExcluded + otherSalesAmount
+
   // Squareで決済
   const handleSquareCheckout = async () => {
     if (!formData.shopId) {
@@ -1054,7 +1062,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         staff_id: selectedShopIsEc ? null : parseInt(formData.staffId),
         visit_source_id: selectedShopIsEc ? null : (formData.visitSourceId ? parseInt(formData.visitSourceId) : null),
         sale_date: formData.saleDate,
-        total_amount: totalAmount,
+        total_amount: totalAmountTaxExcluded,
         total_cost: totalCost,
         total_profit: totalProfit,
         sale_type: 'sale',
@@ -1162,7 +1170,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
     if (isIOS) {
       window.location.href = squareUrl
     } else {
-      alert(`売上を登録しました（ID: ${headerData.id}）\n\n合計金額（税抜）: ¥${totalAmount.toLocaleString()}\n決済金額（税込）: ¥${squareTaxIncludedAmount.toLocaleString()}\n\nSquare POSアプリで決済してください。\n（iPadからアクセスするとSquareアプリが自動で開きます）`)
+      alert(`売上を登録しました（ID: ${headerData.id}）\n\n合計金額（税抜）: ¥${totalAmountTaxExcluded.toLocaleString()}\n決済金額（税込）: ¥${squareTaxIncludedAmount.toLocaleString()}\n\nSquare POSアプリで決済してください。\n（iPadからアクセスするとSquareアプリが自動で開きます）`)
     }
   }
 
@@ -1190,7 +1198,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
         staff_id: selectedShopIsEc ? null : parseInt(formData.staffId),
         visit_source_id: selectedShopIsEc ? null : (formData.visitSourceId ? parseInt(formData.visitSourceId) : null),
         sale_date: formData.saleDate,
-        total_amount: totalAmount,
+        total_amount: totalAmountTaxExcluded,
         total_cost: totalCost,
         total_profit: totalProfit,
         memo: null,
@@ -2351,12 +2359,12 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                     <td className="text-right" style={{ color: totalDiscount > 0 ? 'var(--color-danger)' : undefined }}>
                       {totalDiscount > 0 ? `-¥${totalDiscount.toLocaleString()}` : '-'}
                     </td>
-                    <td className="text-right font-semibold" style={{ fontSize: '1.1rem' }}>¥{totalAmount.toLocaleString()}</td>
+                    <td className="text-right font-semibold" style={{ fontSize: '1.1rem' }}>¥{totalAmountTaxExcluded.toLocaleString()}</td>
                     <td className="text-right font-semibold">¥{totalCost.toLocaleString()}</td>
                     <td className="text-right font-semibold">
                       <div>¥{totalProfit.toLocaleString()}</div>
-                      <div style={{ fontSize: '0.75rem', color: (totalAmount > 0 ? totalProfit / totalAmount * 100 : 0) >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                        {(totalAmount > 0 ? totalProfit / totalAmount * 100 : 0) >= 0 ? '+' : ''}{(totalAmount > 0 ? (totalProfit / totalAmount * 100).toFixed(1) : '0.0')}%
+                      <div style={{ fontSize: '0.75rem', color: (totalAmountTaxExcluded > 0 ? totalProfit / totalAmountTaxExcluded * 100 : 0) >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                        {(totalAmountTaxExcluded > 0 ? totalProfit / totalAmountTaxExcluded * 100 : 0) >= 0 ? '+' : ''}{(totalAmountTaxExcluded > 0 ? (totalProfit / totalAmountTaxExcluded * 100).toFixed(1) : '0.0')}%
                       </div>
                     </td>
                     <td></td>
