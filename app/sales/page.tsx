@@ -541,90 +541,22 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
       const inventory = usedInventory.find(i => i.id === parseInt(usedSalesForm.inventoryId))
       if (!inventory) return
 
-      // 基準価格を取得（m_sales_pricesから）
-      const { data: priceData } = await supabase
-        .from('m_sales_prices')
-        .select('price')
-        .eq('tenant_id', DEFAULT_TENANT_ID)
-        .eq('model', inventory.model)
-        .eq('storage', inventory.storage)
-        .eq('rank', inventory.rank)
-        .single()
+      // 【重要】在庫の販売価格をそのまま使用（減額計算は在庫登録時に済んでいる）
+      const salesPrice = inventory.sales_price || 0
 
-      // 在庫の販売価格を優先、なければマスタ価格
-      const basePrice = inventory.sales_price || priceData?.price || 0
-
-      // 減額マスタを取得
-      const { data: deductionData } = await supabase
-        .from('m_sales_price_deductions')
-        .select('deduction_type, amount')
-        .eq('tenant_id', DEFAULT_TENANT_ID)
-        .eq('model', inventory.model)
-        .eq('is_active', true)
-
-      setSalesDeductionMaster(deductionData || [])
-
-      // 在庫に登録されているバッテリー状態から区分を判定
-      let batteryStatus: '90' | '80_89' | '79' = '90'
-      if (inventory.is_service_state || (inventory.battery_percent !== null && inventory.battery_percent < 80)) {
-        batteryStatus = '79'
-      } else if (inventory.battery_percent !== null && inventory.battery_percent < 90) {
-        batteryStatus = '80_89'
-      }
-
-      // 在庫に登録されている状態を初期値として設定
       setUsedSalesForm(prev => ({
         ...prev,
-        basePrice,
-        unitPrice: basePrice,
+        basePrice: salesPrice,
+        unitPrice: salesPrice,
         unitCost: inventory.total_cost || 0,
-        batteryStatus,
-        cameraStain: (inventory.camera_stain_level as 'none' | 'minor' | 'major') || 'none',
-        nwStatus: (inventory.nw_status as 'ok' | 'triangle' | 'cross') || 'ok',
+        batteryStatus: '90',
+        cameraStain: 'none',
+        nwStatus: 'ok',
         deductionTotal: 0,
       }))
     }
     fetchSalesData()
   }, [usedSalesForm.inventoryId, usedInventory])
-
-  // 販売価格の減額計算
-    useEffect(() => {
-    if (salesDeductionMaster.length === 0 || !usedSalesForm.basePrice) return
-
-    const getDeduction = (type: string): number => {
-      const found = salesDeductionMaster.find(d => d.deduction_type === type)
-      return found?.amount || 0
-    }
-
-    let total = 0
-
-    // バッテリー減額
-    if (usedSalesForm.batteryStatus === '80_89') {
-      total += getDeduction('battery_80_89')
-    } else if (usedSalesForm.batteryStatus === '79') {
-      total += getDeduction('battery_79')
-    }
-
-    // カメラ染み減額
-    if (usedSalesForm.cameraStain === 'minor') {
-      total += getDeduction('camera_stain_minor')
-    } else if (usedSalesForm.cameraStain === 'major') {
-      total += getDeduction('camera_stain_major')
-    }
-
-    // NW制限減額
-    if (usedSalesForm.nwStatus === 'triangle') {
-      total += getDeduction('nw_triangle')
-    } else if (usedSalesForm.nwStatus === 'cross') {
-      total += getDeduction('nw_cross')
-    }
-
-    setUsedSalesForm(prev => ({
-      ...prev,
-      deductionTotal: total,
-      unitPrice: prev.basePrice - total,
-    }))
-  }, [usedSalesForm.batteryStatus, usedSalesForm.cameraStain, usedSalesForm.nwStatus, usedSalesForm.basePrice, salesDeductionMaster])
 
   // アクセサリ選択時
   useEffect(() => {
@@ -1909,53 +1841,36 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   </select>
                 </div>
 
-                {/* 価格表示（在庫選択後に表示、減額は在庫の状態から自動計算） */}
+                {/* 価格表示（在庫選択後に表示、在庫の販売価格をそのまま使用） */}
                 {usedSalesForm.inventoryId && (
-                  <>
-                    {/* 価格表示（中古は税込ベース） */}
-                    <div className="form-grid form-grid-4">
-                      <div className="form-group">
-                        <label className="form-label">基準価格（税込）</label>
-                        <div style={{ padding: '8px 12px', background: 'var(--color-bg)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
-                          <div style={{ fontWeight: '600' }}>¥{usedSalesForm.basePrice.toLocaleString()}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>税抜 ¥{calcTaxExcluded(usedSalesForm.basePrice).toLocaleString()}</div>
-                        </div>
+                  <div className="form-grid form-grid-2">
+                    <div className="form-group">
+                      <label className="form-label">販売価格（税込）</label>
+                      <div style={{ padding: '8px 12px', background: 'var(--color-primary-light)', borderRadius: '6px', border: '1px solid var(--color-primary)' }}>
+                        <div style={{ fontWeight: '700', fontSize: '1.1rem' }}>¥{usedSalesForm.unitPrice.toLocaleString()}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: '600' }}>税抜 ¥{calcTaxExcluded(usedSalesForm.unitPrice).toLocaleString()}</div>
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">減額合計（税込）</label>
-                        <div style={{ padding: '8px 12px', background: usedSalesForm.deductionTotal > 0 ? 'var(--color-danger-light)' : 'var(--color-bg)', borderRadius: '6px', border: usedSalesForm.deductionTotal > 0 ? '1px solid var(--color-danger)' : '1px solid var(--color-border)' }}>
-                          <div style={{ fontWeight: '600', color: usedSalesForm.deductionTotal > 0 ? 'var(--color-danger)' : 'inherit' }}>-¥{usedSalesForm.deductionTotal.toLocaleString()}</div>
-                          <div style={{ fontSize: '0.75rem', color: usedSalesForm.deductionTotal > 0 ? 'var(--color-danger)' : 'var(--color-text-secondary)' }}>税抜 -¥{calcTaxExcluded(usedSalesForm.deductionTotal).toLocaleString()}</div>
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">販売価格（税込）</label>
-                        <div style={{ padding: '8px 12px', background: 'var(--color-primary-light)', borderRadius: '6px', border: '1px solid var(--color-primary)' }}>
-                          <div style={{ fontWeight: '700', fontSize: '1.1rem' }}>¥{usedSalesForm.unitPrice.toLocaleString()}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: '600' }}>税抜 ¥{calcTaxExcluded(usedSalesForm.unitPrice).toLocaleString()}</div>
-                        </div>
-                        <input
-                          type="tel"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={usedSalesForm.unitPrice || ''}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^0-9]/g, '')
-                            setUsedSalesForm({ ...usedSalesForm, unitPrice: parseInt(value) || 0 })
-                          }}
-                          className="form-input"
-                          placeholder="手動調整可"
-                          style={{ fontSize: '0.85rem', marginTop: '6px' }}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">原価</label>
-                        <div style={{ padding: '8px 12px', background: 'var(--color-bg)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
-                          <div style={{ fontWeight: '600' }}>¥{usedSalesForm.unitCost.toLocaleString()}</div>
-                        </div>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={usedSalesForm.unitPrice || ''}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, '')
+                          setUsedSalesForm({ ...usedSalesForm, unitPrice: parseInt(value) || 0 })
+                        }}
+                        className="form-input"
+                        placeholder="手動調整可"
+                        style={{ fontSize: '0.85rem', marginTop: '6px' }}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">原価</label>
+                      <div style={{ padding: '8px 12px', background: 'var(--color-bg)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+                        <div style={{ fontWeight: '600' }}>¥{usedSalesForm.unitCost.toLocaleString()}</div>
                       </div>
                     </div>
-                  </>
+                  </div>
                 )}
 
                 <button 
@@ -2180,7 +2095,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                             background: detail.discount > 0 ? 'var(--color-danger-light)' : 'transparent',
                             border: detail.discount > 0 ? '2px solid var(--color-danger)' : '2px solid transparent',
                           }}>
-                            {/* ¥/% 切替ボタン */}
+                            {/* ¥/% 切替ボタン（赤色で値引きを強調） */}
                             <div style={{ display: 'flex', gap: '2px', marginBottom: '4px', justifyContent: 'center' }}>
                               <button
                                 type="button"
@@ -2192,7 +2107,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                                   border: 'none',
                                   borderRadius: '4px 0 0 4px',
                                   cursor: 'pointer',
-                                  background: detail.discountType === 'amount' ? 'var(--color-primary)' : 'var(--color-bg)',
+                                  background: detail.discountType === 'amount' ? 'var(--color-danger)' : 'var(--color-bg)',
                                   color: detail.discountType === 'amount' ? 'white' : 'var(--color-text)',
                                 }}
                               >
@@ -2208,7 +2123,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                                   border: 'none',
                                   borderRadius: '0 4px 4px 0',
                                   cursor: 'pointer',
-                                  background: detail.discountType === 'percent' ? 'var(--color-primary)' : 'var(--color-bg)',
+                                  background: detail.discountType === 'percent' ? 'var(--color-danger)' : 'var(--color-bg)',
                                   color: detail.discountType === 'percent' ? 'white' : 'var(--color-text)',
                                 }}
                               >
