@@ -1909,48 +1909,9 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
                   </select>
                 </div>
 
-                {/* 減額選択（在庫選択後に表示） */}
+                {/* 価格表示（在庫選択後に表示、減額は在庫の状態から自動計算） */}
                 {usedSalesForm.inventoryId && (
                   <>
-                    <div className="form-grid form-grid-3">
-                      <div className="form-group">
-                        <label className="form-label">バッテリー状態</label>
-                        <select
-                          value={usedSalesForm.batteryStatus}
-                          onChange={(e) => setUsedSalesForm({ ...usedSalesForm, batteryStatus: e.target.value })}
-                          className="form-select"
-                        >
-                          <option value="90">90%以上（減額なし）</option>
-                          <option value="80_89">80-89%</option>
-                          <option value="79">79%以下 / サービス状態</option>
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">カメラ染み</label>
-                        <select
-                          value={usedSalesForm.cameraStain}
-                          onChange={(e) => setUsedSalesForm({ ...usedSalesForm, cameraStain: e.target.value })}
-                          className="form-select"
-                        >
-                          <option value="none">なし（減額なし）</option>
-                          <option value="minor">少ない</option>
-                          <option value="major">多い</option>
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">NW制限</label>
-                        <select
-                          value={usedSalesForm.nwStatus}
-                          onChange={(e) => setUsedSalesForm({ ...usedSalesForm, nwStatus: e.target.value })}
-                          className="form-select"
-                        >
-                          <option value="ok">○（減額なし）</option>
-                          <option value="triangle">△</option>
-                          <option value="cross">×</option>
-                        </select>
-                      </div>
-                    </div>
-
                     {/* 価格表示（中古は税込ベース） */}
                     <div className="form-grid form-grid-4">
                       <div className="form-group">
