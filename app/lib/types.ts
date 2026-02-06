@@ -74,6 +74,7 @@ export type UsedInventory = UsedInventoryBase & {
   shop_id: number
   shop: { name: string }
   sale_date?: string | null
+  color: string | null  // iPhone本体色コード（BK/WH/GD等）
 }
 
 // =====================================================

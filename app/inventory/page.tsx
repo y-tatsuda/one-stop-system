@@ -16,7 +16,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { DEFAULT_TENANT_ID, MODELS_WITH_COLOR, getRepairTypes } from '../lib/constants'
+import { DEFAULT_TENANT_ID, MODELS_WITH_COLOR, getRepairTypes, getColorOptions, getColorOptionsForModel, getColorByCode } from '../lib/constants'
 import { Shop, IphoneModel, UsedInventory } from '../lib/types'
 
 type PartsInventory = {
@@ -57,6 +57,7 @@ export default function InventoryPage() {
     is_service_state: false,
     nw_status: '' as string,
     camera_stain_level: '' as string,
+    color: '' as string,  // 本体色
   })
 
   // 一括変更用
@@ -284,6 +285,7 @@ export default function InventoryPage() {
       is_service_state: item.is_service_state || false,
       nw_status: item.nw_status || '',
       camera_stain_level: item.camera_stain_level || '',
+      color: item.color || '',
     })
     setShowDetailModal(true)
   }
@@ -311,6 +313,7 @@ export default function InventoryPage() {
         is_service_state: editData.is_service_state,
         nw_status: editData.nw_status || null,
         camera_stain_level: editData.camera_stain_level || null,
+        color: editData.color || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', selectedItem.id)
@@ -752,7 +755,7 @@ export default function InventoryPage() {
               </div>
               <div className="info-box" style={{ marginBottom: '12px' }}>
                 <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>状態（編集可）</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                   <div>
                     <label className="form-label" style={{ fontSize: '0.75rem' }}>バッテリー</label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -806,6 +809,20 @@ export default function InventoryPage() {
                       <option value="none">なし</option>
                       <option value="minor">少</option>
                       <option value="major">多</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--color-primary)' }}>本体カラー</label>
+                    <select
+                      value={editData.color}
+                      onChange={(e) => setEditData({ ...editData, color: e.target.value })}
+                      className="form-select"
+                      style={{ borderColor: 'var(--color-primary)' }}
+                    >
+                      <option value="">未設定</option>
+                      {getColorOptionsForModel(selectedItem.model).map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
