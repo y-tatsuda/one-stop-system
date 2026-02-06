@@ -10,8 +10,13 @@ type AndroidModel = {
   model: string
 }
 
-// 販売用の中古在庫型（基本型を拡張）
-type UsedInventory = UsedInventoryBase
+// 販売用の中古在庫型（基本型を拡張して状態情報を追加）
+type UsedInventory = UsedInventoryBase & {
+  battery_percent: number | null
+  is_service_state: boolean | null
+  nw_status: string | null
+  camera_stain_level: string | null
+}
 
 type SalesDetail = {
   id: string
@@ -469,7 +474,7 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
 
       const { data } = await supabase
         .from('t_used_inventory')
-        .select('id, model, storage, rank, sales_price, total_cost, management_number')
+        .select('id, model, storage, rank, sales_price, total_cost, management_number, battery_percent, is_service_state, nw_status, camera_stain_level')
         .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('shop_id', formData.shopId)
         .eq('status', '販売可')
@@ -559,14 +564,23 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
 
       setSalesDeductionMaster(deductionData || [])
 
+      // 在庫に登録されているバッテリー状態から区分を判定
+      let batteryStatus: '90' | '80_89' | '79' = '90'
+      if (inventory.is_service_state || (inventory.battery_percent !== null && inventory.battery_percent < 80)) {
+        batteryStatus = '79'
+      } else if (inventory.battery_percent !== null && inventory.battery_percent < 90) {
+        batteryStatus = '80_89'
+      }
+
+      // 在庫に登録されている状態を初期値として設定
       setUsedSalesForm(prev => ({
         ...prev,
         basePrice,
         unitPrice: basePrice,
         unitCost: inventory.total_cost || 0,
-        batteryStatus: '90',
-        cameraStain: 'none',
-        nwStatus: 'ok',
+        batteryStatus,
+        cameraStain: (inventory.camera_stain_level as 'none' | 'minor' | 'major') || 'none',
+        nwStatus: (inventory.nw_status as 'ok' | 'triangle' | 'cross') || 'ok',
         deductionTotal: 0,
       }))
     }
