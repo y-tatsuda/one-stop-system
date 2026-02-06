@@ -641,8 +641,9 @@ export default function InventoryPage() {
                       <td className="text-right">
                         {item.sales_price ? (
                           <div>
-                            <div style={{ fontWeight: '600' }}>¥{Math.floor(item.sales_price * 1.1).toLocaleString()}</div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>税抜 ¥{item.sales_price.toLocaleString()}</div>
+                            {/* 販売価格は税込で保存されているのでそのまま表示 */}
+                            <div style={{ fontWeight: '600' }}>¥{item.sales_price.toLocaleString()}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>税抜 ¥{Math.floor(item.sales_price / 1.1).toLocaleString()}</div>
                           </div>
                         ) : '-'}
                       </td>
@@ -822,7 +823,8 @@ export default function InventoryPage() {
               {selectedItem.status === '販売済' && (selectedItem as any).sale_date && (() => {
                 const warranty = getWarrantyInfo((selectedItem as any).sale_date)
                 if (!warranty) return null
-                const salePriceTaxIncluded = selectedItem.sales_price ? Math.floor(selectedItem.sales_price * 1.1) : 0
+                // 販売価格は既に税込で保存されているのでそのまま使用
+                const salePriceTaxIncluded = selectedItem.sales_price || 0
                 return (
                   <div style={{
                     background: warranty.expired ? 'var(--color-bg)' : '#ECFDF5',
