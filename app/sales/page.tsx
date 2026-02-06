@@ -45,7 +45,7 @@ const androidRepairMenus = [
 const REPAIR_TYPE_ORDER = [
   'TH-F', 'TH-L', 'HG-F', 'HG-L',
   'バッテリー', 'HGバッテリー',
-  'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
+  'コネクタ', 'リアカメラ', 'インカメラ'
 ]
 
 // 修理メニューの表示名を取得（そのまま表示）
@@ -69,7 +69,7 @@ const isPartsRepairMenu = (menu: string): boolean => {
   const partsMenus = [
     'TH-F', 'TH-L', 'HG-F', 'HG-L',
     'バッテリー', 'HGバッテリー',
-    'コネクタ', 'リアカメラ', 'インカメラ', 'カメラ窓'
+    'コネクタ', 'リアカメラ', 'インカメラ'
   ]
   return partsMenus.includes(menu)
 }

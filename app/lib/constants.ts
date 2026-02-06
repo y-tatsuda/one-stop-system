@@ -23,7 +23,7 @@ export const PARTS_MODEL_GROUPS: { [groupName: string]: { models: string[], shar
 export const DEFAULT_HIDDEN_MODELS = ['SE', '6s', '7', '7P', '8P']
 
 // デフォルト非表示パーツ
-export const DEFAULT_HIDDEN_PARTS = ['カメラ窓', 'リアカメラ', 'インカメラ']
+export const DEFAULT_HIDDEN_PARTS = ['リアカメラ', 'インカメラ', 'コネクタ']
 
 // =====================================================
 // 修理関連の定数
@@ -59,6 +59,5 @@ export function getRepairTypes(model?: string): RepairType[] {
     { key: 'connector', label: 'コネクタ', partsType: 'コネクタ' },
     { key: 'rear_camera', label: 'リアカメラ', partsType: 'リアカメラ' },
     { key: 'front_camera', label: 'インカメラ', partsType: 'インカメラ' },
-    { key: 'camera_glass', label: 'カメラ窓', partsType: 'カメラ窓' },
   ].filter(item => !item.onlyWithColor || hasColor)
 }

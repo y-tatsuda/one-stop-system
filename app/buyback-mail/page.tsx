@@ -28,6 +28,9 @@ type MailBuybackItem = {
   basePrice: number
   totalDeduction: number
   estimatedPrice: number
+  // 同意書画像
+  consentImageFile: File | null
+  consentImagePreview: string
 }
 
 type CustomerInfo = {
@@ -58,6 +61,8 @@ const createEmptyItem = (): MailBuybackItem => ({
   basePrice: 0,
   totalDeduction: 0,
   estimatedPrice: 0,
+  consentImageFile: null,
+  consentImagePreview: '',
 })
 
 // ランクの説明
@@ -81,6 +86,7 @@ export default function MailBuybackPage() {
 
   // 端末リスト
   const [items, setItems] = useState<MailBuybackItem[]>([createEmptyItem()])
+  const [activeItemIndex, setActiveItemIndex] = useState(0)
 
   // 顧客情報
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
@@ -130,6 +136,22 @@ export default function MailBuybackPage() {
     const newItems = [...items]
     newItems[index] = { ...newItems[index], ...updates }
     setItems(newItems)
+  }
+
+  const addItem = () => {
+    setItems([...items, createEmptyItem()])
+    setActiveItemIndex(items.length)
+  }
+
+  const removeItem = (index: number) => {
+    if (items.length <= 1) return
+    const newItems = items.filter((_, i) => i !== index)
+    setItems(newItems)
+    if (activeItemIndex >= newItems.length) {
+      setActiveItemIndex(newItems.length - 1)
+    } else if (activeItemIndex === index && activeItemIndex > 0) {
+      setActiveItemIndex(activeItemIndex - 1)
+    }
   }
 
   // =====================================================
@@ -217,11 +239,20 @@ export default function MailBuybackPage() {
   const validateDeviceStep = (): boolean => {
     const newErrors: { [key: string]: string } = {}
 
-    items.forEach((item, i) => {
-      if (!item.model) newErrors[`item_${i}_model`] = '機種を選択してください'
-      if (!item.storage) newErrors[`item_${i}_storage`] = '容量を選択してください'
-      if (!item.rank) newErrors[`item_${i}_rank`] = 'ランクを選択してください'
+    // 価格が設定された端末のみバリデーション（空の端末は除外）
+    const validItems = items.filter(item => item.model || item.storage || item.rank)
+
+    validItems.forEach((item, i) => {
+      const originalIndex = items.findIndex(it => it.id === item.id)
+      if (!item.model) newErrors[`item_${originalIndex}_model`] = '機種を選択してください'
+      if (!item.storage) newErrors[`item_${originalIndex}_storage`] = '容量を選択してください'
+      if (!item.rank) newErrors[`item_${originalIndex}_rank`] = 'ランクを選択してください'
+      if (!item.consentImageFile) newErrors[`item_${originalIndex}_consent`] = '同意書画像をアップロードしてください'
     })
+
+    if (validItems.length === 0) {
+      newErrors.general = '少なくとも1台の端末情報を入力してください'
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -263,7 +294,34 @@ export default function MailBuybackPage() {
 
     setSubmitting(true)
     try {
-      const submitItems = items.map(item => ({
+      // 同意書画像をアップロード
+      const validItems = items.filter(item => item.estimatedPrice > 0)
+      const consentImageUrls: string[] = []
+
+      for (const item of validItems) {
+        if (item.consentImageFile) {
+          const formData = new FormData()
+          formData.append('file', item.consentImageFile)
+          formData.append('folder', 'consent')
+
+          const uploadRes = await fetch('/api/upload-document', {
+            method: 'POST',
+            body: formData,
+          })
+
+          if (!uploadRes.ok) {
+            const errData = await uploadRes.json()
+            throw new Error(errData.error || '同意書画像のアップロードに失敗しました')
+          }
+
+          const uploadData = await uploadRes.json()
+          consentImageUrls.push(uploadData.path)
+        } else {
+          consentImageUrls.push('')
+        }
+      }
+
+      const submitItems = validItems.map((item, i) => ({
         model: item.model,
         modelDisplayName: item.modelDisplayName,
         storage: item.storage,
@@ -275,6 +333,7 @@ export default function MailBuybackPage() {
         cameraBroken: item.cameraBroken,
         repairHistory: item.repairHistory,
         estimatedPrice: item.estimatedPrice,
+        consentImageUrl: consentImageUrls[i] || '',
       }))
 
       const res = await fetch('/api/mail-buyback', {
@@ -467,23 +526,106 @@ export default function MailBuybackPage() {
         {/* STEP1: 事前査定 */}
         {step === 'device' && (
           <div>
+            {/* 端末タブ */}
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 8,
+              marginBottom: 16,
+              alignItems: 'center'
+            }}>
+              {items.map((item, i) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveItemIndex(i)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 20,
+                    border: activeItemIndex === i ? '2px solid #004AAD' : '1px solid #ddd',
+                    background: activeItemIndex === i ? '#e8f0fe' : '#fff',
+                    fontWeight: activeItemIndex === i ? 600 : 400,
+                    color: activeItemIndex === i ? '#004AAD' : '#555',
+                    fontSize: 14,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  {i + 1}台目
+                  {item.estimatedPrice > 0 && (
+                    <span style={{ fontSize: 12, color: '#059669' }}>✓</span>
+                  )}
+                  {items.length > 1 && (
+                    <span
+                      onClick={(e) => { e.stopPropagation(); removeItem(i); }}
+                      style={{
+                        marginLeft: 4,
+                        color: '#999',
+                        fontSize: 12,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✕
+                    </span>
+                  )}
+                </button>
+              ))}
+              <button
+                onClick={addItem}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 20,
+                  border: '1px dashed #999',
+                  background: '#f9fafb',
+                  color: '#666',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                }}
+              >
+                ＋ 端末を追加
+              </button>
+            </div>
+
             <DeviceItemForm
-              key={items[0].id}
-              item={items[0]}
-              index={0}
+              key={items[activeItemIndex].id}
+              item={items[activeItemIndex]}
+              index={activeItemIndex}
               iphoneModels={iphoneModels}
               errors={errors}
-              onUpdate={(updates) => updateItem(0, updates)}
-              onCalculate={(model, storage, rank) => calculatePrice(0, model, storage, rank)}
+              onUpdate={(updates) => updateItem(activeItemIndex, updates)}
+              onCalculate={(model, storage, rank) => calculatePrice(activeItemIndex, model, storage, rank)}
             />
 
             {/* 査定結果 */}
-            {items[0].estimatedPrice > 0 && (
+            {totalEstimatedPrice > 0 && (
               <div className="card" style={{ marginBottom: 20 }}>
-                <div className="card-body" style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>査定金額</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: '#004AAD' }}>
-                    ¥{items[0].estimatedPrice.toLocaleString()}
+                <div className="card-body">
+                  {items.length > 1 && (
+                    <div style={{ marginBottom: 12 }}>
+                      {items.map((item, i) => (
+                        item.estimatedPrice > 0 && (
+                          <div key={item.id} style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            padding: '8px 0',
+                            borderBottom: '1px solid #eee',
+                            fontSize: 14,
+                          }}>
+                            <span>{i + 1}台目: {item.modelDisplayName} {item.storage}GB</span>
+                            <span style={{ fontWeight: 600 }}>¥{item.estimatedPrice.toLocaleString()}</span>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>
+                      {items.length > 1 ? '合計査定金額' : '査定金額'}
+                    </div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: '#004AAD' }}>
+                      ¥{totalEstimatedPrice.toLocaleString()}
+                    </div>
                   </div>
 
                   {/* 分割支払い残の注意 */}
@@ -502,7 +644,7 @@ export default function MailBuybackPage() {
                 </div>
               </div>
             )}
-            {items[0].model && items[0].storage && items[0].rank && items[0].estimatedPrice === 0 && items[0].basePrice === 0 && (
+            {items[activeItemIndex].model && items[activeItemIndex].storage && items[activeItemIndex].rank && items[activeItemIndex].estimatedPrice === 0 && items[activeItemIndex].basePrice === 0 && (
               <div style={{
                 background: '#fef2f2',
                 borderRadius: 10,
@@ -518,7 +660,7 @@ export default function MailBuybackPage() {
             )}
 
             {/* アクションボタン */}
-            {items[0].estimatedPrice > 0 && (
+            {totalEstimatedPrice > 0 && items.every(item => item.estimatedPrice > 0 || (!item.model && !item.storage && !item.rank)) && items.some(item => item.estimatedPrice > 0) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <button
                   onClick={goToCustomer}
@@ -1064,6 +1206,57 @@ function DeviceItemForm({
             <option value="no">なし</option>
             <option value="yes">あり</option>
           </select>
+        </div>
+
+        {/* 同意書画像 */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label form-label-required">同意書画像</label>
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) {
+                onUpdate({ consentImageFile: file })
+                const reader = new FileReader()
+                reader.onloadend = () => {
+                  onUpdate({ consentImagePreview: reader.result as string })
+                }
+                reader.readAsDataURL(file)
+              }
+            }}
+            className={`form-input ${errors[`item_${index}_consent`] ? 'form-input-error' : ''}`}
+          />
+          <div style={{ fontSize: 12, color: '#666', marginTop: 4, lineHeight: 1.6 }}>
+            ※ 署名済みの買取同意書を撮影してアップロードしてください
+          </div>
+          {errors[`item_${index}_consent`] && <div className="form-error">{errors[`item_${index}_consent`]}</div>}
+          {item.consentImagePreview && (
+            <div style={{ marginTop: 12 }}>
+              <img
+                src={item.consentImagePreview}
+                alt="同意書"
+                style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, border: '1px solid #e5e7eb' }}
+              />
+              <button
+                type="button"
+                onClick={() => onUpdate({ consentImageFile: null, consentImagePreview: '' })}
+                style={{
+                  marginTop: 8,
+                  padding: '6px 12px',
+                  fontSize: 13,
+                  color: '#dc2626',
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                画像を削除
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

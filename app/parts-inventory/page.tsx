@@ -40,7 +40,6 @@ const PARTS_TYPE_ORDER = [
   'コネクタ',
   'リアカメラ',
   'インカメラ',
-  'カメラ窓',
 ]
 
 // パーツ種別の表示名
@@ -52,7 +51,6 @@ const partsTypeLabels: { [key: string]: string } = {
   'コネクタ': 'コネクタ',
   'リアカメラ': 'リアカメラ',
   'インカメラ': 'インカメラ',
-  'カメラ窓': 'カメラ窓',
 }
 
 const getPartsTypeLabel = (partsType: string): string => {
