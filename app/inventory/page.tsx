@@ -1,5 +1,19 @@
 'use client'
 
+/**
+ * =====================================================
+ * 中古在庫管理ページ
+ * =====================================================
+ *
+ * 【販売価格 - 重要】
+ * ・販売価格は「税込」で入力・保存する
+ * ・売上登録時はここで設定した価格がそのまま使用される
+ * ・バッテリー/NW制限/カメラ染みの状態も編集可能
+ *
+ * 詳細は docs/03_business_logic.md を参照
+ * =====================================================
+ */
+
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { DEFAULT_TENANT_ID, MODELS_WITH_COLOR, getRepairTypes } from '../lib/constants'
