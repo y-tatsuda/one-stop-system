@@ -108,7 +108,26 @@ const getIphoneModelGroups = (models: {model: string, display_name: string}[]) =
   }))
 }
 
-// 税込価格計算（10円単位丸め: 1,2円→切捨て、8,9円→切上げ）
+// =====================================================
+// 【重要】税計算ルール（カテゴリによって異なる）
+// =====================================================
+// ■ 修理・データ移行・操作案内・アクセサリなど（中古販売以外）
+//   - 入力: 税抜価格で入力
+//   - 表示: 税抜で表示
+//   - Square送信: 税込（×1.1 + 端数処理）で送信
+//   - 粗利: 税抜ベース（amount - cost）
+//
+// ■ 中古販売
+//   - 入力: 税込価格で入力（在庫マスタの販売価格は税込）
+//   - 表示: 税込で表示
+//   - Square送信: そのまま送信（既に税込のため変換不要）
+//   - 粗利: 税抜ベース（税込金額を税抜に変換してから原価を引く）
+//
+// この違いは重要なのでコード変更時は十分注意すること！
+// =====================================================
+
+// 税込価格計算（10円単位丸め: 1,2円→切捨て、8,9円→切上げ、3-7はそのまま）
+// 例: 1001円→1000円, 1002円→1000円, 1008円→1010円, 1009円→1010円, 1005円→1005円
 const calcTaxIncluded = (taxExcluded: number): number => {
   const taxIncluded = Math.floor(taxExcluded * 1.1)
   const lastDigit = taxIncluded % 10
@@ -122,7 +141,9 @@ const calcTaxExcluded = (taxIncluded: number): number => {
   return Math.floor(taxIncluded / 1.1)
 }
 
-// 粗利計算（中古販売は税抜換算してから原価を引く）
+// 粗利計算
+// - 中古販売: 税込金額を税抜に変換してから原価を引く（売上は税込、原価は税抜のため）
+// - その他: 税抜金額から原価を引く（両方とも税抜のため）
 const calcProfit = (category: string, amount: number, cost: number): number => {
   if (category === '中古販売') {
     return calcTaxExcluded(amount) - cost
@@ -960,7 +981,12 @@ const [salesDeductionMaster, setSalesDeductionMaster] = useState<{deduction_type
   const totalCost = details.reduce((sum, d) => sum + d.cost, 0)
   const totalProfit = details.reduce((sum, d) => sum + d.profit, 0)
 
-  // 税込合計（中古販売は既に税込のため変換不要、その他のみ×1.1＋丸め）
+  // =====================================================
+  // 【重要】税込合計の計算（Square送信金額）
+  // - 中古販売: 既に税込価格で入力されているためそのまま加算
+  // - その他（修理・データ移行等）: 税抜価格を税込に変換して加算
+  // ※ この計算ロジックを変更する場合は十分注意すること！
+  // =====================================================
   const usedSalesAmount = details.filter(d => d.category === '中古販売').reduce((sum, d) => sum + d.amount, 0)
   const otherSalesAmount = totalAmount - usedSalesAmount
   const taxIncludedTotal = usedSalesAmount + (otherSalesAmount > 0 ? calcTaxIncluded(otherSalesAmount) : 0)
