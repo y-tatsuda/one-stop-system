@@ -88,7 +88,9 @@ export default function ProductDetailPage() {
         .eq('tenant_id', DEFAULT_TENANT_ID)
         .eq('is_active', true)
 
-      setProduct(productData)
+      // shopが配列で返ってくるので変換
+      const shopData = Array.isArray(productData.shop) ? productData.shop[0] : productData.shop
+      setProduct({ ...productData, shop: shopData } as ProductDetail)
       setModels(modelData || [])
     } catch (error) {
       console.error('データ取得エラー:', error)

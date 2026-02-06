@@ -125,7 +125,12 @@ export default function ShopHomePage() {
         .sort((a, b) => b.count - a.count)
         .slice(0, 5)
 
-      setProducts(inventoryData || [])
+      // shopが配列で返ってくるので変換
+      const transformedData = (inventoryData || []).map(item => ({
+        ...item,
+        shop: Array.isArray(item.shop) ? item.shop[0] : item.shop
+      })) as ShopProduct[]
+      setProducts(transformedData)
       setModels(modelData || [])
       setRanking(rankingList)
       setTotalCount(count || 0)

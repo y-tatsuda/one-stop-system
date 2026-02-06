@@ -117,7 +117,12 @@ export default function ProductsPage() {
 
       if (modelError) throw modelError
 
-      setProducts(inventoryData || [])
+      // shopが配列で返ってくるので変換
+      const transformedData = (inventoryData || []).map(item => ({
+        ...item,
+        shop: Array.isArray(item.shop) ? item.shop[0] : item.shop
+      })) as ShopProduct[]
+      setProducts(transformedData)
       setModels(modelData || [])
     } catch (error) {
       console.error('データ取得エラー:', error)
