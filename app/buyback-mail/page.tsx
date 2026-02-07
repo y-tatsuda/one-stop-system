@@ -43,6 +43,7 @@ type MailBuybackItem = {
   cameraStain: '' | 'none' | 'minor' | 'major'  // 空文字は未選択
   cameraBroken: boolean | ''  // 空文字は未選択
   repairHistory: boolean | ''  // 空文字は未選択
+  cameraPhoto: string  // カメラ部分の写真（必須）
   basePrice: number
   totalDeduction: number
   estimatedPrice: number
@@ -74,6 +75,7 @@ const createEmptyItem = (): MailBuybackItem => ({
   cameraStain: '',  // 未選択状態
   cameraBroken: '',  // 未選択状態
   repairHistory: '',  // 未選択状態
+  cameraPhoto: '',  // カメラ部分の写真
   basePrice: 0,
   totalDeduction: 0,
   estimatedPrice: 0,
@@ -289,6 +291,8 @@ function MailBuybackPageContent() {
       if (item.cameraStain === '' as unknown) newErrors[`item_${originalIndex}_cameraStain`] = 'カメラ染みを選択してください'
       if (item.cameraBroken === '' as unknown) newErrors[`item_${originalIndex}_cameraBroken`] = 'カメラ窓の破損を選択してください'
       if (item.repairHistory === '' as unknown) newErrors[`item_${originalIndex}_repairHistory`] = '非正規修理の利用歴を選択してください'
+      // カメラ部分の写真は必須
+      if (!item.cameraPhoto) newErrors[`item_${originalIndex}_cameraPhoto`] = 'カメラ部分の写真を撮影してください'
     })
 
     if (validItems.length === 0) {
@@ -354,6 +358,7 @@ function MailBuybackPageContent() {
         cameraStain: item.cameraStain,
         cameraBroken: item.cameraBroken,
         repairHistory: item.repairHistory,
+        cameraPhoto: item.cameraPhoto,  // カメラ部分の写真
         estimatedPrice: item.estimatedPrice,
         guaranteePrice: item.guaranteePrice,
       }))
@@ -1025,6 +1030,36 @@ function DeviceItemForm({
 }) {
   const [availableStorages, setAvailableStorages] = useState<number[]>([])
   const [showCameraStainExample, setShowCameraStainExample] = useState(false)
+  const [uploadingCameraPhoto, setUploadingCameraPhoto] = useState(false)
+
+  // カメラ写真アップロード処理
+  const handleCameraPhotoUpload = async (file: File) => {
+    if (!file) return
+
+    setUploadingCameraPhoto(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', 'camera-check')
+
+      const res = await fetch('/api/upload-document', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const { path } = await res.json()
+        onUpdate({ cameraPhoto: path })
+      } else {
+        alert('画像のアップロードに失敗しました')
+      }
+    } catch (err) {
+      console.error('Upload error:', err)
+      alert('画像のアップロードに失敗しました')
+    } finally {
+      setUploadingCameraPhoto(false)
+    }
+  }
 
   // 機種変更時に容量リストを取得
   useEffect(() => {
@@ -1267,6 +1302,75 @@ function DeviceItemForm({
             </div>
           )}
           {errors[`item_${index}_cameraStain`] && <div className="form-error">{errors[`item_${index}_cameraStain`]}</div>}
+        </div>
+
+        {/* カメラ部分の写真（必須） */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label form-label-required">カメラ部分の写真</label>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 8, lineHeight: 1.6 }}>
+            ※ 白またはグレーの無地の背景にカメラをかざして撮影してください<br />
+            ※ カメラ染みの確認に使用します（EC商品画像には使用しません）
+          </div>
+
+          {item.cameraPhoto ? (
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <img
+                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${item.cameraPhoto}`}
+                alt="カメラ部分の写真"
+                style={{ width: 150, height: 150, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb' }}
+              />
+              <button
+                type="button"
+                onClick={() => onUpdate({ cameraPhoto: '' })}
+                style={{
+                  position: 'absolute',
+                  top: -8,
+                  right: -8,
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <label style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              height: 120,
+              background: errors[`item_${index}_cameraPhoto`] ? '#fef2f2' : '#f9fafb',
+              border: `2px dashed ${errors[`item_${index}_cameraPhoto`] ? '#ef4444' : '#d1d5db'}`,
+              borderRadius: 8,
+              cursor: 'pointer',
+            }}>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleCameraPhotoUpload(file)
+                  e.target.value = ''
+                }}
+                style={{ display: 'none' }}
+                disabled={uploadingCameraPhoto}
+              />
+              <span style={{ fontSize: 32, marginBottom: 4 }}>📷</span>
+              <span style={{ fontSize: 13, color: '#666' }}>
+                {uploadingCameraPhoto ? 'アップロード中...' : 'タップして撮影'}
+              </span>
+            </label>
+          )}
+          {errors[`item_${index}_cameraPhoto`] && <div className="form-error">{errors[`item_${index}_cameraPhoto`]}</div>}
         </div>
 
         {/* カメラ窓の破損 */}

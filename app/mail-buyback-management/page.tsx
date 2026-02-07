@@ -38,6 +38,27 @@ const STATUS_CONFIG = {
 
 type StatusKey = keyof typeof STATUS_CONFIG
 
+// 本査定詳細の型
+type AssessmentIssue = {
+  hasIssue: boolean
+  description: string
+  photos: string[]
+}
+
+type AssessmentDetails = {
+  screen_scratches: AssessmentIssue
+  body_scratches: AssessmentIssue
+  camera_stain: AssessmentIssue & { level?: 'none' | 'minor' | 'major' }
+  other: AssessmentIssue
+}
+
+const createEmptyAssessmentDetails = (): AssessmentDetails => ({
+  screen_scratches: { hasIssue: false, description: '', photos: [] },
+  body_scratches: { hasIssue: false, description: '', photos: [] },
+  camera_stain: { hasIssue: false, description: '', photos: [], level: 'none' },
+  other: { hasIssue: false, description: '', photos: [] },
+})
+
 type MailBuybackRequest = {
   id: number
   request_number: string
@@ -73,6 +94,7 @@ type MailBuybackRequest = {
   account_number: string | null
   account_holder: string | null
   staff_notes: string | null
+  assessment_details: AssessmentDetails | null
 }
 
 export default function MailBuybackManagementPage() {
@@ -82,6 +104,284 @@ export default function MailBuybackManagementPage() {
   const [filterStatus, setFilterStatus] = useState<StatusKey | 'all'>('all')
   const [filterSource, setFilterSource] = useState<'all' | 'liff' | 'web'>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedIds, setSelectedIds] = useState<number[]>([])  // クリックポスト印刷用
+
+  // 本査定モーダル
+  const [showAssessmentModal, setShowAssessmentModal] = useState(false)
+  const [assessmentDetails, setAssessmentDetails] = useState<AssessmentDetails>(createEmptyAssessmentDetails())
+  const [finalPrice, setFinalPrice] = useState<number>(0)
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null)
+
+  // チェックボックス操作
+  const toggleSelection = (id: number) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
+
+  const toggleAllSelection = () => {
+    const pendingIds = filteredRequests.filter(r => r.status === 'pending').map(r => r.id)
+    if (pendingIds.every(id => selectedIds.includes(id))) {
+      setSelectedIds(prev => prev.filter(id => !pendingIds.includes(id)))
+    } else {
+      setSelectedIds(prev => [...new Set([...prev, ...pendingIds])])
+    }
+  }
+
+  // 買取同意書PDF印刷
+  const printAgreementPdf = async (req: MailBuybackRequest) => {
+    try {
+      const res = await fetch('/api/generate-buyback-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestNumber: req.request_number,
+          customerName: req.customer_name,
+          customerNameKana: req.customer_name_kana,
+          phone: req.phone,
+          postalCode: req.postal_code,
+          address: req.address,
+          addressDetail: req.address_detail,
+          items: req.items,
+          totalEstimatedPrice: req.total_estimated_price,
+        }),
+      })
+      const html = await res.text()
+      const printWindow = window.open('', '_blank')
+      if (printWindow) {
+        printWindow.document.write(html)
+        printWindow.document.close()
+        printWindow.onload = () => printWindow.print()
+      }
+    } catch (error) {
+      console.error('PDF生成エラー:', error)
+      alert('PDF生成に失敗しました')
+    }
+  }
+
+  // クリックポストラベル印刷（複数）
+  const printClickPostLabels = () => {
+    const selectedRequests = requests.filter(r => selectedIds.includes(r.id))
+    if (selectedRequests.length === 0) {
+      alert('印刷する申込を選択してください')
+      return
+    }
+
+    const html = generateClickPostHtml(selectedRequests)
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(html)
+      printWindow.document.close()
+      printWindow.onload = () => printWindow.print()
+    }
+  }
+
+  // クリックポストHTML生成
+  const generateClickPostHtml = (reqs: MailBuybackRequest[]) => {
+    const labels = reqs.map(req => `
+      <div class="label">
+        <div class="label-header">クリックポスト</div>
+        <div class="address-section">
+          <div class="label-title">お届け先</div>
+          <div class="postal">〒${req.postal_code || ''}</div>
+          <div class="address">${req.address || ''}</div>
+          <div class="address">${req.address_detail || ''}</div>
+          <div class="name">${req.customer_name} 様</div>
+        </div>
+        <div class="divider"></div>
+        <div class="sender-section">
+          <div class="label-title">ご依頼主</div>
+          <div class="postal">〒916-0038</div>
+          <div class="address">福井県鯖江市下河端町16字下町16-1</div>
+          <div class="address">アル・プラザ鯖江1F</div>
+          <div class="name">ONE STOP 鯖江店</div>
+          <div class="phone">TEL: 080-5720-1164</div>
+        </div>
+        <div class="request-number">${req.request_number}</div>
+      </div>
+    `).join('')
+
+    return `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>クリックポストラベル</title>
+  <style>
+    @page { size: A4; margin: 5mm; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+      font-size: 11px;
+    }
+    .labels-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5mm;
+    }
+    .label {
+      width: 95mm;
+      height: 65mm;
+      border: 1px solid #000;
+      padding: 3mm;
+      page-break-inside: avoid;
+    }
+    .label-header {
+      text-align: center;
+      font-size: 14px;
+      font-weight: bold;
+      border-bottom: 1px solid #000;
+      padding-bottom: 2mm;
+      margin-bottom: 2mm;
+    }
+    .label-title {
+      font-size: 9px;
+      color: #666;
+      margin-bottom: 1mm;
+    }
+    .address-section, .sender-section {
+      margin-bottom: 2mm;
+    }
+    .postal { font-size: 10px; }
+    .address { font-size: 10px; line-height: 1.4; }
+    .name { font-size: 13px; font-weight: bold; margin-top: 1mm; }
+    .phone { font-size: 9px; color: #666; }
+    .divider {
+      border-top: 1px dashed #999;
+      margin: 2mm 0;
+    }
+    .request-number {
+      text-align: right;
+      font-size: 8px;
+      color: #999;
+      margin-top: 1mm;
+    }
+    @media print {
+      .labels-container { gap: 0; }
+      .label { margin: 2mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="labels-container">
+    ${labels}
+  </div>
+</body>
+</html>
+    `
+  }
+
+  // 本査定モーダルを開く
+  const openAssessmentModal = (req: MailBuybackRequest) => {
+    setSelectedRequest(req)
+    setFinalPrice(req.total_estimated_price)
+    setAssessmentDetails(req.assessment_details || createEmptyAssessmentDetails())
+    setShowAssessmentModal(true)
+  }
+
+  // 本査定画像アップロード
+  const handleAssessmentPhotoUpload = async (key: keyof AssessmentDetails, file: File) => {
+    const details = assessmentDetails[key]
+    if (details.photos.length >= 3) {
+      alert('画像は各項目につき最大3枚までです')
+      return
+    }
+
+    setUploadingKey(key)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', `assessment/${selectedRequest?.request_number}`)
+
+      const res = await fetch('/api/upload-document', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const { path } = await res.json()
+        setAssessmentDetails(prev => ({
+          ...prev,
+          [key]: {
+            ...prev[key],
+            photos: [...prev[key].photos, path],
+          },
+        }))
+      } else {
+        alert('画像のアップロードに失敗しました')
+      }
+    } catch (err) {
+      console.error('Upload error:', err)
+      alert('画像のアップロードに失敗しました')
+    } finally {
+      setUploadingKey(null)
+    }
+  }
+
+  // 本査定画像削除
+  const removeAssessmentPhoto = (key: keyof AssessmentDetails, photoIndex: number) => {
+    setAssessmentDetails(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        photos: prev[key].photos.filter((_, i) => i !== photoIndex),
+      },
+    }))
+  }
+
+  // 本査定完了処理
+  const submitAssessment = async () => {
+    if (!selectedRequest) return
+
+    // 価格変更があるか確認
+    const hasChange = finalPrice !== selectedRequest.total_estimated_price ||
+      assessmentDetails.screen_scratches.hasIssue ||
+      assessmentDetails.body_scratches.hasIssue ||
+      assessmentDetails.camera_stain.hasIssue ||
+      assessmentDetails.other.hasIssue
+
+    if (hasChange && !confirm('事前査定と異なる点があります。この内容で本査定を完了しますか？')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('t_mail_buyback_requests')
+        .update({
+          status: 'assessed',
+          assessed_at: new Date().toISOString(),
+          final_price: finalPrice,
+          assessment_details: assessmentDetails,
+        })
+        .eq('id', selectedRequest.id)
+
+      if (error) throw error
+
+      // 通知送信
+      try {
+        await fetch('/api/mail-buyback/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'assessed',
+            requestId: selectedRequest.id,
+            assessmentDetails,
+            finalPrice,
+          }),
+        })
+      } catch (notifyError) {
+        console.error('通知エラー:', notifyError)
+      }
+
+      await fetchRequests()
+      setShowAssessmentModal(false)
+      setSelectedRequest(null)
+      alert('本査定を完了しました')
+    } catch (error) {
+      console.error('本査定エラー:', error)
+      alert('エラーが発生しました')
+    }
+  }
 
   // データ取得
   const fetchRequests = useCallback(async () => {
@@ -287,6 +587,17 @@ export default function MailBuybackManagementPage() {
             <button onClick={fetchRequests} className="btn btn-secondary">
               更新
             </button>
+
+            {/* クリックポスト印刷ボタン */}
+            {selectedIds.length > 0 && (
+              <button
+                onClick={printClickPostLabels}
+                className="btn"
+                style={{ background: '#F59E0B', color: 'white', border: 'none' }}
+              >
+                📮 クリックポスト印刷 ({selectedIds.length}件)
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -302,9 +613,17 @@ export default function MailBuybackManagementPage() {
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table className="data-table" style={{ width: '100%', minWidth: '900px' }}>
+              <table className="data-table" style={{ width: '100%', minWidth: '1000px' }}>
                 <thead>
                   <tr>
+                    <th style={{ width: '40px' }}>
+                      <input
+                        type="checkbox"
+                        onChange={toggleAllSelection}
+                        checked={filteredRequests.filter(r => r.status === 'pending').every(r => selectedIds.includes(r.id)) && filteredRequests.some(r => r.status === 'pending')}
+                        title="申込受付のみ選択"
+                      />
+                    </th>
                     <th>申込番号</th>
                     <th>経路</th>
                     <th>顧客名</th>
@@ -318,6 +637,15 @@ export default function MailBuybackManagementPage() {
                 <tbody>
                   {filteredRequests.map((req) => (
                     <tr key={req.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(req.id)}
+                          onChange={() => toggleSelection(req.id)}
+                          disabled={req.status !== 'pending'}
+                          title={req.status !== 'pending' ? 'キット送付済以降は選択不可' : ''}
+                        />
+                      </td>
                       <td style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
                         {req.request_number}
                       </td>
@@ -508,6 +836,34 @@ export default function MailBuybackManagementPage() {
                 </div>
               </div>
 
+              {/* 印刷ボタン */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--color-border)' }}>
+                <button
+                  onClick={() => printAgreementPdf(selectedRequest)}
+                  className="btn"
+                  style={{ background: '#059669', color: 'white', border: 'none' }}
+                >
+                  📄 買取同意書印刷
+                </button>
+                {selectedRequest.status === 'pending' && (
+                  <button
+                    onClick={() => {
+                      const html = generateClickPostHtml([selectedRequest])
+                      const printWindow = window.open('', '_blank')
+                      if (printWindow) {
+                        printWindow.document.write(html)
+                        printWindow.document.close()
+                        printWindow.onload = () => printWindow.print()
+                      }
+                    }}
+                    className="btn"
+                    style={{ background: '#F59E0B', color: 'white', border: 'none' }}
+                  >
+                    📮 クリックポスト印刷
+                  </button>
+                )}
+              </div>
+
               {/* アクションボタン */}
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 {selectedRequest.status === 'pending' && (
@@ -536,13 +892,10 @@ export default function MailBuybackManagementPage() {
                 )}
                 {selectedRequest.status === 'assessing' && (
                   <button
-                    onClick={() => {
-                      // TODO: 本査定結果入力モーダルを表示
-                      updateStatus(selectedRequest.id, 'assessed')
-                    }}
+                    onClick={() => openAssessmentModal(selectedRequest)}
                     className="btn btn-primary"
                   >
-                    本査定完了
+                    本査定入力
                   </button>
                 )}
                 {selectedRequest.status === 'approved' && (
@@ -591,6 +944,217 @@ export default function MailBuybackManagementPage() {
                   }}
                 >
                   削除
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 本査定モーダル */}
+      {showAssessmentModal && selectedRequest && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1001,
+            padding: '20px',
+          }}
+          onClick={() => setShowAssessmentModal(false)}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: '12px',
+              maxWidth: '800px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ margin: 0, fontSize: '1.2rem' }}>
+                  本査定入力 - {selectedRequest.request_number}
+                </h2>
+                <button
+                  onClick={() => setShowAssessmentModal(false)}
+                  style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* 端末情報 */}
+              <div style={{ marginBottom: '20px', padding: '12px', background: '#f3f4f6', borderRadius: '8px' }}>
+                <strong>端末:</strong> {selectedRequest.items[0]?.modelDisplayName} {selectedRequest.items[0]?.storage}GB
+                <span style={{ marginLeft: '20px' }}>
+                  <strong>事前査定:</strong> ¥{selectedRequest.total_estimated_price.toLocaleString()}
+                </span>
+              </div>
+
+              {/* 本査定価格 */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px' }}>
+                  本査定価格
+                </label>
+                <input
+                  type="number"
+                  value={finalPrice}
+                  onChange={(e) => setFinalPrice(parseInt(e.target.value) || 0)}
+                  className="form-input"
+                  style={{ width: '200px', fontSize: '1.1rem', fontWeight: '600' }}
+                />
+                {finalPrice !== selectedRequest.total_estimated_price && (
+                  <span style={{ marginLeft: '12px', color: finalPrice < selectedRequest.total_estimated_price ? '#DC2626' : '#059669' }}>
+                    ({finalPrice - selectedRequest.total_estimated_price > 0 ? '+' : ''}{(finalPrice - selectedRequest.total_estimated_price).toLocaleString()}円)
+                  </span>
+                )}
+              </div>
+
+              {/* 査定項目 */}
+              {(['screen_scratches', 'body_scratches', 'camera_stain', 'other'] as const).map((key) => {
+                const labels = {
+                  screen_scratches: '画面の傷',
+                  body_scratches: '本体の傷',
+                  camera_stain: 'カメラ染み',
+                  other: 'その他の状態',
+                }
+                const details = assessmentDetails[key]
+
+                return (
+                  <div key={key} style={{
+                    marginBottom: '16px',
+                    padding: '16px',
+                    background: details.hasIssue ? '#fef3c7' : '#f9fafb',
+                    borderRadius: '8px',
+                    border: details.hasIssue ? '1px solid #f59e0b' : '1px solid #e5e7eb',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={details.hasIssue}
+                          onChange={(e) => setAssessmentDetails(prev => ({
+                            ...prev,
+                            [key]: { ...prev[key], hasIssue: e.target.checked },
+                          }))}
+                        />
+                        <span style={{ fontWeight: '600' }}>{labels[key]}</span>
+                      </label>
+                      {details.hasIssue && (
+                        <span style={{ fontSize: '0.85rem', color: '#92400e' }}>
+                          ※ 事前査定と異なる場合は画像を添付
+                        </span>
+                      )}
+                    </div>
+
+                    {details.hasIssue && (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="詳細メモ（例：画面右下に2cm程度の傷）"
+                          value={details.description}
+                          onChange={(e) => setAssessmentDetails(prev => ({
+                            ...prev,
+                            [key]: { ...prev[key], description: e.target.value },
+                          }))}
+                          className="form-input"
+                          style={{ marginBottom: '8px' }}
+                        />
+
+                        {/* 画像アップロード */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          {details.photos.map((photo, i) => (
+                            <div key={i} style={{ position: 'relative' }}>
+                              <img
+                                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${photo}`}
+                                alt={`${labels[key]} ${i + 1}`}
+                                style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 4, border: '1px solid #e5e7eb' }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeAssessmentPhoto(key, i)}
+                                style={{
+                                  position: 'absolute',
+                                  top: -6,
+                                  right: -6,
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: '50%',
+                                  background: '#ef4444',
+                                  color: 'white',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: 12,
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                          {details.photos.length < 3 && (
+                            <label style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 80,
+                              height: 80,
+                              background: 'white',
+                              border: '2px dashed #d1d5db',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                              color: '#666',
+                            }}>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) handleAssessmentPhotoUpload(key, file)
+                                  e.target.value = ''
+                                }}
+                                style={{ display: 'none' }}
+                                disabled={uploadingKey === key}
+                              />
+                              {uploadingKey === key ? '...' : '📷 追加'}
+                            </label>
+                          )}
+                          <span style={{ fontSize: '0.75rem', color: '#999' }}>
+                            ({details.photos.length}/3)
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* ボタン */}
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                <button
+                  onClick={submitAssessment}
+                  className="btn btn-primary"
+                  style={{ flex: 1, padding: '12px', fontSize: '1rem' }}
+                >
+                  本査定結果を連絡する
+                </button>
+                <button
+                  onClick={() => setShowAssessmentModal(false)}
+                  className="btn btn-secondary"
+                >
+                  キャンセル
                 </button>
               </div>
             </div>
