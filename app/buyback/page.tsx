@@ -6,6 +6,8 @@
  * =====================================================
  *
  * 【注意】
+ * - このページは「店頭買取」専用です
+ * - 郵送買取は /buyback-mail を使用（別フロー）
  * - 買取価格計算のマスタロジックは /app/lib/pricing.ts に集約
  * - 新しい減額ルールを追加する場合は pricing.ts を修正すること
  * - 重複実装しないこと
@@ -243,9 +245,10 @@ export default function BuybackPage() {
   // キオスクモード用state
   const [kioskAuth, setKioskAuth] = useState<{ authenticated: boolean; shopName?: string } | null>(null)
 
-  // フェーズ管理
-  const [phase, setPhase] = useState<'select' | 'assessment' | 'customer-view' | 'operation-check' | 'customer-input' | 'verification' | 'payment'>('select')
-  const [buybackType, setBuybackType] = useState<'store' | 'mail'>('store')
+  // フェーズ管理（店頭買取専用：選択画面をスキップして直接査定へ）
+  const [phase, setPhase] = useState<'assessment' | 'customer-view' | 'operation-check' | 'customer-input' | 'verification' | 'payment'>('assessment')
+  // buybackType は常に 'store'（郵送買取は /buyback-mail を使用）
+  const buybackType = 'store' as const
 
   // マスタデータ
   const [shops, setShops] = useState<Shop[]>([])
@@ -626,27 +629,6 @@ ${bankInfo.accountHolder}
     setSaving(true)
 
     try {
-      // 同意書画像アップロード（郵送の場合）
-      let consentImageUrl = ''
-      if (buybackType === 'mail' && consentImageFile) {
-        const formData = new FormData()
-        formData.append('file', consentImageFile)
-        formData.append('folder', 'consent')
-
-        const uploadRes = await fetch('/api/upload-document', {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!uploadRes.ok) {
-          const errData = await uploadRes.json()
-          throw new Error(errData.error || '画像アップロードに失敗しました')
-        }
-
-        const uploadData = await uploadRes.json()
-        consentImageUrl = uploadData.path
-      }
-
       // 顧客情報をt_customersに保存
       const { data: customerData, error: customerError } = await supabase
         .from('t_customers')
@@ -698,9 +680,9 @@ ${bankInfo.accountHolder}
           customer_phone: customerInfo.phone,
           id_document_type: customerInfo.idDocumentType,
           id_verified: idVerified,
-          id_verification_method: buybackType === 'mail' ? customerInfo.idVerificationMethod : 'visual',
+          id_verification_method: 'visual',
           consent_completed: true,
-          consent_image_url: consentImageUrl || null,
+          consent_image_url: null,
           payment_method: paymentMethod,
           bank_name: paymentMethod === 'transfer' ? bankInfo.bankName : null,
           bank_branch: paymentMethod === 'transfer' ? bankInfo.bankBranch : null,
@@ -824,10 +806,9 @@ ${bankInfo.accountHolder}
       }
 
       alert('買取を登録しました')
-      
+
       // リセット
-      setPhase('select')
-      setBuybackType('store')
+      setPhase('assessment')
       setItems([createEmptyItem()])
       setActiveItemIndex(0)
       setCustomerInfo({
@@ -890,79 +871,7 @@ ${bankInfo.accountHolder}
   }
 
   // =====================================================
-  // 買取方法選択画面
-  // =====================================================
-  if (phase === 'select') {
-    // KIOSKモード用のスタイル
-    const selectContainerStyle = isKioskMode ? {
-      padding: '32px 40px',
-      maxWidth: '1000px',
-      margin: '0 auto',
-    } : {}
-
-    return (
-      <div className="page-container" style={selectContainerStyle}>
-        {/* KIOSKモード時のヘッダー */}
-        {isKioskMode && (
-          <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <button
-              onClick={() => window.location.href = '/buyback-kiosk'}
-              style={{
-                padding: '12px 24px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                background: 'var(--color-text-secondary)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-              }}
-            >
-              ← メニューに戻る
-            </button>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--color-text)' }}>買取登録</h1>
-            <div style={{ width: '140px' }}></div>
-          </div>
-        )}
-
-        {/* 通常モード時のタイトル */}
-        {!isKioskMode && <h1 className="page-title">買取入力</h1>}
-
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">買取方法を選択してください</h2>
-          </div>
-          <div className="card-body">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', maxWidth: '600px', margin: '0 auto' }}>
-              <button
-                onClick={() => { setBuybackType('store'); setPhase('assessment') }}
-                className="btn btn-primary btn-lg"
-                style={{ padding: '40px 20px', fontSize: '1.2rem' }}
-              >
-                店頭買取
-                <div style={{ fontSize: '0.85rem', marginTop: '8px', opacity: 0.9 }}>
-                  お客様が来店して対面で買取
-                </div>
-              </button>
-              <button
-                onClick={() => { setBuybackType('mail'); setPhase('assessment') }}
-                className="btn btn-secondary btn-lg"
-                style={{ padding: '40px 20px', fontSize: '1.2rem' }}
-              >
-                郵送買取
-                <div style={{ fontSize: '0.85rem', marginTop: '8px', opacity: 0.9 }}>
-                  郵送で届いた端末を買取
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // =====================================================
-  // 以降のフェーズはパート2で実装
+  // 店頭買取フロー（郵送買取は /buyback-mail を使用）
   // =====================================================
 
   // キオスク用のコンテナスタイル
@@ -976,20 +885,14 @@ ${bankInfo.accountHolder}
     <div className="page-container" style={containerStyle}>
       {!isKioskMode && (
         <h1 className="page-title">
-          買取入力
-          <span style={{ fontSize: '0.9rem', marginLeft: '12px', padding: '4px 12px', background: buybackType === 'store' ? 'var(--color-primary)' : 'var(--color-text-secondary)', color: 'white', borderRadius: '20px' }}>
-            {buybackType === 'store' ? '店頭買取' : '郵送買取'}
-          </span>
+          店頭買取
         </h1>
       )}
 
       {/* フェーズ表示 */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
         {['assessment', 'customer-view', 'operation-check', 'customer-input', 'verification', 'payment'].map((p, i) => {
-          const labels = buybackType === 'store'
-            ? ['1.事前査定', '2.価格案内', '3.本査定', '4.同意・入力', '5.本人確認', '6.支払']
-            : ['1.査定', '', '', '2.顧客情報', '3.確定', '']
-          if (!labels[i]) return null
+          const labels = ['1.事前査定', '2.価格案内', '3.本査定', '4.同意・入力', '5.本人確認', '6.支払']
           return (
             <div
               key={p}
@@ -1117,10 +1020,7 @@ ${bankInfo.accountHolder}
           </div>
 
           {/* 次へボタン */}
-          <div className="flex justify-between">
-            <button onClick={() => setPhase('select')} className="btn btn-secondary">
-              戻る
-            </button>
+          <div className="flex justify-end">
             <button
               onClick={() => {
                 // 事前査定価格を保存
@@ -1132,12 +1032,12 @@ ${bankInfo.accountHolder}
                   priceChangeReason: '',
                 }))
                 setItems(updatedItems)
-                setPhase(buybackType === 'store' ? 'customer-view' : 'customer-input')
+                setPhase('customer-view')
               }}
               disabled={!shopId || !staffId || items.some(item => !item.model || !item.storage || !item.rank)}
               className="btn btn-primary btn-lg"
             >
-              {buybackType === 'store' ? 'お客様に買取価格を案内する' : '顧客情報入力へ'}
+              お客様に買取価格を案内する
             </button>
           </div>
         </>

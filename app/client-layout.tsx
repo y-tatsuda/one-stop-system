@@ -98,6 +98,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 業務 <span className="dropdown-arrow">▼</span>
               </button>
               <div className="nav-dropdown-menu">
+                <Link href="/mail-buyback-management" className="nav-dropdown-item">郵送買取管理</Link>
                 <Link href="/inventory-check" className="nav-dropdown-item">棚卸し</Link>
                 <Link href="/order" className="nav-dropdown-item">発注</Link>
                 <Link href="/daily-report" className="nav-dropdown-item">日報</Link>
@@ -180,6 +181,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </Link>
 
         <div className="mobile-nav-group-title mobile-nav-group-work">業務</div>
+        <Link href="/mail-buyback-management" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
+          郵送買取管理
+        </Link>
         <Link href="/inventory-check" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           棚卸し
         </Link>
