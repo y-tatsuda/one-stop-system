@@ -19,10 +19,11 @@
  * =====================================================
  */
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import '../../shop.css'
+import { displayNameToModelCode, getColorOptionsForModel } from '@/app/lib/constants'
 
 type FormData = {
   // お客様情報
@@ -38,7 +39,8 @@ type FormData = {
   // 端末情報
   model: string
   storage: string
-  color: string
+  color: string  // カラーコード（BK, WH等）
+  colorDisplayName: string  // 表示用カラー名
   condition: string
   hasBox: boolean
   hasCharger: boolean
@@ -106,6 +108,7 @@ function ApplyPageContent() {
     model: '',
     storage: '',
     color: '',
+    colorDisplayName: '',
     condition: '',
     hasBox: false,
     hasCharger: false,
@@ -117,8 +120,32 @@ function ApplyPageContent() {
     accountHolder: '',
   })
 
+  // モデル別のカラー選択肢
+  const colorOptions = useMemo(() => {
+    if (!formData.model || formData.model === 'その他') return []
+    const modelCode = displayNameToModelCode(formData.model)
+    return getColorOptionsForModel(modelCode)
+  }, [formData.model])
+
   const updateField = (field: keyof FormData, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value }
+      // モデル変更時はカラーをリセット
+      if (field === 'model') {
+        updated.color = ''
+        updated.colorDisplayName = ''
+      }
+      return updated
+    })
+  }
+
+  const handleColorChange = (colorCode: string) => {
+    const option = colorOptions.find(c => c.value === colorCode)
+    setFormData(prev => ({
+      ...prev,
+      color: colorCode,
+      colorDisplayName: option?.label || colorCode,
+    }))
   }
 
   const validateStep1 = () => {
@@ -128,7 +155,10 @@ function ApplyPageContent() {
   }
 
   const validateStep2 = () => {
-    return formData.model && formData.storage && formData.condition
+    // 「その他」の場合はカラー不要
+    const needsColor = formData.model !== 'その他'
+    return formData.model && formData.storage && formData.condition &&
+           (!needsColor || formData.color)
   }
 
   const validateStep3 = () => {
@@ -155,6 +185,7 @@ function ApplyPageContent() {
             model: formData.model,
             storage: formData.storage.replace('GB', '').replace('TB', '000'),
             color: formData.color,
+            colorDisplayName: formData.colorDisplayName || formData.color,
             rank: formData.condition,
             hasBox: formData.hasBox,
             hasCharger: formData.hasCharger,
@@ -464,14 +495,30 @@ function ApplyPageContent() {
               </div>
 
               <div className="apply-form-group">
-                <label className="apply-form-label">カラー</label>
-                <input
-                  type="text"
-                  className="apply-form-input"
-                  placeholder="例：スペースブラック"
-                  value={formData.color}
-                  onChange={(e) => updateField('color', e.target.value)}
-                />
+                <label className="apply-form-label">
+                  カラー {formData.model && formData.model !== 'その他' && <span className="required">必須</span>}
+                </label>
+                {formData.model === 'その他' ? (
+                  <input
+                    type="text"
+                    className="apply-form-input"
+                    placeholder="例：スペースブラック"
+                    value={formData.color}
+                    onChange={(e) => updateField('color', e.target.value)}
+                  />
+                ) : (
+                  <select
+                    className="apply-form-select"
+                    value={formData.color}
+                    onChange={(e) => handleColorChange(e.target.value)}
+                    disabled={!formData.model}
+                  >
+                    <option value="">選択してください</option>
+                    {colorOptions.map(c => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="apply-form-group">
@@ -646,7 +693,7 @@ function ApplyPageContent() {
                 <h3>端末情報</h3>
                 <dl className="apply-confirm-list">
                   <dt>機種</dt>
-                  <dd>{formData.model} {formData.storage} {formData.color}</dd>
+                  <dd>{formData.model} {formData.storage} {formData.colorDisplayName || formData.color}</dd>
                   <dt>状態</dt>
                   <dd>{CONDITIONS.find(c => c.value === formData.condition)?.label}</dd>
                   <dt>付属品</dt>

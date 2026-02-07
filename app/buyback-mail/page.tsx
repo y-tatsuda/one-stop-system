@@ -20,7 +20,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
-import { DEFAULT_TENANT_ID } from '../lib/constants'
+import { DEFAULT_TENANT_ID, getColorOptionsForModel } from '../lib/constants'
 import { IphoneModel } from '../lib/types'
 import { calculateBuybackDeduction } from '../lib/pricing'
 
@@ -35,6 +35,8 @@ type MailBuybackItem = {
   model: string
   modelDisplayName: string
   storage: string
+  color: string  // カラーコード（BK, WH等）
+  colorDisplayName: string  // 表示用カラー名（ブラックチタニウム等）
   rank: string
   batteryPercent: string
   isServiceState: boolean
@@ -71,6 +73,8 @@ const createEmptyItem = (): MailBuybackItem => ({
   model: '',
   modelDisplayName: '',
   storage: '',
+  color: '',  // カラーコード（BK, WH等）
+  colorDisplayName: '',  // 表示用カラー名
   rank: '',
   batteryPercent: '',
   isServiceState: false,
@@ -289,6 +293,7 @@ function MailBuybackPageContent() {
       const originalIndex = items.findIndex(it => it.id === item.id)
       if (!item.model) newErrors[`item_${originalIndex}_model`] = '機種を選択してください'
       if (!item.storage) newErrors[`item_${originalIndex}_storage`] = '容量を選択してください'
+      if (!item.color) newErrors[`item_${originalIndex}_color`] = 'カラーを選択してください'
       if (!item.rank) newErrors[`item_${originalIndex}_rank`] = 'ランクを選択してください'
       // バッテリー残量は必須
       if (!item.batteryPercent && !item.isServiceState) {
@@ -370,6 +375,8 @@ function MailBuybackPageContent() {
         model: item.model,
         modelDisplayName: item.modelDisplayName,
         storage: item.storage,
+        color: item.color,
+        colorDisplayName: item.colorDisplayName,
         rank: item.rank,
         batteryPercent: parseInt(item.batteryPercent) || 100,
         imei: item.imei,
@@ -695,7 +702,7 @@ function MailBuybackPageContent() {
                             borderBottom: '1px solid #eee',
                             fontSize: 14,
                           }}>
-                            <span>{i + 1}台目: {item.modelDisplayName} {item.storage}GB</span>
+                            <span>{i + 1}台目: {item.modelDisplayName} {item.storage}GB {item.colorDisplayName}</span>
                             <span style={{ fontWeight: 600 }}>¥{item.estimatedPrice.toLocaleString()}</span>
                           </div>
                         )
@@ -973,7 +980,7 @@ function MailBuybackPageContent() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: 15 }}>
-                          {item.modelDisplayName} {item.storage}GB
+                          {item.modelDisplayName} {item.storage}GB {item.colorDisplayName}
                         </div>
                         <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
                           {item.rank}
@@ -1186,10 +1193,23 @@ function DeviceItemForm({
       model: modelValue,
       modelDisplayName: modelObj?.display_name || modelValue,
       storage: '',
+      color: '',
+      colorDisplayName: '',
       rank: '',
       basePrice: 0,
       totalDeduction: 0,
       estimatedPrice: 0,
+    })
+  }
+
+  // カラー選択肢（モデル別）
+  const colorOptions = item.model ? getColorOptionsForModel(item.model) : []
+
+  const handleColorChange = (colorCode: string) => {
+    const option = colorOptions.find(c => c.value === colorCode)
+    onUpdate({
+      color: colorCode,
+      colorDisplayName: option?.label || colorCode,
     })
   }
 
@@ -1257,6 +1277,23 @@ function DeviceItemForm({
             ))}
           </select>
           {errors[`item_${index}_storage`] && <div className="form-error">{errors[`item_${index}_storage`]}</div>}
+        </div>
+
+        {/* カラー */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label form-label-required">カラー</label>
+          <select
+            value={item.color}
+            onChange={(e) => handleColorChange(e.target.value)}
+            className={`form-select ${errors[`item_${index}_color`] ? 'form-input-error' : ''}`}
+            disabled={!item.model}
+          >
+            <option value="">選択</option>
+            {colorOptions.map(c => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+          {errors[`item_${index}_color`] && <div className="form-error">{errors[`item_${index}_color`]}</div>}
         </div>
 
         {/* ランク */}

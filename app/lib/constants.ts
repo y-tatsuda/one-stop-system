@@ -415,6 +415,41 @@ export function getModelPngFileName(model: string): string {
   return mapping[model.toLowerCase()] || model.toLowerCase()
 }
 
+// =====================================================
+// 表示名 → モデルコード変換（ECサイト用）
+// =====================================================
+// ECサイトのフォームで使う表示名からモデルコードへの変換
+// 例: "iPhone 15 Pro Max" → "15PM"
+export function displayNameToModelCode(displayName: string): string {
+  const mapping: { [key: string]: string } = {
+    // iPhone 17系
+    'iPhone 17 Pro Max': '17PM', 'iPhone 17 Pro': '17P', 'iPhone 17 Plus': '17Plus', 'iPhone 17': '17',
+    // iPhone Air
+    'iPhone Air': 'Air',
+    // iPhone 16系
+    'iPhone 16e': '16e',
+    'iPhone 16 Pro Max': '16PM', 'iPhone 16 Pro': '16P', 'iPhone 16 Plus': '16Plus', 'iPhone 16': '16',
+    // iPhone 15系
+    'iPhone 15 Pro Max': '15PM', 'iPhone 15 Pro': '15P', 'iPhone 15 Plus': '15Plus', 'iPhone 15': '15',
+    // iPhone 14系
+    'iPhone 14 Pro Max': '14PM', 'iPhone 14 Pro': '14P', 'iPhone 14 Plus': '14Plus', 'iPhone 14': '14',
+    // iPhone 13系
+    'iPhone 13 Pro Max': '13PM', 'iPhone 13 Pro': '13P', 'iPhone 13 mini': '13mini', 'iPhone 13': '13',
+    // iPhone 12系
+    'iPhone 12 Pro Max': '12PM', 'iPhone 12 Pro': '12P', 'iPhone 12 mini': '12mini', 'iPhone 12': '12',
+    // iPhone 11系
+    'iPhone 11 Pro Max': '11PM', 'iPhone 11 Pro': '11P', 'iPhone 11': '11',
+    // iPhone X系
+    'iPhone XS Max': 'XSMax', 'iPhone XS': 'XS', 'iPhone XR': 'XR', 'iPhone X': 'X',
+    // iPhone SE
+    'iPhone SE (第3世代)': 'SE3', 'iPhone SE (第2世代)': 'SE2', 'iPhone SE': 'SE',
+    // 旧モデル
+    'iPhone 8 Plus': '8P', 'iPhone 8': '8',
+    'iPhone 7 Plus': '7P', 'iPhone 7': '7',
+  }
+  return mapping[displayName] || displayName
+}
+
 // トークン有効期限（ミリ秒）
 export const TOKEN_EXPIRY_MS = 12 * 60 * 60 * 1000 // 12時間
 
