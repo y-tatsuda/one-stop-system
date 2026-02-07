@@ -158,7 +158,22 @@ export default function MailBuybackManagementPage() {
 
       if (error) throw error
 
-      // TODO: Slack通知、LINE/メール通知を送信
+      // 通知を送信（kit_sent, assessed, approved, rejected, paid）
+      const notifyActions = ['kit_sent', 'assessed', 'approved', 'rejected', 'paid']
+      if (notifyActions.includes(newStatus)) {
+        try {
+          const notifyRes = await fetch('/api/mail-buyback/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: newStatus, requestId: id }),
+          })
+          const notifyResult = await notifyRes.json()
+          console.log('通知結果:', notifyResult)
+        } catch (notifyError) {
+          console.error('通知エラー:', notifyError)
+          // 通知エラーでもステータス更新は成功とする
+        }
+      }
 
       await fetchRequests()
       setSelectedRequest(null)
