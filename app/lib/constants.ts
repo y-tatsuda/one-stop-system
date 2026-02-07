@@ -466,8 +466,8 @@ export function displayNameToModelCode(displayName: string): string {
     // iPhone SE
     'iPhone SE (第3世代)': 'SE3', 'iPhone SE (第2世代)': 'SE2', 'iPhone SE': 'SE',
     // 旧モデル
-    'iPhone 8 Plus': '8P', 'iPhone 8': '8',
-    'iPhone 7 Plus': '7P', 'iPhone 7': '7',
+    'iPhone 8 Plus': '8p', 'iPhone 8': '8',
+    'iPhone 7 Plus': '7p', 'iPhone 7': '7',
   }
   return mapping[displayName] || displayName
 }
