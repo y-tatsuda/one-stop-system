@@ -352,7 +352,8 @@ ONE STOP
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              from: 'ONE STOP <noreply@onestop-system.com>',
+              from: 'ONE STOP <noreply@onestop-mobile.net>',
+              reply_to: ['y-tatsuda@nichellc.net', 't-hori@nichellc.net', 'm-tsuchimoto@nichellc.net'],
               to: [email],
               subject: `【ONE STOP】買取申込みを受け付けました（${requestNumber}）`,
               text: emailBody,

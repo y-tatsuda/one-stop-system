@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" fill="none">
+  <!-- iPhone body -->
+  <rect x="30" y="10" width="140" height="240" rx="20" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="2"/>
+
+  <!-- Screen -->
+  <rect x="40" y="30" width="120" height="200" rx="8" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="1"/>
+
+  <!-- Dynamic Island / Notch -->
+  <rect x="75" y="38" width="50" height="12" rx="6" fill="#1F2937"/>
+
+  <!-- Home button hint (subtle) -->
+  <circle cx="100" cy="240" r="8" fill="none" stroke="#E5E7EB" stroke-width="1"/>
+
+  <!-- Side button -->
+  <rect x="170" y="70" width="3" height="30" rx="1.5" fill="#D1D5DB"/>
+  <rect x="170" y="110" width="3" height="20" rx="1" fill="#D1D5DB"/>
+
+  <!-- Volume buttons -->
+  <rect x="27" y="70" width="3" height="20" rx="1" fill="#D1D5DB"/>
+  <rect x="27" y="95" width="3" height="20" rx="1" fill="#D1D5DB"/>
+
+  <!-- Camera -->
+  <g transform="translate(45, 55)">
+    <rect width="40" height="40" rx="10" fill="#F3F4F6" stroke="#E5E7EB" stroke-width="1"/>
+    <circle cx="15" cy="15" r="8" fill="#1F2937"/>
+    <circle cx="30" cy="15" r="5" fill="#1F2937"/>
+    <circle cx="15" cy="30" r="5" fill="#1F2937"/>
+    <circle cx="15" cy="15" r="3" fill="#374151"/>
+  </g>
+
+  <!-- Apple logo hint -->
+  <path d="M100 130 Q105 125 100 120 Q95 125 100 130 M100 130 L100 140 Q95 145 90 145 Q85 145 85 140 Q85 135 90 132 Q95 129 100 130 Q105 129 110 132 Q115 135 115 140 Q115 145 110 145 Q105 145 100 140" fill="none" stroke="#E5E7EB" stroke-width="1.5"/>
+</svg>
