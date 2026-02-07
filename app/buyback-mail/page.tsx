@@ -295,6 +295,8 @@ function MailBuybackPageContent() {
 
     if (!customerInfo.name.trim()) newErrors.name = '氏名を入力してください'
     if (!customerInfo.phone.trim()) newErrors.phone = '電話番号を入力してください'
+    if (!customerInfo.postalCode.trim()) newErrors.postalCode = '郵便番号を入力してください'
+    if (!customerInfo.address.trim()) newErrors.address = '住所を入力してください'
 
     // LIFF経由でない場合はメールアドレス必須
     if (!isFromLiff && !customerInfo.email.trim()) {
@@ -766,7 +768,7 @@ function MailBuybackPageContent() {
 
                 <div className="form-grid-2" style={{ marginBottom: 16 }}>
                   <div className="form-group">
-                    <label className="form-label">郵便番号</label>
+                    <label className="form-label form-label-required">郵便番号</label>
                     <input
                       type="text"
                       value={customerInfo.postalCode}
@@ -775,24 +777,26 @@ function MailBuybackPageContent() {
                         setCustomerInfo({ ...customerInfo, postalCode: val })
                         if (val.length === 7) fetchAddressFromPostalCode(val)
                       }}
-                      className="form-input"
+                      className={`form-input ${errors.postalCode ? 'form-input-error' : ''}`}
                       placeholder="1234567"
                       maxLength={7}
                     />
                     <div className="form-hint">ハイフンなし7桁</div>
+                    {errors.postalCode && <div className="form-error">{errors.postalCode}</div>}
                   </div>
                   <div></div>
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 16 }}>
-                  <label className="form-label">住所</label>
+                  <label className="form-label form-label-required">住所</label>
                   <input
                     type="text"
                     value={customerInfo.address}
                     onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                    className="form-input"
+                    className={`form-input ${errors.address ? 'form-input-error' : ''}`}
                     placeholder="東京都渋谷区..."
                   />
+                  {errors.address && <div className="form-error">{errors.address}</div>}
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 16 }}>

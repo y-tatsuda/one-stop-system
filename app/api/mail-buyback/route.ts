@@ -176,14 +176,82 @@ export async function POST(request: NextRequest) {
       // LINE返信メッセージ
       try {
         if (LINE_CHANNEL_ACCESS_TOKEN) {
+          // 端末情報を整形
+          const itemDetails = items.map((item: {
+            modelDisplayName: string
+            storage: string
+            rank: string
+            batteryPercent: number
+            imei: string
+            isServiceState?: boolean
+            nwStatus: string
+            cameraStain: string
+            cameraBroken: boolean
+            repairHistory: boolean
+            estimatedPrice: number
+            guaranteePrice: number
+          }, i: number) => {
+            const isGuaranteePrice = item.guaranteePrice > 0 && item.estimatedPrice <= item.guaranteePrice
+            const nwDeduction20 = Math.round(item.estimatedPrice * 0.2)
+            const nwDeduction40 = Math.round(item.estimatedPrice * 0.4)
+
+            let details = `${i + 1}台目\n`
+            details += `機種: ${item.modelDisplayName}\n`
+            details += `容量: ${item.storage}GB\n`
+            details += `ランク: ${item.rank}\n`
+            details += `バッテリー: ${item.batteryPercent}%${item.isServiceState ? '(サービス状態)' : ''}\n`
+            details += `IMEI: ${item.imei || '未入力'}\n`
+            details += `カメラ染み: ${item.cameraStain !== 'none' ? 'あり' : 'なし'}\n`
+            details += `カメラ窓破損: ${item.cameraBroken ? 'あり' : 'なし'}\n`
+            details += `非正規修理歴: ${item.repairHistory ? 'あり' : 'なし'}\n\n`
+            details += `事前査定価格: ¥${item.estimatedPrice.toLocaleString()}\n`
+
+            if (isGuaranteePrice) {
+              details += `※最低保証価格のため、これ以上の減額はありません。\n`
+              details += `※水没などがあった場合は別途ご相談させていただきます。\n`
+            }
+
+            details += `\nネットワーク利用制限の場合:\n`
+            details += `・△(支払い中): ¥${nwDeduction20.toLocaleString()}減額\n`
+            details += `・×(利用制限): ¥${nwDeduction40.toLocaleString()}減額`
+
+            return details
+          }).join('\n\n───────────\n\n')
+
+          // 住所整形
+          const fullAddress = [
+            postalCode ? `〒${postalCode}` : '',
+            address || '',
+            addressDetail || '',
+          ].filter(Boolean).join(' ')
+
+          const lineMessageText = `📱 買取申込みありがとうございます
+
+この度は買取査定をお申し込みいただき、誠にありがとうございます。
+
+申込番号: ${requestNumber}
+
+【今後の流れ】
+1. 郵送キットをお送りいたします
+2. 端末をキットに入れてご返送ください
+3. 到着後、本査定を行いご連絡いたします
+4. 査定額にご了承いただけましたらお振込みいたします
+
+【お申し込み内容】
+${itemDetails}
+
+合計査定金額: ¥${totalEstimatedPrice.toLocaleString()}
+
+【買取キット送付先住所】
+${customerName} 様
+${fullAddress}
+TEL: ${phone}
+
+ご不明点がございましたら、お気軽にメッセージください。`
+
           const lineMessage = {
             to: lineUserId,
-            messages: [
-              {
-                type: 'text',
-                text: `📱 買取申込みを受け付けました\n\n申込番号: ${requestNumber}\n\n【今後の流れ】\n1. 郵送キットをお送りいたします\n2. 端末をキットに入れてご返送ください\n3. 到着後、査定を行いご連絡いたします\n4. 査定額にご了承いただけましたらお振込みいたします\n\nご不明点がございましたら、お気軽にメッセージください。`,
-              },
-            ],
+            messages: [{ type: 'text', text: lineMessageText }],
           }
           await fetch('https://api.line.me/v2/bot/message/push', {
             method: 'POST',
