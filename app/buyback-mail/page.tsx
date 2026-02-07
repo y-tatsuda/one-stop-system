@@ -53,11 +53,15 @@ type MailBuybackItem = {
 type CustomerInfo = {
   name: string
   nameKana: string
+  birthYear: string
+  birthMonth: string
+  birthDay: string
   postalCode: string
   address: string
   addressDetail: string
   phone: string
   email: string
+  occupation: string
 }
 
 type Step = 'device' | 'customer' | 'confirm' | 'complete' | 'declined'
@@ -116,11 +120,15 @@ function MailBuybackPageContent() {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '',
     nameKana: '',
+    birthYear: '',
+    birthMonth: '',
+    birthDay: '',
     postalCode: '',
     address: '',
     addressDetail: '',
     phone: '',
     email: '',
+    occupation: '',
   })
 
   // 同意チェック
@@ -307,6 +315,17 @@ function MailBuybackPageContent() {
     const newErrors: { [key: string]: string } = {}
 
     if (!customerInfo.name.trim()) newErrors.name = '氏名を入力してください'
+
+    // 生年月日
+    if (!customerInfo.birthYear || !customerInfo.birthMonth || !customerInfo.birthDay) {
+      newErrors.birthDate = '生年月日を入力してください'
+    }
+
+    // 職業
+    if (!customerInfo.occupation) {
+      newErrors.occupation = '職業を選択してください'
+    }
+
     if (!customerInfo.phone.trim()) newErrors.phone = '電話番号を入力してください'
     if (!customerInfo.postalCode.trim()) newErrors.postalCode = '郵便番号を入力してください'
     if (!customerInfo.address.trim()) newErrors.address = '住所を入力してください'
@@ -369,6 +388,10 @@ function MailBuybackPageContent() {
         body: JSON.stringify({
           customerName: customerInfo.name,
           customerNameKana: customerInfo.nameKana,
+          birthYear: customerInfo.birthYear,
+          birthMonth: customerInfo.birthMonth,
+          birthDay: customerInfo.birthDay,
+          occupation: customerInfo.occupation,
           postalCode: customerInfo.postalCode,
           address: customerInfo.address,
           addressDetail: customerInfo.addressDetail,
@@ -777,6 +800,67 @@ function MailBuybackPageContent() {
                       placeholder="ヤマダ タロウ"
                     />
                   </div>
+                </div>
+
+                {/* 生年月日 */}
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label className="form-label form-label-required">生年月日</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="number"
+                      value={customerInfo.birthYear}
+                      onChange={(e) => setCustomerInfo({ ...customerInfo, birthYear: e.target.value })}
+                      className={`form-input ${errors.birthDate ? 'form-input-error' : ''}`}
+                      placeholder="1990"
+                      style={{ width: 90 }}
+                      min={1900}
+                      max={2010}
+                    />
+                    <span>年</span>
+                    <input
+                      type="number"
+                      value={customerInfo.birthMonth}
+                      onChange={(e) => setCustomerInfo({ ...customerInfo, birthMonth: e.target.value })}
+                      className={`form-input ${errors.birthDate ? 'form-input-error' : ''}`}
+                      placeholder="1"
+                      style={{ width: 70 }}
+                      min={1}
+                      max={12}
+                    />
+                    <span>月</span>
+                    <input
+                      type="number"
+                      value={customerInfo.birthDay}
+                      onChange={(e) => setCustomerInfo({ ...customerInfo, birthDay: e.target.value })}
+                      className={`form-input ${errors.birthDate ? 'form-input-error' : ''}`}
+                      placeholder="15"
+                      style={{ width: 70 }}
+                      min={1}
+                      max={31}
+                    />
+                    <span>日</span>
+                  </div>
+                  {errors.birthDate && <div className="form-error">{errors.birthDate}</div>}
+                </div>
+
+                {/* 職業 */}
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label className="form-label form-label-required">職業</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                    {['会社員', '自営業', 'パート・アルバイト', '学生', 'その他'].map(occ => (
+                      <label key={occ} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="occupation"
+                          value={occ}
+                          checked={customerInfo.occupation === occ}
+                          onChange={(e) => setCustomerInfo({ ...customerInfo, occupation: e.target.value })}
+                        />
+                        {occ}
+                      </label>
+                    ))}
+                  </div>
+                  {errors.occupation && <div className="form-error">{errors.occupation}</div>}
                 </div>
 
                 <div className="form-grid-2" style={{ marginBottom: 16 }}>

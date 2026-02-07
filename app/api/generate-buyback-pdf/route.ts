@@ -29,7 +29,9 @@ type RequestBody = {
   requestNumber: string
   customerName: string
   customerNameKana?: string
-  birthDate?: string
+  birthYear?: string
+  birthMonth?: string
+  birthDay?: string
   phone: string
   occupation?: string
   postalCode: string
@@ -41,10 +43,22 @@ type RequestBody = {
   createdAt?: string
 }
 
+// QRコード生成用URL（Google Charts API）
+const getQRCodeUrl = (data: string, size: number = 100) => {
+  return `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encodeURIComponent(data)}&choe=UTF-8`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: RequestBody = await request.json()
     const item = body.items[0]
+
+    // QRコードURL
+    const videoQRUrl = getQRCodeUrl('https://youtu.be/_1ih3kMC3xU?si=EgXU3yLhdmstsAY7', 80)
+    const pickupQRUrl = getQRCodeUrl('https://shuka.kuronekoyamato.co.jp/shuka_req/TopAction_doInit.action', 100)
+
+    // 職業チェック用関数
+    const occupationCheck = (occ: string) => body.occupation === occ ? '☑' : '□'
 
     const html = `
 <!DOCTYPE html>
@@ -55,7 +69,7 @@ export async function POST(request: NextRequest) {
   <style>
     @page {
       size: A4;
-      margin: 10mm;
+      margin: 8mm;
     }
     * {
       margin: 0;
@@ -64,180 +78,224 @@ export async function POST(request: NextRequest) {
     }
     body {
       font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
-      font-size: 11px;
-      line-height: 1.5;
+      font-size: 10px;
+      line-height: 1.4;
       color: #000;
     }
     .page {
-      width: 190mm;
-      min-height: 277mm;
-      padding: 5mm;
+      width: 194mm;
+      min-height: 279mm;
+      padding: 3mm;
       page-break-after: always;
     }
     .page:last-child {
       page-break-after: auto;
     }
     h1 {
-      font-size: 22px;
+      font-size: 20px;
       text-align: center;
-      margin-bottom: 5px;
+      margin-bottom: 3px;
     }
     .header-info {
       display: flex;
       justify-content: flex-end;
       gap: 20px;
-      margin-bottom: 10px;
-      font-size: 10px;
+      margin-bottom: 8px;
+      font-size: 9px;
     }
     .device-box {
       border: 1px solid #000;
-      padding: 8px 12px;
-      margin-bottom: 10px;
+      padding: 6px 10px;
+      margin-bottom: 8px;
     }
     .device-row {
       display: flex;
-      gap: 15px;
-      margin-bottom: 5px;
+      gap: 12px;
+      margin-bottom: 3px;
     }
     .device-row span {
-      min-width: 100px;
+      min-width: 90px;
     }
     .price-row {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: bold;
-      margin-top: 8px;
-      padding-top: 8px;
+      margin-top: 6px;
+      padding-top: 6px;
       border-top: 1px dashed #ccc;
     }
     .terms {
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
     .terms-title {
       font-weight: bold;
-      margin-bottom: 5px;
-      font-size: 10px;
+      margin-bottom: 4px;
+      font-size: 9px;
     }
     .terms-list {
-      font-size: 9px;
-      line-height: 1.6;
+      font-size: 8px;
+      line-height: 1.5;
     }
     .terms-list li {
-      margin-bottom: 2px;
+      margin-bottom: 1px;
       list-style: none;
     }
     .customer-box {
       border: 1px solid #000;
-      padding: 10px;
-      margin-top: 10px;
+      padding: 8px 10px;
+      margin-top: 8px;
     }
     .customer-row {
       display: flex;
-      margin-bottom: 8px;
+      align-items: center;
+      margin-bottom: 6px;
+      min-height: 24px;
     }
     .customer-row label {
-      width: 80px;
+      width: 70px;
       font-weight: bold;
+      font-size: 9px;
+      flex-shrink: 0;
     }
     .customer-row .value {
       flex: 1;
       border-bottom: 1px solid #000;
-      min-height: 20px;
+      min-height: 22px;
+      padding: 2px 4px;
+      font-size: 11px;
+    }
+    .birth-value {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+    }
+    .birth-value .year {
+      width: 50px;
+      text-align: center;
+      border-bottom: 1px solid #000;
+      padding: 2px;
+    }
+    .birth-value .month, .birth-value .day {
+      width: 30px;
+      text-align: center;
+      border-bottom: 1px solid #000;
+      padding: 2px;
+    }
+    .occupation-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 10px;
+    }
+    .occupation-row span {
+      white-space: nowrap;
     }
     .signature-row {
-      margin-top: 15px;
+      margin-top: 10px;
       display: flex;
       align-items: flex-end;
     }
     .signature-row label {
-      width: 60px;
+      width: 50px;
       font-weight: bold;
+      font-size: 10px;
     }
     .signature-line {
       flex: 1;
-      border-bottom: 1px solid #000;
-      height: 40px;
+      height: 45px;
+      background: #f0f0f0;
+      border: 1px solid #999;
+      border-radius: 4px;
     }
     .date-row {
-      margin-bottom: 10px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .date-input {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .date-input .input-box {
+      width: 45px;
+      height: 22px;
+      background: #f0f0f0;
+      border: 1px solid #999;
+      border-radius: 3px;
+      text-align: center;
     }
     .footer-note {
-      margin-top: 10px;
+      margin-top: 8px;
       font-size: 9px;
-      color: #666;
+      color: #333;
+      font-weight: bold;
     }
 
     /* 裏面 */
     .page2 h1 {
-      font-size: 20px;
-      margin-bottom: 15px;
+      font-size: 18px;
+      margin-bottom: 12px;
     }
     .step {
-      margin-bottom: 15px;
+      margin-bottom: 12px;
     }
     .step-title {
       font-weight: bold;
-      font-size: 12px;
-      margin-bottom: 5px;
+      font-size: 11px;
+      margin-bottom: 4px;
       background: #f5f5f5;
-      padding: 5px 8px;
+      padding: 4px 8px;
     }
     .step-content {
-      padding: 5px 10px;
-      font-size: 10px;
+      padding: 4px 8px;
+      font-size: 9px;
     }
     .checkbox-item {
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
     .checkbox-item input[type="checkbox"] {
-      margin-right: 5px;
+      margin-right: 4px;
     }
     .shipping-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
-      font-size: 10px;
+      margin-top: 8px;
+      font-size: 9px;
     }
     .shipping-table td {
-      padding: 5px 8px;
+      padding: 4px 6px;
       border: 1px solid #ddd;
     }
     .shipping-table td:first-child {
-      width: 100px;
+      width: 90px;
       background: #f9f9f9;
       font-weight: bold;
     }
     .address-box {
       background: #f9f9f9;
-      padding: 10px;
-      margin-top: 10px;
+      padding: 8px;
+      margin-top: 8px;
+      border: 1px solid #ddd;
+      font-size: 10px;
+    }
+    .qr-section {
+      display: flex;
+      align-items: flex-start;
+      gap: 15px;
+      margin-top: 8px;
+    }
+    .qr-box {
+      text-align: center;
+    }
+    .qr-box img {
       border: 1px solid #ddd;
     }
-    .qr-placeholder {
-      width: 80px;
-      height: 80px;
-      border: 1px solid #ccc;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 9px;
-      color: #999;
-      float: right;
-      margin-left: 10px;
-    }
-    .instruction-images {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    .instruction-images div {
-      width: 60px;
-      height: 40px;
-      border: 1px solid #ddd;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .qr-label {
       font-size: 8px;
-      color: #999;
+      margin-top: 2px;
+      color: #666;
     }
     @media print {
       .no-print {
@@ -298,31 +356,59 @@ export async function POST(request: NextRequest) {
     </div>
 
     <div class="date-row">
-      記入日）西暦　　　　年　　　　月　　　　日
+      <span>記入日）西暦</span>
+      <div class="date-input">
+        <div class="input-box"></div>
+        <span>年</span>
+        <div class="input-box" style="width: 35px;"></div>
+        <span>月</span>
+        <div class="input-box" style="width: 35px;"></div>
+        <span>日</span>
+      </div>
     </div>
 
-    <div style="font-weight: bold; margin-bottom: 5px;">上記内容全て同意した上で買取を申込みます。</div>
+    <div style="font-weight: bold; margin-bottom: 5px; font-size: 11px;">上記内容全て同意した上で買取を申込みます。</div>
 
     <div class="customer-box">
       <div class="customer-row">
         <label>氏名</label>
         <div class="value">${body.customerName || ''}</div>
-        <label style="width: 60px; margin-left: 20px;">生年月日</label>
-        <div class="value" style="max-width: 150px;">${body.birthDate || '西暦　　年　　月　　日'}</div>
+      </div>
+      <div class="customer-row">
+        <label>生年月日</label>
+        <div class="birth-value">
+          <span>西暦</span>
+          <div class="year">${body.birthYear || ''}</div>
+          <span>年</span>
+          <div class="month">${body.birthMonth || ''}</div>
+          <span>月</span>
+          <div class="day">${body.birthDay || ''}</div>
+          <span>日</span>
+        </div>
       </div>
       <div class="customer-row">
         <label>電話番号</label>
-        <div class="value" style="max-width: 150px;">${body.phone || ''}</div>
-        <label style="width: 40px; margin-left: 20px;">職業</label>
-        <div class="value">${body.occupation || ''}</div>
+        <div class="value" style="max-width: 180px;">${body.phone || ''}</div>
+        <label style="width: 40px; margin-left: 15px;">職業</label>
+        <div class="occupation-row">
+          <span>${occupationCheck('会社員')}会社員</span>
+          <span>${occupationCheck('自営業')}自営業</span>
+          <span>${occupationCheck('パート・アルバイト')}パート</span>
+          <span>${occupationCheck('学生')}学生</span>
+          <span>${occupationCheck('その他')}その他</span>
+        </div>
       </div>
       <div class="customer-row">
         <label>住所</label>
         <div class="value">〒${body.postalCode || ''} ${body.address || ''} ${body.addressDetail || ''}</div>
       </div>
+      <div class="customer-row" style="font-size: 8px; color: #666; margin-bottom: 0;">
+        <label></label>
+        <span>※ご本人様確認書類と同一の住所をご記入ください</span>
+      </div>
       <div class="customer-row">
         <label>ご本人様確認書類</label>
-        <div class="value">${formatIdType(body.idType)}</div>
+        <div style="font-size: 10px;">□免許証　□マイナンバーカード　□健康保険証　□パスポート　□その他（　　　　）</div>
       </div>
       <div class="signature-row">
         <label>ご署名</label>
@@ -343,21 +429,21 @@ export async function POST(request: NextRequest) {
       <div class="step-title">① 発送前に必ず初期化とiPhoneの場合は[iPhoneを探す]をオフにして下さい。</div>
       <div class="step-content">
         以下の手順で操作を行い、完了したらレ点チェックをお願いします。
-        <div style="margin-top: 8px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd;">
+        <div style="margin-top: 6px; padding: 8px; background: #f9f9f9; border: 1px solid #ddd;">
           <div class="checkbox-item">
             <input type="checkbox"> <strong>iPhoneを探すをオフ</strong><br>
-            <span style="margin-left: 20px;">設定→一番上のアカウント名→探す→iPhoneを探す→オフ</span>
+            <span style="margin-left: 18px;">設定→一番上のアカウント名→探す→iPhoneを探す→オフ</span>
           </div>
-          <div class="checkbox-item" style="margin-top: 5px; font-size: 9px; color: #666;">
+          <div class="checkbox-item" style="margin-top: 4px; font-size: 8px; color: #666;">
             ※盗難デバイスの保護がオンの場合は以下の操作も必要です。<br>
-            <span style="margin-left: 20px;">設定→FaceIDとパスコード→盗難デバイスの保護→オフ</span>
+            <span style="margin-left: 18px;">設定→FaceIDとパスコード→盗難デバイスの保護→オフ</span>
           </div>
-          <div class="checkbox-item" style="margin-top: 8px;">
+          <div class="checkbox-item" style="margin-top: 6px;">
             <input type="checkbox"> <strong>iPhoneの初期化</strong><br>
-            <span style="margin-left: 20px;">設定→一般→転送またはiPhoneをリセット→すべてのコンテンツと設定を消去</span>
+            <span style="margin-left: 18px;">設定→一般→転送またはiPhoneをリセット→すべてのコンテンツと設定を消去</span>
           </div>
         </div>
-        <div style="font-size: 9px; color: #c00; margin-top: 5px;">
+        <div style="font-size: 8px; color: #c00; margin-top: 4px;">
           ※初期化が完了していない場合、買取後にご協力頂く場合がございます。
         </div>
       </div>
@@ -366,22 +452,38 @@ export async function POST(request: NextRequest) {
     <div class="step">
       <div class="step-title">② 箱を組み立て査定端末と買取同意書を一緒に送って下さい。</div>
       <div class="step-content">
-        必要に応じて緩衝材を入れて下さい。<br>
-        ※組み立て方法は同封の説明書を参考にして下さい。
+        <div style="display: flex; align-items: flex-start; gap: 15px;">
+          <div style="flex: 1;">
+            必要に応じて緩衝材を入れて下さい。<br>
+            <strong>※組み立て方法は右のQRコードの動画（2:10以降）を参考にして下さい。</strong>
+          </div>
+          <div class="qr-box">
+            <img src="${videoQRUrl}" alt="組み立て動画QR" width="80" height="80">
+            <div class="qr-label">組み立て動画</div>
+          </div>
+        </div>
       </div>
     </div>
 
     <div class="step">
       <div class="step-title">③ 集荷用QRコードをカメラアプリで写し、[通常の荷物を送る]から以下の内容を設定し、集荷の日時指定をお願いします。</div>
       <div class="step-content">
-        <table class="shipping-table">
-          <tr><td>集荷お伺い先</td><td>集荷を依頼するお客様の住所</td></tr>
-          <tr><td>ご利用サービス</td><td>宅急便コンパクト</td></tr>
-          <tr><td>梱包資材</td><td>専用の梱包資材をご用意済みの方</td></tr>
-          <tr><td>発送方法</td><td>着払い</td></tr>
-          <tr><td>集荷希望日時</td><td>ご希望の日時をお選び下さい</td></tr>
-          <tr><td>荷物の内容</td><td>精密機器</td></tr>
-        </table>
+        <div class="qr-section">
+          <div class="qr-box">
+            <img src="${pickupQRUrl}" alt="集荷用QR" width="100" height="100">
+            <div class="qr-label">集荷用QRコード</div>
+          </div>
+          <div style="flex: 1;">
+            <table class="shipping-table">
+              <tr><td>集荷お伺い先</td><td>集荷を依頼するお客様の住所</td></tr>
+              <tr><td>ご利用サービス</td><td>宅急便コンパクト</td></tr>
+              <tr><td>梱包資材</td><td>専用の梱包資材をご用意済みの方</td></tr>
+              <tr><td>発送方法</td><td>着払い</td></tr>
+              <tr><td>集荷希望日時</td><td>ご希望の日時をお選び下さい</td></tr>
+              <tr><td>荷物の内容</td><td>精密機器</td></tr>
+            </table>
+          </div>
+        </div>
 
         <div class="address-box">
           <strong>お届け先</strong><br>
@@ -441,15 +543,5 @@ function formatCameraStain(stain?: string): string {
     case 'minor': return 'あり（少）'
     case 'major': return 'あり（多）'
     default: return '-'
-  }
-}
-
-function formatIdType(type?: string): string {
-  switch (type) {
-    case 'drivers_license': return '□免許証 ☑その他（　　）'
-    case 'insurance_card': return '□免許証 □マイナンバーカード ☑健康保険証'
-    case 'passport': return '□免許証 □マイナンバーカード ☑パスポート'
-    case 'my_number': return '□免許証 ☑マイナンバーカード'
-    default: return '□免許証 □マイナンバーカード □その他（　　　）'
   }
 }

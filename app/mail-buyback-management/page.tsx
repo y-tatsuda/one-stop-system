@@ -65,6 +65,10 @@ type MailBuybackRequest = {
   status: StatusKey
   customer_name: string
   customer_name_kana: string | null
+  birth_year: string | null
+  birth_month: string | null
+  birth_day: string | null
+  occupation: string | null
   phone: string
   email: string | null
   postal_code: string | null
@@ -138,6 +142,10 @@ export default function MailBuybackManagementPage() {
           requestNumber: req.request_number,
           customerName: req.customer_name,
           customerNameKana: req.customer_name_kana,
+          birthYear: req.birth_year,
+          birthMonth: req.birth_month,
+          birthDay: req.birth_day,
+          occupation: req.occupation,
           phone: req.phone,
           postalCode: req.postal_code,
           address: req.address,
