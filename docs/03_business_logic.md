@@ -21,16 +21,21 @@
 
 ### 販売減額計算（`app/lib/pricing.ts` - `calculateSalesDeduction`）
 
-**基準:** `m_sales_price_deductions` テーブルから固定金額を取得
+**基準:** `m_sales_price_deductions` テーブルからモデルごとに固定金額を取得
 
 | deduction_type | 説明 |
 |----------------|------|
 | battery_80_89 | バッテリー80-89%の減額 |
-| battery_79 | バッテリー79%以下の減額 |
-| camera_stain_minor | カメラ染み（少）の減額 |
-| camera_stain_major | カメラ染み（多）の減額 |
+| battery_79 | バッテリー79%以下/サービス状態の減額 |
+| camera_stain_minor | カメラ染み（小）の減額 |
+| camera_stain_major | カメラ染み（大）の減額 |
 | nw_triangle | NW利用制限△の減額 |
 | nw_cross | NW利用制限×の減額 |
+
+**計算式:** `販売価格 = 基準価格（税込） - 減額合計`
+
+**注意:** 販売減額は買取減額と異なり、パーセント計算ではなく固定金額です。
+減額金額はモデルごとに設定されており、マスタ管理ページで編集できます。
 
 ### 税計算ルール（重要）
 

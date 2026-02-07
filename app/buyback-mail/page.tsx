@@ -39,10 +39,10 @@ type MailBuybackItem = {
   batteryPercent: string
   isServiceState: boolean
   imei: string
-  nwStatus: 'ok' | 'triangle' | 'cross'
-  cameraStain: 'none' | 'minor' | 'major'
-  cameraBroken: boolean
-  repairHistory: boolean
+  nwStatus: '' | 'ok' | 'triangle' | 'cross'  // 空文字は未選択
+  cameraStain: '' | 'none' | 'minor' | 'major'  // 空文字は未選択
+  cameraBroken: boolean | ''  // 空文字は未選択
+  repairHistory: boolean | ''  // 空文字は未選択
   basePrice: number
   totalDeduction: number
   estimatedPrice: number
@@ -70,10 +70,10 @@ const createEmptyItem = (): MailBuybackItem => ({
   batteryPercent: '',
   isServiceState: false,
   imei: '',
-  nwStatus: 'ok',
-  cameraStain: 'none',
-  cameraBroken: false,
-  repairHistory: false,
+  nwStatus: '',  // 未選択状態
+  cameraStain: '',  // 未選択状態
+  cameraBroken: '',  // 未選択状態
+  repairHistory: '',  // 未選択状態
   basePrice: 0,
   totalDeduction: 0,
   estimatedPrice: 0,
@@ -223,10 +223,10 @@ function MailBuybackPageContent() {
       {
         batteryPercent,
         isServiceState: item.isServiceState,
-        nwStatus: item.nwStatus,
-        cameraStain: item.cameraStain,
-        cameraBroken: item.cameraBroken,
-        repairHistory: item.repairHistory,
+        nwStatus: item.nwStatus || 'ok',  // 未選択時はデフォルト値
+        cameraStain: item.cameraStain || 'none',  // 未選択時はデフォルト値
+        cameraBroken: item.cameraBroken === '' ? false : item.cameraBroken,  // 未選択時はfalse
+        repairHistory: item.repairHistory === '' ? false : item.repairHistory,  // 未選択時はfalse
       },
       [],
       bihinPrice
@@ -280,6 +280,15 @@ function MailBuybackPageContent() {
       if (!item.model) newErrors[`item_${originalIndex}_model`] = '機種を選択してください'
       if (!item.storage) newErrors[`item_${originalIndex}_storage`] = '容量を選択してください'
       if (!item.rank) newErrors[`item_${originalIndex}_rank`] = 'ランクを選択してください'
+      // バッテリー残量は必須
+      if (!item.batteryPercent && !item.isServiceState) {
+        newErrors[`item_${originalIndex}_battery`] = 'バッテリー残量を入力してください'
+      }
+      // 査定項目は必須
+      if (!item.nwStatus) newErrors[`item_${originalIndex}_nwStatus`] = 'ネットワーク利用制限を選択してください'
+      if (item.cameraStain === '' as unknown) newErrors[`item_${originalIndex}_cameraStain`] = 'カメラ染みを選択してください'
+      if (item.cameraBroken === '' as unknown) newErrors[`item_${originalIndex}_cameraBroken`] = 'カメラ窓の破損を選択してください'
+      if (item.repairHistory === '' as unknown) newErrors[`item_${originalIndex}_repairHistory`] = '非正規修理の利用歴を選択してください'
     })
 
     if (validItems.length === 0) {
@@ -1170,13 +1179,13 @@ function DeviceItemForm({
 
         {/* バッテリー残量 */}
         <div className="form-group" style={{ marginBottom: 16 }}>
-          <label className="form-label">バッテリー残量(%)</label>
+          <label className="form-label form-label-required">バッテリー最大容量(%)</label>
           <input
             type="number"
             value={item.batteryPercent}
             onChange={(e) => onUpdate({ batteryPercent: e.target.value })}
             onBlur={handleBatteryBlur}
-            className="form-input"
+            className={`form-input ${errors[`item_${index}_battery`] ? 'form-input-error' : ''}`}
             placeholder="95"
             min={0}
             max={100}
@@ -1184,6 +1193,7 @@ function DeviceItemForm({
           <div style={{ fontSize: 12, color: '#666', marginTop: 4, lineHeight: 1.6 }}>
             ※ 設定→バッテリー→バッテリーの状態の順番で確認出来ます
           </div>
+          {errors[`item_${index}_battery`] && <div className="form-error">{errors[`item_${index}_battery`]}</div>}
         </div>
 
         {/* IMEI */}
@@ -1207,14 +1217,34 @@ function DeviceItemForm({
           </div>
         </div>
 
+        {/* ネットワーク利用制限 */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label form-label-required">ネットワーク利用制限</label>
+          <select
+            value={item.nwStatus}
+            onChange={(e) => onUpdate({ nwStatus: e.target.value as 'ok' | 'triangle' | 'cross' })}
+            className={`form-select ${errors[`item_${index}_nwStatus`] ? 'form-input-error' : ''}`}
+          >
+            <option value="">選択してください</option>
+            <option value="ok">○（制限なし）</option>
+            <option value="triangle">△（分割支払い中）</option>
+            <option value="cross">×（利用制限あり）</option>
+          </select>
+          <div style={{ fontSize: 12, color: '#666', marginTop: 4, lineHeight: 1.6 }}>
+            ※ 各キャリアの「ネットワーク利用制限確認」ページでIMEIを入力すると確認できます
+          </div>
+          {errors[`item_${index}_nwStatus`] && <div className="form-error">{errors[`item_${index}_nwStatus`]}</div>}
+        </div>
+
         {/* カメラ染み */}
         <div className="form-group" style={{ marginBottom: 16 }}>
-          <label className="form-label">カメラ染み</label>
+          <label className="form-label form-label-required">カメラ染み</label>
           <select
-            value={item.cameraStain === 'none' ? 'none' : 'yes'}
-            onChange={(e) => onUpdate({ cameraStain: e.target.value === 'yes' ? 'minor' : 'none' })}
-            className="form-select"
+            value={item.cameraStain === '' ? '' : (item.cameraStain === 'none' ? 'none' : 'yes')}
+            onChange={(e) => onUpdate({ cameraStain: e.target.value === 'yes' ? 'minor' : (e.target.value === 'none' ? 'none' : '' as 'none' | 'minor' | 'major') })}
+            className={`form-select ${errors[`item_${index}_cameraStain`] ? 'form-input-error' : ''}`}
           >
+            <option value="">選択してください</option>
             <option value="none">なし</option>
             <option value="yes">あり</option>
           </select>
@@ -1236,32 +1266,37 @@ function DeviceItemForm({
               />
             </div>
           )}
+          {errors[`item_${index}_cameraStain`] && <div className="form-error">{errors[`item_${index}_cameraStain`]}</div>}
         </div>
 
         {/* カメラ窓の破損 */}
         <div className="form-group" style={{ marginBottom: 16 }}>
-          <label className="form-label">カメラ窓の破損</label>
+          <label className="form-label form-label-required">カメラ窓の破損</label>
           <select
-            value={item.cameraBroken ? 'yes' : 'no'}
-            onChange={(e) => onUpdate({ cameraBroken: e.target.value === 'yes' })}
-            className="form-select"
+            value={item.cameraBroken === '' as unknown ? '' : (item.cameraBroken ? 'yes' : 'no')}
+            onChange={(e) => onUpdate({ cameraBroken: e.target.value === 'yes' ? true : (e.target.value === 'no' ? false : '' as unknown as boolean) })}
+            className={`form-select ${errors[`item_${index}_cameraBroken`] ? 'form-input-error' : ''}`}
           >
+            <option value="">選択してください</option>
             <option value="no">なし</option>
             <option value="yes">あり</option>
           </select>
+          {errors[`item_${index}_cameraBroken`] && <div className="form-error">{errors[`item_${index}_cameraBroken`]}</div>}
         </div>
 
         {/* 非正規修理の利用歴 */}
         <div className="form-group" style={{ marginBottom: 16 }}>
-          <label className="form-label">非正規修理の利用歴</label>
+          <label className="form-label form-label-required">非正規修理の利用歴</label>
           <select
-            value={item.repairHistory ? 'yes' : 'no'}
-            onChange={(e) => onUpdate({ repairHistory: e.target.value === 'yes' })}
-            className="form-select"
+            value={item.repairHistory === '' as unknown ? '' : (item.repairHistory ? 'yes' : 'no')}
+            onChange={(e) => onUpdate({ repairHistory: e.target.value === 'yes' ? true : (e.target.value === 'no' ? false : '' as unknown as boolean) })}
+            className={`form-select ${errors[`item_${index}_repairHistory`] ? 'form-input-error' : ''}`}
           >
+            <option value="">選択してください</option>
             <option value="no">なし</option>
             <option value="yes">あり</option>
           </select>
+          {errors[`item_${index}_repairHistory`] && <div className="form-error">{errors[`item_${index}_repairHistory`]}</div>}
         </div>
       </div>
     </div>
