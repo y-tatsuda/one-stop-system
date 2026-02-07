@@ -46,9 +46,7 @@ type MailBuybackItem = {
   basePrice: number
   totalDeduction: number
   estimatedPrice: number
-  // 同意書画像
-  consentImageFile: File | null
-  consentImagePreview: string
+  guaranteePrice: number  // 最低保証価格
 }
 
 type CustomerInfo = {
@@ -79,8 +77,7 @@ const createEmptyItem = (): MailBuybackItem => ({
   basePrice: 0,
   totalDeduction: 0,
   estimatedPrice: 0,
-  consentImageFile: null,
-  consentImagePreview: '',
+  guaranteePrice: 0,
 })
 
 // ランクの説明
@@ -202,12 +199,21 @@ function MailBuybackPageContent() {
         .eq('storage', parseInt(storage))
         .eq('rank', '美品')
         .single(),
+      // 最低保証価格
+      supabase
+        .from('m_buyback_guarantees')
+        .select('guarantee_price')
+        .eq('tenant_id', DEFAULT_TENANT_ID)
+        .eq('model', model)
+        .eq('storage', parseInt(storage))
+        .single(),
     ]
 
-    const [priceRes, bihinRes] = await Promise.all(queries)
+    const [priceRes, bihinRes, guaranteeRes] = await Promise.all(queries)
 
-    const basePrice = priceRes.data?.price || 0
-    const bihinPrice = bihinRes.data?.price || basePrice
+    const basePrice = (priceRes.data as { price: number } | null)?.price || 0
+    const bihinPrice = (bihinRes.data as { price: number } | null)?.price || basePrice
+    const guaranteePrice = (guaranteeRes.data as { guarantee_price: number } | null)?.guarantee_price || 0
 
     const item = items[index]
     const batteryPercent = parseInt(item.batteryPercent) || 100
@@ -226,9 +232,11 @@ function MailBuybackPageContent() {
       bihinPrice
     )
 
-    const estimatedPrice = Math.max(basePrice - totalDeduction, 0)
+    // 最終価格は最低保証価格を下回らない
+    const calculatedPrice = Math.max(basePrice - totalDeduction, 0)
+    const estimatedPrice = Math.max(calculatedPrice, guaranteePrice)
 
-    updateItem(index, { basePrice, totalDeduction, estimatedPrice })
+    updateItem(index, { basePrice, totalDeduction, estimatedPrice, guaranteePrice })
   }, [items])
 
   // =====================================================
@@ -267,12 +275,11 @@ function MailBuybackPageContent() {
     // 価格が設定された端末のみバリデーション（空の端末は除外）
     const validItems = items.filter(item => item.model || item.storage || item.rank)
 
-    validItems.forEach((item, i) => {
+    validItems.forEach((item) => {
       const originalIndex = items.findIndex(it => it.id === item.id)
       if (!item.model) newErrors[`item_${originalIndex}_model`] = '機種を選択してください'
       if (!item.storage) newErrors[`item_${originalIndex}_storage`] = '容量を選択してください'
       if (!item.rank) newErrors[`item_${originalIndex}_rank`] = 'ランクを選択してください'
-      if (!item.consentImageFile) newErrors[`item_${originalIndex}_consent`] = '同意書画像をアップロードしてください'
     })
 
     if (validItems.length === 0) {
@@ -319,34 +326,9 @@ function MailBuybackPageContent() {
 
     setSubmitting(true)
     try {
-      // 同意書画像をアップロード
       const validItems = items.filter(item => item.estimatedPrice > 0)
-      const consentImageUrls: string[] = []
 
-      for (const item of validItems) {
-        if (item.consentImageFile) {
-          const formData = new FormData()
-          formData.append('file', item.consentImageFile)
-          formData.append('folder', 'consent')
-
-          const uploadRes = await fetch('/api/upload-document', {
-            method: 'POST',
-            body: formData,
-          })
-
-          if (!uploadRes.ok) {
-            const errData = await uploadRes.json()
-            throw new Error(errData.error || '同意書画像のアップロードに失敗しました')
-          }
-
-          const uploadData = await uploadRes.json()
-          consentImageUrls.push(uploadData.path)
-        } else {
-          consentImageUrls.push('')
-        }
-      }
-
-      const submitItems = validItems.map((item, i) => ({
+      const submitItems = validItems.map((item) => ({
         model: item.model,
         modelDisplayName: item.modelDisplayName,
         storage: item.storage,
@@ -358,7 +340,7 @@ function MailBuybackPageContent() {
         cameraBroken: item.cameraBroken,
         repairHistory: item.repairHistory,
         estimatedPrice: item.estimatedPrice,
-        consentImageUrl: consentImageUrls[i] || '',
+        guaranteePrice: item.guaranteePrice,
       }))
 
       const res = await fetch('/api/mail-buyback', {
@@ -684,6 +666,11 @@ function MailBuybackPageContent() {
                     <div style={{ fontSize: 28, fontWeight: 700, color: '#004AAD' }}>
                       ¥{totalEstimatedPrice.toLocaleString()}
                     </div>
+                    {items.filter(item => item.guaranteePrice > 0).length > 0 && (
+                      <div style={{ fontSize: 12, color: '#059669', marginTop: 8 }}>
+                        ※ 最低保証価格: ¥{items.reduce((sum, item) => sum + item.guaranteePrice, 0).toLocaleString()}
+                      </div>
+                    )}
                   </div>
 
                   {/* 分割支払い残の注意 */}
@@ -1264,57 +1251,6 @@ function DeviceItemForm({
             <option value="no">なし</option>
             <option value="yes">あり</option>
           </select>
-        </div>
-
-        {/* 同意書画像 */}
-        <div className="form-group" style={{ marginBottom: 16 }}>
-          <label className="form-label form-label-required">同意書画像</label>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) {
-                onUpdate({ consentImageFile: file })
-                const reader = new FileReader()
-                reader.onloadend = () => {
-                  onUpdate({ consentImagePreview: reader.result as string })
-                }
-                reader.readAsDataURL(file)
-              }
-            }}
-            className={`form-input ${errors[`item_${index}_consent`] ? 'form-input-error' : ''}`}
-          />
-          <div style={{ fontSize: 12, color: '#666', marginTop: 4, lineHeight: 1.6 }}>
-            ※ 署名済みの買取同意書を撮影してアップロードしてください
-          </div>
-          {errors[`item_${index}_consent`] && <div className="form-error">{errors[`item_${index}_consent`]}</div>}
-          {item.consentImagePreview && (
-            <div style={{ marginTop: 12 }}>
-              <img
-                src={item.consentImagePreview}
-                alt="同意書"
-                style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, border: '1px solid #e5e7eb' }}
-              />
-              <button
-                type="button"
-                onClick={() => onUpdate({ consentImageFile: null, consentImagePreview: '' })}
-                style={{
-                  marginTop: 8,
-                  padding: '6px 12px',
-                  fontSize: 13,
-                  color: '#dc2626',
-                  background: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                }}
-              >
-                画像を削除
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>
