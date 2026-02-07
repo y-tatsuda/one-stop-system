@@ -7,11 +7,11 @@
  *
  * 【役割】
  * - LIFFでLINE UIDと表示名を取得
- * - 既存のEC買取申込ページにリダイレクト
+ * - 郵送買取ページにリダイレクト
  *
  * 【注意】
  * - 価格計算ロジックは /app/lib/pricing.ts に集約
- * - 買取フォームは /app/shop/buyback/apply を使用
+ * - 買取フォームは /buyback-mail を使用
  * - 重複実装しないこと
  * =====================================================
  */
@@ -34,7 +34,7 @@ export default function LiffBuybackPage() {
         // 開発モード（LIFF IDなし）
         if (!LIFF_ID) {
           console.log('LIFF ID not set, redirecting without LINE info')
-          router.push('/shop/buyback/apply')
+          router.push('/buyback-mail')
           return
         }
 
@@ -53,7 +53,7 @@ export default function LiffBuybackPage() {
         const lineDisplayName = encodeURIComponent(profile.displayName)
 
         // LINE情報をクエリパラメータで渡してEC買取ページにリダイレクト
-        router.push(`/shop/buyback/apply?line_uid=${lineUserId}&line_name=${lineDisplayName}&from=liff`)
+        router.push(`/buyback-mail?line_uid=${lineUserId}&line_name=${lineDisplayName}&from=liff`)
 
       } catch (err) {
         console.error('LIFF init error:', err)
@@ -84,7 +84,7 @@ export default function LiffBuybackPage() {
         <p>{errorMessage}</p>
         <button onClick={() => window.location.reload()}>再読み込み</button>
         <button
-          onClick={() => router.push('/shop/buyback/apply')}
+          onClick={() => router.push('/buyback-mail')}
           style={{ marginTop: '12px', background: '#6B7280' }}
         >
           LINE連携なしで続ける

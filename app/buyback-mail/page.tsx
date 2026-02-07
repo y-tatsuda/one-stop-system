@@ -2,8 +2,13 @@
 
 /**
  * =====================================================
- * 郵送買取管理ページ
+ * 郵送買取ページ（EC・LIFF共通）
  * =====================================================
+ *
+ * 【役割】
+ * - ECサイト・LIFF両方からアクセス可能な買取申込フォーム
+ * - LIFF経由の場合、クエリパラメータでLINE情報を受け取る
+ *   (line_uid, line_name, from=liff)
  *
  * 【注意】
  * - 買取価格計算のマスタロジックは /app/lib/pricing.ts に集約
@@ -12,7 +17,8 @@
  * =====================================================
  */
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { DEFAULT_TENANT_ID } from '../lib/constants'
 import { IphoneModel } from '../lib/types'
@@ -89,7 +95,14 @@ const RANK_DESCRIPTIONS: { rank: string; description: string }[] = [
 // =====================================================
 // メインコンポーネント
 // =====================================================
-export default function MailBuybackPage() {
+function MailBuybackPageContent() {
+  const searchParams = useSearchParams()
+
+  // LIFF経由の場合、クエリパラメータからLINE情報を取得
+  const lineUserId = searchParams.get('line_uid') || ''
+  const lineDisplayName = decodeURIComponent(searchParams.get('line_name') || '')
+  const isFromLiff = searchParams.get('from') === 'liff'
+
   const [step, setStep] = useState<Step>('device')
   const [iphoneModels, setIphoneModels] = useState<IphoneModel[]>([])
   const [loading, setLoading] = useState(true)
@@ -361,6 +374,10 @@ export default function MailBuybackPage() {
           email: customerInfo.email,
           items: submitItems,
           totalEstimatedPrice,
+          // LINE情報（LIFF経由の場合）
+          lineUserId: lineUserId || null,
+          lineDisplayName: lineDisplayName || null,
+          source: isFromLiff ? 'liff' : 'web',
         }),
       })
 
@@ -419,7 +436,9 @@ export default function MailBuybackPage() {
             </h1>
             <p style={{ fontSize: 15, color: '#555', marginBottom: 24, lineHeight: 1.8 }}>
               お申込みありがとうございます。<br />
-              以下の申込番号をお控えください。
+              {isFromLiff
+                ? 'LINEでお知らせをお送りしますのでお待ちください。'
+                : '以下の申込番号をお控えください。'}
             </p>
             <div style={{
               background: '#f0f4ff',
@@ -450,6 +469,33 @@ export default function MailBuybackPage() {
                 <li>査定額にご了承いただけましたらお振込みいたします</li>
               </ol>
             </div>
+            {isFromLiff && (
+              <button
+                onClick={() => {
+                  import('@line/liff').then(liff => {
+                    if (liff.default.isInClient()) {
+                      liff.default.closeWindow()
+                    } else {
+                      window.close()
+                    }
+                  })
+                }}
+                style={{
+                  marginTop: 24,
+                  width: '100%',
+                  padding: '14px',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  background: '#06C755',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                }}
+              >
+                LINEに戻る
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1289,5 +1335,23 @@ function ConfirmRow({ label, value }: { label: string; value: string }) {
       <span style={{ width: 120, flexShrink: 0, color: '#666', fontWeight: 500 }}>{label}</span>
       <span style={{ color: '#111' }}>{value}</span>
     </div>
+  )
+}
+
+// =====================================================
+// Suspense境界（useSearchParams用）
+// =====================================================
+export default function MailBuybackPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f7fb' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="loading-spinner" style={{ margin: '0 auto 16px' }}></div>
+          <p style={{ color: '#666' }}>読み込み中...</p>
+        </div>
+      </div>
+    }>
+      <MailBuybackPageContent />
+    </Suspense>
   )
 }

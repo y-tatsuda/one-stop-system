@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
+const LSTEP_API_URL = 'https://api.lstep.app/v1'
+const LSTEP_API_KEY = process.env.LSTEP_API_KEY
+const LSTEP_ACCOUNT_ID = process.env.LSTEP_ACCOUNT_ID
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -15,6 +20,10 @@ export async function POST(request: NextRequest) {
       items,
       totalEstimatedPrice,
       memo,
+      // LINE情報（LIFF経由の場合）
+      lineUserId,
+      lineDisplayName,
+      source,
     } = body
 
     // バリデーション
@@ -65,6 +74,10 @@ export async function POST(request: NextRequest) {
         total_estimated_price: totalEstimatedPrice,
         item_count: items.length,
         memo: memo || null,
+        // LINE情報
+        line_user_id: lineUserId || null,
+        line_display_name: lineDisplayName || null,
+        source: source || 'web',
       })
       .select()
       .single()
@@ -135,6 +148,56 @@ export async function POST(request: NextRequest) {
       }
     } catch (slackError) {
       console.error('Slack notification error:', slackError)
+    }
+
+    // LINE連携（LIFF経由の場合のみ）
+    if (lineUserId) {
+      // Lステップタグ付け
+      try {
+        if (LSTEP_API_KEY && LSTEP_ACCOUNT_ID) {
+          await fetch(`${LSTEP_API_URL}/tags/add`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${LSTEP_API_KEY}`,
+              'X-Account-Id': LSTEP_ACCOUNT_ID,
+            },
+            body: JSON.stringify({
+              uid: lineUserId,
+              tag_name: '買取申込み済',
+            }),
+          })
+          console.log('Lステップタグ付け完了:', lineUserId)
+        }
+      } catch (lstepError) {
+        console.error('Lステップ連携エラー:', lstepError)
+      }
+
+      // LINE返信メッセージ
+      try {
+        if (LINE_CHANNEL_ACCESS_TOKEN) {
+          const lineMessage = {
+            to: lineUserId,
+            messages: [
+              {
+                type: 'text',
+                text: `📱 買取申込みを受け付けました\n\n申込番号: ${requestNumber}\n\n【今後の流れ】\n1. 郵送キットをお送りいたします\n2. 端末をキットに入れてご返送ください\n3. 到着後、査定を行いご連絡いたします\n4. 査定額にご了承いただけましたらお振込みいたします\n\nご不明点がございましたら、お気軽にメッセージください。`,
+              },
+            ],
+          }
+          await fetch('https://api.line.me/v2/bot/message/push', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+            },
+            body: JSON.stringify(lineMessage),
+          })
+          console.log('LINE返信送信完了:', lineUserId)
+        }
+      } catch (lineError) {
+        console.error('LINE返信エラー:', lineError)
+      }
     }
 
     return NextResponse.json({
