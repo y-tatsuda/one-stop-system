@@ -295,7 +295,11 @@ function MailBuybackPageContent() {
 
     if (!customerInfo.name.trim()) newErrors.name = '氏名を入力してください'
     if (!customerInfo.phone.trim()) newErrors.phone = '電話番号を入力してください'
-    if (customerInfo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerInfo.email)) {
+
+    // LIFF経由でない場合はメールアドレス必須
+    if (!isFromLiff && !customerInfo.email.trim()) {
+      newErrors.email = 'メールアドレスを入力してください'
+    } else if (customerInfo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerInfo.email)) {
       newErrors.email = '正しいメールアドレスを入力してください'
     }
 
@@ -815,7 +819,10 @@ function MailBuybackPageContent() {
                     {errors.phone && <div className="form-error">{errors.phone}</div>}
                   </div>
                   <div className="form-group">
-                    <label className="form-label">メールアドレス</label>
+                    <label className="form-label">
+                      メールアドレス
+                      {!isFromLiff && <span className="form-label-required" style={{ marginLeft: 4 }}>必須</span>}
+                    </label>
                     <input
                       type="email"
                       value={customerInfo.email}
