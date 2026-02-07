@@ -1,9 +1,21 @@
 'use client'
 
+/**
+ * =====================================================
+ * 店頭買取ページ（KIOSK経由含む）
+ * =====================================================
+ *
+ * 【注意】
+ * - 買取価格計算のマスタロジックは /app/lib/pricing.ts に集約
+ * - 新しい減額ルールを追加する場合は pricing.ts を修正すること
+ * - 重複実装しないこと
+ * =====================================================
+ */
+
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
-import { DEFAULT_TENANT_ID, MODELS_WITH_COLOR, getRepairTypes } from '../lib/constants'
+import { DEFAULT_TENANT_ID, MODELS_WITH_COLOR, getRepairTypes, getColorOptions, getColorOptionsForModel } from '../lib/constants'
 import { Shop, Staff, IphoneModel } from '../lib/types'
 import {
   calculateBuybackDeduction,
@@ -44,11 +56,7 @@ const OPERATION_CHECK_ITEMS = [
   { key: 'call', label: '発着信' },
 ]
 
-// カラー選択肢
-const COLOR_OPTIONS = [
-  'ブラック', 'ホワイト', 'レッド', 'ゴールド', 'グリーン',
-  'イエロー', 'ピンク', 'シルバー', 'ブルー', 'その他'
-]
+// カラー選択肢はモデル別に動的取得するためgetColorOptionsForModelを使用
 
 // ランク選択肢
 const RANK_OPTIONS = ['超美品', '美品', '良品', '並品', 'リペア品']
@@ -1483,14 +1491,16 @@ function ItemForm({
               value={item.color}
               onChange={(e) => onUpdate({ color: e.target.value })}
               className="form-select"
+              disabled={!item.model}
             >
               <option value="">選択</option>
-              {COLOR_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+              {item.model && getColorOptionsForModel(item.model).map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              <option value="other">その他</option>
             </select>
           </div>
         </div>
 
-        {item.color === 'その他' && (
+        {item.color === 'other' && (
           <div className="form-group mb-lg">
             <label className="form-label">その他カラー</label>
             <input
@@ -1527,9 +1537,13 @@ function ItemForm({
                 value={item.batteryPercent}
                 onChange={(e) => {
                   const value = e.target.value.replace(/[^0-9]/g, '')
-                  onUpdate({ batteryPercent: value })
+                  // バッテリー入力時も即時再計算（減額反映のため）
+                  if (item.basePrice) {
+                    handleAssessmentChange({ batteryPercent: value })
+                  } else {
+                    onUpdate({ batteryPercent: value })
+                  }
                 }}
-                onBlur={handleBatteryBlur}
                 className="form-input"
                 style={{ width: '100px' }}
               />

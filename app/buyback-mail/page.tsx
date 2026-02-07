@@ -1,5 +1,17 @@
 'use client'
 
+/**
+ * =====================================================
+ * 郵送買取管理ページ
+ * =====================================================
+ *
+ * 【注意】
+ * - 買取価格計算のマスタロジックは /app/lib/pricing.ts に集約
+ * - 新しい減額ルールを追加する場合は pricing.ts を修正すること
+ * - 重複実装しないこと
+ * =====================================================
+ */
+
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { DEFAULT_TENANT_ID } from '../lib/constants'

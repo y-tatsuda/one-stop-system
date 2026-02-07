@@ -1,5 +1,17 @@
 'use client'
 
+/**
+ * =====================================================
+ * KIOSKメニュー画面
+ * =====================================================
+ *
+ * 【注意】
+ * - 実際の買取計算は /app/buyback にリダイレクト
+ * - 買取価格計算のマスタロジックは /app/lib/pricing.ts に集約
+ * - このページは認証とメニュー選択のみ
+ * =====================================================
+ */
+
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'

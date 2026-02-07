@@ -10,10 +10,17 @@
  * 2. 端末情報入力
  * 3. 振込先情報
  * 4. 確認・送信
+ *
+ * 【注意】
+ * - 買取価格計算のマスタロジックは /app/lib/pricing.ts に集約
+ * - LIFF経由の場合、クエリパラメータで LINE情報を受け取る
+ *   (line_uid, line_name, from=liff)
+ * - このページは申込フォームのみ（価格計算は管理側で実施）
  * =====================================================
  */
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import '../../shop.css'
 
@@ -73,11 +80,19 @@ const CONDITIONS = [
   { value: 'D', label: '訳あり品 - 画面割れ・バッテリー劣化など' },
 ]
 
-export default function ApplyPage() {
+function ApplyPageContent() {
+  const searchParams = useSearchParams()
+
+  // LIFF経由の場合、クエリパラメータからLINE情報を取得
+  const lineUserId = searchParams.get('line_uid') || ''
+  const lineDisplayName = decodeURIComponent(searchParams.get('line_name') || '')
+  const isFromLiff = searchParams.get('from') === 'liff'
+
   const [step, setStep] = useState(1)
   const [agreed, setAgreed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [requestNumber, setRequestNumber] = useState('')
   const [formData, setFormData] = useState<FormData>({
     name: '',
     nameKana: '',
@@ -128,10 +143,57 @@ export default function ApplyPage() {
     }
 
     setSubmitting(true)
-    // 実際はAPIへの送信処理
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    setSubmitting(false)
-    setSubmitted(true)
+
+    try {
+      const response = await fetch('/api/liff/buyback/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lineUserId: lineUserId || null,
+          lineDisplayName: lineDisplayName || null,
+          items: [{
+            model: formData.model,
+            storage: formData.storage.replace('GB', '').replace('TB', '000'),
+            color: formData.color,
+            rank: formData.condition,
+            hasBox: formData.hasBox,
+            hasCharger: formData.hasCharger,
+            memo: formData.memo,
+            modelDisplayName: formData.model,
+          }],
+          customerInfo: {
+            name: formData.name,
+            nameKana: formData.nameKana,
+            email: formData.email,
+            phone: formData.phone,
+            postalCode: formData.postalCode,
+            address: `${formData.prefecture}${formData.city}${formData.address}`,
+            addressDetail: formData.building,
+            bankName: formData.bankName,
+            branchName: formData.branchName,
+            accountType: formData.accountType,
+            accountNumber: formData.accountNumber,
+            accountHolder: formData.accountHolder,
+          },
+          totalEstimatedPrice: 0, // EC申込は概算なし（査定後に決定）
+          source: isFromLiff ? 'liff' : 'web',
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setRequestNumber(result.requestNumber)
+        setSubmitted(true)
+      } else {
+        alert(result.error || '送信に失敗しました。もう一度お試しください。')
+      }
+    } catch (error) {
+      console.error('Submit error:', error)
+      alert('送信に失敗しました。もう一度お試しください。')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -146,9 +208,16 @@ export default function ApplyPage() {
               </svg>
             </div>
             <h1>お申し込みありがとうございます</h1>
+            {requestNumber && (
+              <p style={{ fontWeight: 'bold', fontSize: '1.2em', marginBottom: '16px' }}>
+                申込番号: {requestNumber}
+              </p>
+            )}
             <p>
               お申し込みを受け付けました。<br />
-              ご登録いただいたメールアドレスに確認メールをお送りしましたのでご確認ください。
+              {isFromLiff
+                ? 'LINEでお知らせをお送りしますのでお待ちください。'
+                : 'ご登録いただいたメールアドレスに確認メールをお送りしましたのでご確認ください。'}
             </p>
             <div className="apply-complete-next">
               <h2>次のステップ</h2>
@@ -166,9 +235,28 @@ export default function ApplyPage() {
                 <li>SIMカードを取り出してください</li>
               </ul>
             </div>
-            <Link href="/shop" className="apply-complete-btn">
-              トップページへ戻る
-            </Link>
+            {isFromLiff ? (
+              <button
+                className="apply-complete-btn"
+                onClick={() => {
+                  // LIFFを閉じてLINEに戻る
+                  import('@line/liff').then(liff => {
+                    if (liff.default.isInClient()) {
+                      liff.default.closeWindow()
+                    } else {
+                      window.close()
+                    }
+                  })
+                }}
+                style={{ display: 'inline-block', textAlign: 'center' }}
+              >
+                LINEに戻る
+              </button>
+            ) : (
+              <Link href="/shop" className="apply-complete-btn">
+                トップページへ戻る
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -619,5 +707,20 @@ export default function ApplyPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Suspense boundary for useSearchParams
+export default function ApplyPage() {
+  return (
+    <Suspense fallback={
+      <div className="buyback-page">
+        <div className="shop-container" style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <p>読み込み中...</p>
+        </div>
+      </div>
+    }>
+      <ApplyPageContent />
+    </Suspense>
   )
 }
