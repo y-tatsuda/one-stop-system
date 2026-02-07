@@ -110,7 +110,7 @@ export default function ProductDetailPage() {
   const getThumbnailUrl = (model: string, color: string | null) => {
     if (color) {
       const modelPrefix = getModelThumbnailPrefix(model)
-      return `/shop/products/thumbnails/${modelPrefix}_${color}.webp`
+      return `/shop/products/thumbnails/${modelPrefix}_${color}.png`
     }
     // カラー未設定時はモデル別PNG
     const pngName = getModelPngFileName(model)

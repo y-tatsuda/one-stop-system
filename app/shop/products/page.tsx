@@ -322,7 +322,7 @@ export default function ProductsPage() {
   const getThumbnailUrl = (model: string, color: string | null) => {
     if (color) {
       const modelPrefix = getModelThumbnailPrefix(model)
-      return `/shop/products/thumbnails/${modelPrefix}_${color}.webp`
+      return `/shop/products/thumbnails/${modelPrefix}_${color}.png`
     }
     const pngName = getModelPngFileName(model)
     return `/shop/products/thumbnails/${pngName}.png`

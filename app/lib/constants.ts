@@ -38,8 +38,8 @@ export const DEFAULT_TENANT_ID = 1
 //   ※17 Proはアルミボディのためチタニウム系なし
 //
 // 【サムネイル命名規則】
-//   {モデルコード}_{カラーコード}.webp
-//   例: 15P_NT.webp, 12_BK.webp
+//   {モデルコード}_{カラーコード}.png（背景透過）
+//   例: 15P_NT.png, 12_BK.png
 //   詳細: /public/shop/products/thumbnails/README.txt 参照
 //
 // ─────────────────────────────────────────────────────
@@ -102,8 +102,8 @@ const OFFICIAL_COLOR_NAMES: { [modelPrefix: string]: { [colorCode: string]: stri
   '17': {
     'BK': 'ブラック',
     'WH': 'ホワイト',
-    'BL': 'ブルー',
-    'PK': 'ピンク',
+    'BL': 'ミストブルー',
+    'GR': 'セージ',
     'PP': 'ラベンダー',
   },
   // iPhone Air
@@ -249,10 +249,16 @@ const OFFICIAL_COLOR_NAMES: { [modelPrefix: string]: { [colorCode: string]: stri
     'PK': 'ローズゴールド',
     'RD': '(PRODUCT)RED',
   },
-  // iPhone SE (2/3世代共通)
-  'SE': {
+  // iPhone SE 第3世代
+  'SE3': {
     'BK': 'ミッドナイト',
     'WH': 'スターライト',
+    'RD': '(PRODUCT)RED',
+  },
+  // iPhone SE 第2世代
+  'SE2': {
+    'BK': 'ブラック',
+    'WH': 'ホワイト',
     'RD': '(PRODUCT)RED',
   },
   // iPhone SE 初代
@@ -261,6 +267,21 @@ const OFFICIAL_COLOR_NAMES: { [modelPrefix: string]: { [colorCode: string]: stri
     'WH': 'シルバー',
     'GD': 'ゴールド',
     'PK': 'ローズゴールド',
+  },
+  // iPhone 8 Plus
+  '8p': {
+    'BK': 'スペースグレイ',
+    'WH': 'シルバー',
+    'GD': 'ゴールド',
+    'RD': '(PRODUCT)RED',
+  },
+  // iPhone 7 Plus
+  '7p': {
+    'BK': 'ブラック',
+    'WH': 'シルバー',
+    'GD': 'ゴールド',
+    'RD': '(PRODUCT)RED',
+    'JBK': 'ジェットブラック',
   },
 }
 
@@ -319,7 +340,8 @@ export function getColorOptionsForModel(model: string): { value: string, label: 
 // - Pro Max → Pro と同じ（17PM → 17P）
 // - Plus → 無印 と同じ（17Plus → 17）
 // - mini → 無印 と同じ（13mini → 13）
-// - SE2/SE3 → SE で共通
+// - SE2 → SE2（個別サムネ）
+// - SE3 → SE3（個別サムネ）
 // - SE初代 → SE1
 // - iPhone Air → Air
 // - iPhone 16e → 16e（廉価版、2色のみ）
@@ -327,7 +349,7 @@ export function getColorOptionsForModel(model: string): { value: string, label: 
 // 【使用例】
 // getModelThumbnailPrefix('iphone17promax') → '17P'
 // getModelThumbnailPrefix('iphoneair') → 'Air'
-// サムネURL: `/shop/products/thumbnails/${prefix}_${colorCode}.webp`
+// サムネURL: `/shop/products/thumbnails/${prefix}_${colorCode}.png`
 // ─────────────────────────────────────────────────────
 export function getModelThumbnailPrefix(model: string): string {
   const mapping: { [key: string]: string } = {
@@ -353,11 +375,11 @@ export function getModelThumbnailPrefix(model: string): string {
     '11promax': '11P', '11pro': '11P', '11': '11',
     // iPhone X系
     'xsmax': 'XS', 'xs': 'XS', 'xr': 'XR', 'x': 'X',
-    // iPhone SE
-    'se3': 'SE', 'se2': 'SE', 'se': 'SE1',
-    // 旧モデル
-    '8plus': '8', '8p': '8', '8': '8',
-    '7plus': '7', '7p': '7', '7': '7',
+    // iPhone SE（個別サムネ）
+    'se3': 'SE3', 'se2': 'SE2', 'se': 'SE1',
+    // 旧モデル（Plus は個別サムネ）
+    '8plus': '8p', '8p': '8p', '8': '8',
+    '7plus': '7p', '7p': '7p', '7': '7',
 
     // =====================================================
     // フルネーム形式（iphone15pro等）※互換性維持
@@ -372,9 +394,9 @@ export function getModelThumbnailPrefix(model: string): string {
     'iphone12promax': '12P', 'iphone12pro': '12P', 'iphone12mini': '12', 'iphone12': '12',
     'iphone11promax': '11P', 'iphone11pro': '11P', 'iphone11': '11',
     'iphonexsmax': 'XS', 'iphonexs': 'XS', 'iphonexr': 'XR', 'iphonex': 'X',
-    'iphonese3': 'SE', 'iphonese2': 'SE', 'iphonese': 'SE1',
-    'iphone8plus': '8', 'iphone8': '8',
-    'iphone7plus': '7', 'iphone7': '7',
+    'iphonese3': 'SE3', 'iphonese2': 'SE2', 'iphonese': 'SE1',
+    'iphone8plus': '8p', 'iphone8': '8',
+    'iphone7plus': '7p', 'iphone7': '7',
   }
   return mapping[model.toLowerCase()] || model
 }
