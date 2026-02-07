@@ -691,8 +691,7 @@ function MailBuybackPageContent() {
                     lineHeight: 1.8,
                   }}>
                     ドコモ、ソフトバンク、au、楽天の分割支払いが残っている場合、上記の査定金額から減額となります。<br />
-                    ・支払い中（△）の場合: ¥{Math.round(totalEstimatedPrice * 0.2).toLocaleString()} の減額<br />
-                    ・利用制限（×）の場合: ¥{Math.round(totalEstimatedPrice * 0.4).toLocaleString()} の減額
+                    ・ネットワーク利用制限（△）の場合: ¥{Math.round(totalEstimatedPrice * 0.2).toLocaleString()} の減額
                   </div>
                 </div>
               </div>

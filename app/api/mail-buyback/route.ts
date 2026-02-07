@@ -211,9 +211,7 @@ export async function POST(request: NextRequest) {
               details += `※水没などがあった場合は別途ご相談させていただきます。\n`
             }
 
-            details += `\nネットワーク利用制限の場合:\n`
-            details += `・△(支払い中): ¥${nwDeduction20.toLocaleString()}減額\n`
-            details += `・×(利用制限): ¥${nwDeduction40.toLocaleString()}減額`
+            details += `\nネットワーク利用制限（△）の場合: ¥${nwDeduction20.toLocaleString()}減額`
 
             return details
           }).join('\n\n───────────\n\n')
@@ -265,6 +263,105 @@ TEL: ${phone}
         }
       } catch (lineError) {
         console.error('LINE返信エラー:', lineError)
+      }
+    }
+
+    // WEB経由でメールアドレスがある場合はメール送信
+    if (email && !lineUserId) {
+      try {
+        // 端末情報を整形
+        const emailItemDetails = items.map((item: {
+          modelDisplayName: string
+          storage: string
+          rank: string
+          batteryPercent: number
+          imei: string
+          isServiceState?: boolean
+          nwStatus: string
+          cameraStain: string
+          cameraBroken: boolean
+          repairHistory: boolean
+          estimatedPrice: number
+          guaranteePrice: number
+        }, i: number) => {
+          const isGuaranteePrice = item.guaranteePrice > 0 && item.estimatedPrice <= item.guaranteePrice
+          const nwDeduction20 = Math.round(item.estimatedPrice * 0.2)
+
+          let details = `【${i + 1}台目】\n`
+          details += `機種: ${item.modelDisplayName}\n`
+          details += `容量: ${item.storage}GB\n`
+          details += `ランク: ${item.rank}\n`
+          details += `バッテリー: ${item.batteryPercent}%${item.isServiceState ? '(サービス状態)' : ''}\n`
+          details += `IMEI: ${item.imei || '未入力'}\n`
+          details += `カメラ染み: ${item.cameraStain !== 'none' ? 'あり' : 'なし'}\n`
+          details += `カメラ窓破損: ${item.cameraBroken ? 'あり' : 'なし'}\n`
+          details += `非正規修理歴: ${item.repairHistory ? 'あり' : 'なし'}\n\n`
+          details += `事前査定価格: ¥${item.estimatedPrice.toLocaleString()}\n`
+
+          if (isGuaranteePrice) {
+            details += `※最低保証価格のため、これ以上の減額はありません。\n`
+            details += `※水没などがあった場合は別途ご相談させていただきます。\n`
+          }
+
+          details += `ネットワーク利用制限（△）の場合: ¥${nwDeduction20.toLocaleString()}減額`
+
+          return details
+        }).join('\n\n')
+
+        // 住所整形
+        const emailFullAddress = [
+          postalCode ? `〒${postalCode}` : '',
+          address || '',
+          addressDetail || '',
+        ].filter(Boolean).join(' ')
+
+        const emailBody = `${customerName} 様
+
+この度は買取査定をお申し込みいただき、誠にありがとうございます。
+
+■ 申込番号: ${requestNumber}
+
+■ 今後の流れ
+1. 郵送キットをお送りいたします
+2. 端末をキットに入れてご返送ください
+3. 到着後、本査定を行いご連絡いたします
+4. 査定額にご了承いただけましたらお振込みいたします
+
+■ お申し込み内容
+${emailItemDetails}
+
+合計査定金額: ¥${totalEstimatedPrice.toLocaleString()}
+
+■ 買取キット送付先住所
+${customerName} 様
+${emailFullAddress}
+TEL: ${phone}
+
+ご不明点がございましたら、お気軽にお問い合わせください。
+
+━━━━━━━━━━━━━━━━━━━━
+ONE STOP
+━━━━━━━━━━━━━━━━━━━━`
+
+        const RESEND_API_KEY = process.env.RESEND_API_KEY
+        if (RESEND_API_KEY) {
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${RESEND_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              from: 'ONE STOP <noreply@onestop-system.com>',
+              to: [email],
+              subject: `【ONE STOP】買取申込みを受け付けました（${requestNumber}）`,
+              text: emailBody,
+            }),
+          })
+          console.log('メール送信完了:', email)
+        }
+      } catch (emailError) {
+        console.error('メール送信エラー:', emailError)
       }
     }
 
