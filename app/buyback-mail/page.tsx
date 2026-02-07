@@ -673,36 +673,20 @@ function MailBuybackPageContent() {
                     )}
                   </div>
 
-                  {/* ネットワーク利用制限の減額 */}
+                  {/* 注意事項 */}
                   <div style={{
-                    background: '#f0f4ff',
+                    background: '#fffbeb',
                     borderRadius: 8,
                     padding: '12px 16px',
                     marginTop: 16,
                     textAlign: 'left',
                     fontSize: 13,
-                    color: '#004AAD',
-                    lineHeight: 1.8,
-                  }}>
-                    <strong>ネットワーク利用制限による減額</strong>
-                    <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                      <li>△（支払い中）: 査定金額の20%減額</li>
-                      <li>×（利用制限）: 査定金額の40%減額</li>
-                    </ul>
-                  </div>
-
-                  {/* 分割支払い残の注意 */}
-                  <div style={{
-                    background: '#fffbeb',
-                    borderRadius: 8,
-                    padding: '12px 16px',
-                    marginTop: 12,
-                    textAlign: 'left',
-                    fontSize: 13,
                     color: '#92400e',
                     lineHeight: 1.8,
                   }}>
-                    ドコモ、ソフトバンク、au、楽天の分割支払いが残っている場合、上記の査定金額から減額となります。
+                    ドコモ、ソフトバンク、au、楽天の分割支払いが残っている場合、上記の査定金額から減額となります。<br />
+                    ・支払い中（△）の場合: ¥{Math.round(totalEstimatedPrice * 0.2).toLocaleString()} の減額<br />
+                    ・利用制限（×）の場合: ¥{Math.round(totalEstimatedPrice * 0.4).toLocaleString()} の減額
                   </div>
                 </div>
               </div>
