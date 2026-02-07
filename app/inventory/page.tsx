@@ -58,7 +58,11 @@ export default function InventoryPage() {
     nw_status: '' as string,
     camera_stain_level: '' as string,
     color: '' as string,  // 本体色
+    rank: '' as string,  // ランク（買取時と販売時で変更可能）
   })
+
+  // ランク選択肢
+  const RANK_OPTIONS = ['超美品', '美品', '良品', '並品', 'リペア品']
 
   // 一括変更用
   const [selectedIds, setSelectedIds] = useState<number[]>([])
@@ -286,8 +290,74 @@ export default function InventoryPage() {
       nw_status: item.nw_status || '',
       camera_stain_level: item.camera_stain_level || '',
       color: item.color || '',
+      rank: item.rank || '',
     })
     setShowDetailModal(true)
+  }
+
+  // ランク変更時に販売価格を再計算（減額も考慮）
+  const handleRankChange = async (newRank: string) => {
+    if (!selectedItem) return
+
+    setEditData({ ...editData, rank: newRank })
+
+    // 販売価格マスタから新しいランクの価格を取得
+    const { data: salesPriceData } = await supabase
+      .from('m_sales_prices')
+      .select('price')
+      .eq('tenant_id', DEFAULT_TENANT_ID)
+      .eq('model', selectedItem.model)
+      .eq('storage', selectedItem.storage)
+      .eq('rank', newRank)
+      .eq('is_active', true)
+      .single()
+
+    if (salesPriceData?.price) {
+      // 減額マスタを取得
+      const { data: deductions } = await supabase
+        .from('m_sales_price_deductions')
+        .select('deduction_type, amount')
+        .eq('tenant_id', DEFAULT_TENANT_ID)
+        .eq('model', selectedItem.model)
+        .eq('is_active', true)
+
+      let deduction = 0
+      const dedMap = new Map((deductions || []).map(d => [d.deduction_type, d.amount]))
+
+      // バッテリー減額（現在の編集データを使用）
+      const batteryPercent = editData.is_service_state ? null : editData.battery_percent
+      if (editData.is_service_state || (batteryPercent !== null && batteryPercent < 80)) {
+        deduction += dedMap.get('battery_79') || 0
+      } else if (batteryPercent !== null && batteryPercent < 90) {
+        deduction += dedMap.get('battery_80_89') || 0
+      }
+
+      // カメラ染み減額
+      if (editData.camera_stain_level === 'minor') {
+        deduction += dedMap.get('camera_stain_minor') || 0
+      } else if (editData.camera_stain_level === 'major') {
+        deduction += dedMap.get('camera_stain_major') || 0
+      }
+
+      // NW制限減額
+      if (editData.nw_status === 'triangle') {
+        deduction += dedMap.get('nw_triangle') || 0
+      } else if (editData.nw_status === 'cross') {
+        deduction += dedMap.get('nw_cross') || 0
+      }
+
+      const finalPrice = salesPriceData.price - deduction
+
+      setEditData(prev => ({
+        ...prev,
+        rank: newRank,
+        sales_price: finalPrice,
+        sales_price_tax_included: String(finalPrice),
+      }))
+    } else {
+      // 価格マスタに該当がない場合はランクのみ変更
+      setEditData(prev => ({ ...prev, rank: newRank }))
+    }
   }
 
   const saveDetail = async () => {
@@ -314,6 +384,7 @@ export default function InventoryPage() {
         nw_status: editData.nw_status || null,
         camera_stain_level: editData.camera_stain_level || null,
         color: editData.color || null,
+        rank: editData.rank || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', selectedItem.id)
@@ -755,6 +826,42 @@ export default function InventoryPage() {
               </div>
               <div className="info-box" style={{ marginBottom: '12px' }}>
                 <h3 style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>状態（編集可）</h3>
+                {/* ランク変更（目立つように配置） */}
+                {editData.rank !== selectedItem.rank && (
+                  <div style={{
+                    background: '#FEF3C7',
+                    border: '1px solid #F59E0B',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    marginBottom: '12px',
+                    fontSize: '0.8rem',
+                    color: '#92400E'
+                  }}>
+                    ランクを変更すると販売価格が自動更新されます（買取: {selectedItem.rank} → 販売: {editData.rank}）
+                  </div>
+                )}
+                <div style={{ marginBottom: '12px' }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: '#EA580C' }}>販売ランク（変更可）</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <select
+                      value={editData.rank}
+                      onChange={(e) => handleRankChange(e.target.value)}
+                      className="form-select"
+                      style={{
+                        flex: 1,
+                        borderColor: editData.rank !== selectedItem.rank ? '#EA580C' : undefined,
+                        fontWeight: '500'
+                      }}
+                    >
+                      {RANK_OPTIONS.map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                      （買取時: {selectedItem.rank}）
+                    </span>
+                  </div>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                   <div>
                     <label className="form-label" style={{ fontSize: '0.75rem' }}>バッテリー</label>
