@@ -169,6 +169,29 @@ export default function MailBuybackManagementPage() {
     }
   }
 
+  // 削除処理
+  const deleteRequest = async (id: number, requestNumber: string) => {
+    if (!confirm(`${requestNumber} を削除しますか？\n\nこの操作は取り消せません。`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('t_mail_buyback_requests')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      await fetchRequests()
+      setSelectedRequest(null)
+      alert('削除しました')
+    } catch (error) {
+      console.error('削除エラー:', error)
+      alert('削除に失敗しました')
+    }
+  }
+
   // 検索フィルター
   const filteredRequests = requests.filter(req => {
     if (!searchQuery) return true
@@ -539,6 +562,20 @@ export default function MailBuybackManagementPage() {
                   className="btn btn-secondary"
                 >
                   閉じる
+                </button>
+
+                {/* 削除ボタン */}
+                <button
+                  onClick={() => deleteRequest(selectedRequest.id, selectedRequest.request_number)}
+                  className="btn"
+                  style={{
+                    marginLeft: 'auto',
+                    background: '#DC2626',
+                    color: 'white',
+                    border: 'none',
+                  }}
+                >
+                  削除
                 </button>
               </div>
             </div>
