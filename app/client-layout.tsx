@@ -21,8 +21,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isPublicPath = PUBLIC_PATHS.some(path => pathname?.startsWith(path))
 
   // キオスクモードまたは公開ページはナビゲーションなしで表示
+  // ちらつき防止: 公開ページは即座に表示
   if (isPublicPath || isKioskMode) {
     return <>{children}</>
+  }
+
+  // パスがまだ確定していない場合は何も表示しない（ちらつき防止）
+  if (!pathname) {
+    return null
   }
 
   // ローディング中

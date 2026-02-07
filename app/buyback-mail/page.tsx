@@ -673,12 +673,30 @@ function MailBuybackPageContent() {
                     )}
                   </div>
 
+                  {/* ネットワーク利用制限の減額 */}
+                  <div style={{
+                    background: '#f0f4ff',
+                    borderRadius: 8,
+                    padding: '12px 16px',
+                    marginTop: 16,
+                    textAlign: 'left',
+                    fontSize: 13,
+                    color: '#004AAD',
+                    lineHeight: 1.8,
+                  }}>
+                    <strong>ネットワーク利用制限による減額</strong>
+                    <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                      <li>△（支払い中）: 査定金額の20%減額</li>
+                      <li>×（利用制限）: 査定金額の40%減額</li>
+                    </ul>
+                  </div>
+
                   {/* 分割支払い残の注意 */}
                   <div style={{
                     background: '#fffbeb',
                     borderRadius: 8,
                     padding: '12px 16px',
-                    marginTop: 16,
+                    marginTop: 12,
                     textAlign: 'left',
                     fontSize: 13,
                     color: '#92400e',
@@ -1199,13 +1217,12 @@ function DeviceItemForm({
         <div className="form-group" style={{ marginBottom: 16 }}>
           <label className="form-label">カメラ染み</label>
           <select
-            value={item.cameraStain}
-            onChange={(e) => onUpdate({ cameraStain: e.target.value as 'none' | 'minor' | 'major' })}
+            value={item.cameraStain === 'none' ? 'none' : 'yes'}
+            onChange={(e) => onUpdate({ cameraStain: e.target.value === 'yes' ? 'minor' : 'none' })}
             className="form-select"
           >
             <option value="none">なし</option>
-            <option value="minor">小</option>
-            <option value="major">大</option>
+            <option value="yes">あり</option>
           </select>
           <div style={{ fontSize: 12, color: '#666', marginTop: 4, lineHeight: 1.6 }}>
             ※ 白い無地の背景にカメラをかざすと確認出来ます<br />
