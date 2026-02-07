@@ -167,116 +167,99 @@ export default function MailBuybackManagementPage() {
     }
   }
 
-  // クリックポストラベル印刷（複数）
-  const printClickPostLabels = () => {
-    const selectedRequests = requests.filter(r => selectedIds.includes(r.id))
-    if (selectedRequests.length === 0) {
-      alert('印刷する申込を選択してください')
-      return
-    }
+  // クリックポストCSVダウンロード共通処理（Shift-JIS）
+  const downloadClickPostCsv = async (reqs: MailBuybackRequest[]) => {
+    // クリックポストCSVフォーマット
+    const headers = [
+      'お届け先郵便番号',
+      'お届け先氏名',
+      'お届け先敬称',
+      'お届け先住所1行目',
+      'お届け先住所2行目',
+      'お届け先住所3行目',
+      'お届け先住所4行目',
+      '内容品',
+    ]
 
-    const html = generateClickPostHtml(selectedRequests)
-    const printWindow = window.open('', '_blank')
-    if (printWindow) {
-      printWindow.document.write(html)
-      printWindow.document.close()
-      printWindow.onload = () => printWindow.print()
+    const rows = reqs.map(req => {
+      const postalCode = (req.postal_code || '').replace(/-/g, '')
+      return [
+        postalCode,
+        req.customer_name,
+        '様',
+        req.address || '',
+        req.address_detail || '',
+        '',
+        '',
+        '買取キット',
+      ]
+    })
+
+    // CSV生成
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\r\n')
+
+    // Shift-JISに変換してダウンロード
+    try {
+      const response = await fetch('/api/convert-to-sjis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: csvContent }),
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = 'template.csv'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        alert(`${reqs.length}件のCSVをダウンロードしました`)
+      } else {
+        // フォールバック：UTF-8で出力
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = 'template.csv'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        alert(`${reqs.length}件のCSVをダウンロードしました（UTF-8）`)
+      }
+    } catch {
+      // エラー時はUTF-8で出力
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'template.csv'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      alert(`${reqs.length}件のCSVをダウンロードしました（UTF-8）`)
     }
   }
 
-  // クリックポストHTML生成
-  const generateClickPostHtml = (reqs: MailBuybackRequest[]) => {
-    const labels = reqs.map(req => `
-      <div class="label">
-        <div class="label-header">クリックポスト</div>
-        <div class="address-section">
-          <div class="label-title">お届け先</div>
-          <div class="postal">〒${req.postal_code || ''}</div>
-          <div class="address">${req.address || ''}</div>
-          <div class="address">${req.address_detail || ''}</div>
-          <div class="name">${req.customer_name} 様</div>
-        </div>
-        <div class="divider"></div>
-        <div class="sender-section">
-          <div class="label-title">ご依頼主</div>
-          <div class="postal">〒916-0038</div>
-          <div class="address">福井県鯖江市下河端町16字下町16-1</div>
-          <div class="address">アル・プラザ鯖江1F</div>
-          <div class="name">ONE STOP 鯖江店</div>
-          <div class="phone">TEL: 080-5720-1164</div>
-        </div>
-        <div class="request-number">${req.request_number}</div>
-      </div>
-    `).join('')
+  // 単一のクリックポストCSV出力
+  const exportSingleClickPostCsv = async (req: MailBuybackRequest) => {
+    await downloadClickPostCsv([req])
+  }
 
-    return `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>クリックポストラベル</title>
-  <style>
-    @page { size: A4; margin: 5mm; }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
-      font-size: 11px;
+  // クリックポストCSV出力（複数選択）
+  const exportClickPostCsv = async () => {
+    const selectedRequests = requests.filter(r => selectedIds.includes(r.id))
+    if (selectedRequests.length === 0) {
+      alert('出力する申込を選択してください')
+      return
     }
-    .labels-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5mm;
-    }
-    .label {
-      width: 95mm;
-      height: 65mm;
-      border: 1px solid #000;
-      padding: 3mm;
-      page-break-inside: avoid;
-    }
-    .label-header {
-      text-align: center;
-      font-size: 14px;
-      font-weight: bold;
-      border-bottom: 1px solid #000;
-      padding-bottom: 2mm;
-      margin-bottom: 2mm;
-    }
-    .label-title {
-      font-size: 9px;
-      color: #666;
-      margin-bottom: 1mm;
-    }
-    .address-section, .sender-section {
-      margin-bottom: 2mm;
-    }
-    .postal { font-size: 10px; }
-    .address { font-size: 10px; line-height: 1.4; }
-    .name { font-size: 13px; font-weight: bold; margin-top: 1mm; }
-    .phone { font-size: 9px; color: #666; }
-    .divider {
-      border-top: 1px dashed #999;
-      margin: 2mm 0;
-    }
-    .request-number {
-      text-align: right;
-      font-size: 8px;
-      color: #999;
-      margin-top: 1mm;
-    }
-    @media print {
-      .labels-container { gap: 0; }
-      .label { margin: 2mm; }
-    }
-  </style>
-</head>
-<body>
-  <div class="labels-container">
-    ${labels}
-  </div>
-</body>
-</html>
-    `
+    await downloadClickPostCsv(selectedRequests)
   }
 
   // 本査定モーダルを開く
@@ -596,14 +579,14 @@ export default function MailBuybackManagementPage() {
               更新
             </button>
 
-            {/* クリックポスト印刷ボタン */}
+            {/* クリックポストCSV出力ボタン */}
             {selectedIds.length > 0 && (
               <button
-                onClick={printClickPostLabels}
+                onClick={exportClickPostCsv}
                 className="btn"
                 style={{ background: '#F59E0B', color: 'white', border: 'none' }}
               >
-                📮 クリックポスト印刷 ({selectedIds.length}件)
+                📮 クリックポストCSV ({selectedIds.length}件)
               </button>
             )}
           </div>
@@ -855,19 +838,11 @@ export default function MailBuybackManagementPage() {
                 </button>
                 {selectedRequest.status === 'pending' && (
                   <button
-                    onClick={() => {
-                      const html = generateClickPostHtml([selectedRequest])
-                      const printWindow = window.open('', '_blank')
-                      if (printWindow) {
-                        printWindow.document.write(html)
-                        printWindow.document.close()
-                        printWindow.onload = () => printWindow.print()
-                      }
-                    }}
+                    onClick={() => exportSingleClickPostCsv(selectedRequest)}
                     className="btn"
                     style={{ background: '#F59E0B', color: 'white', border: 'none' }}
                   >
-                    📮 クリックポスト印刷
+                    📮 クリックポストCSV
                   </button>
                 )}
               </div>
