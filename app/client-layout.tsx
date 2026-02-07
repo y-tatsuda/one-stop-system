@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/contexts/AuthContext'
+import { supabase } from '@/app/lib/supabase'
 
 // 認証不要のパス
 const PUBLIC_PATHS = ['/login', '/invite', '/change-password', '/buyback-kiosk', '/buyback-mail', '/buyback-response', '/shop', '/liff']
@@ -13,6 +14,41 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const searchParams = useSearchParams()
   const { staff, isLoading, isAuthenticated, logout } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // 郵送買取の未処理件数
+  const [mailBuybackCounts, setMailBuybackCounts] = useState({ pending: 0, approved: 0 })
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        // キット送付待ち（pending）
+        const { count: pendingCount } = await supabase
+          .from('t_mail_buyback_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending')
+
+        // 振込待ち（approved）
+        const { count: approvedCount } = await supabase
+          .from('t_mail_buyback_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'approved')
+
+        setMailBuybackCounts({
+          pending: pendingCount || 0,
+          approved: approvedCount || 0,
+        })
+      } catch (e) {
+        console.error('郵送買取件数取得エラー:', e)
+      }
+    }
+
+    if (isAuthenticated) {
+      fetchCounts()
+      // 30秒ごとに更新
+      const interval = setInterval(fetchCounts, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [isAuthenticated])
 
   // キオスクモードチェック
   const isKioskMode = searchParams.get('kiosk') === 'true'
@@ -78,8 +114,31 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           <nav className="desktop-nav">
             <Link href="/sales" className="desktop-nav-link">売上入力</Link>
             <Link href="/sales-history" className="desktop-nav-link">売上履歴</Link>
-            <Link href="/buyback" className="desktop-nav-link">買取入力</Link>
-            
+            <Link href="/buyback" className="desktop-nav-link">店頭買取</Link>
+            <Link href="/mail-buyback-management" className="desktop-nav-link" style={{ position: 'relative' }}>
+              郵送買取
+              {(mailBuybackCounts.approved > 0 || mailBuybackCounts.pending > 0) && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-8px',
+                  minWidth: '18px',
+                  height: '18px',
+                  borderRadius: '9px',
+                  background: mailBuybackCounts.approved > 0 ? '#EF4444' : '#F59E0B',
+                  color: 'white',
+                  fontSize: '0.7rem',
+                  fontWeight: '700',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 4px',
+                }}>
+                  {mailBuybackCounts.approved > 0 ? mailBuybackCounts.approved : mailBuybackCounts.pending}
+                </span>
+              )}
+            </Link>
+
             {/* 在庫ドロップダウン */}
             <div className="nav-dropdown">
               <button className="desktop-nav-link nav-dropdown-trigger">
@@ -98,7 +157,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 業務 <span className="dropdown-arrow">▼</span>
               </button>
               <div className="nav-dropdown-menu">
-                <Link href="/mail-buyback-management" className="nav-dropdown-item">郵送買取管理</Link>
                 <Link href="/inventory-check" className="nav-dropdown-item">棚卸し</Link>
                 <Link href="/order" className="nav-dropdown-item">発注</Link>
                 <Link href="/daily-report" className="nav-dropdown-item">日報</Link>
@@ -166,7 +224,27 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           売上履歴
         </Link>
         <Link href="/buyback" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
-          買取入力
+          店頭買取
+        </Link>
+        <Link href="/mail-buyback-management" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          郵送買取
+          {(mailBuybackCounts.approved > 0 || mailBuybackCounts.pending > 0) && (
+            <span style={{
+              minWidth: '20px',
+              height: '20px',
+              borderRadius: '10px',
+              background: mailBuybackCounts.approved > 0 ? '#EF4444' : '#F59E0B',
+              color: 'white',
+              fontSize: '0.75rem',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 6px',
+            }}>
+              {mailBuybackCounts.approved > 0 ? mailBuybackCounts.approved : mailBuybackCounts.pending}
+            </span>
+          )}
         </Link>
 
         <div className="mobile-nav-group-title mobile-nav-group-inventory">在庫管理</div>
@@ -181,9 +259,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </Link>
 
         <div className="mobile-nav-group-title mobile-nav-group-work">業務</div>
-        <Link href="/mail-buyback-management" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
-          郵送買取管理
-        </Link>
         <Link href="/inventory-check" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
           棚卸し
         </Link>
