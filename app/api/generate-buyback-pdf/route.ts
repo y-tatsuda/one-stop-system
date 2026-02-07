@@ -43,9 +43,9 @@ type RequestBody = {
   createdAt?: string
 }
 
-// QRコード生成用URL（Google Charts API）
+// QRコード生成用URL（QR Server API）
 const getQRCodeUrl = (data: string, size: number = 100) => {
-  return `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encodeURIComponent(data)}&choe=UTF-8`
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&format=png`
 }
 
 export async function POST(request: NextRequest) {
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
   <style>
     @page {
       size: A4;
-      margin: 8mm;
+      margin: 10mm 12mm;
     }
     * {
       margin: 0;
@@ -81,11 +81,15 @@ export async function POST(request: NextRequest) {
       font-size: 10px;
       line-height: 1.4;
       color: #000;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .page {
-      width: 194mm;
-      min-height: 279mm;
-      padding: 3mm;
+      width: 100%;
+      max-width: 186mm;
+      min-height: 267mm;
+      margin: 0 auto;
+      padding: 5mm;
       page-break-after: always;
     }
     .page:last-child {
@@ -94,19 +98,21 @@ export async function POST(request: NextRequest) {
     h1 {
       font-size: 20px;
       text-align: center;
-      margin-bottom: 3px;
+      margin-bottom: 8px;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #000;
     }
     .header-info {
       display: flex;
       justify-content: flex-end;
       gap: 20px;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
       font-size: 9px;
     }
     .device-box {
-      border: 1px solid #000;
-      padding: 6px 10px;
-      margin-bottom: 8px;
+      border: 2px solid #000;
+      padding: 8px 12px;
+      margin-bottom: 10px;
     }
     .device-row {
       display: flex;
@@ -140,9 +146,9 @@ export async function POST(request: NextRequest) {
       list-style: none;
     }
     .customer-box {
-      border: 1px solid #000;
-      padding: 8px 10px;
-      margin-top: 8px;
+      border: 2px solid #000;
+      padding: 10px 12px;
+      margin-top: 10px;
     }
     .customer-row {
       display: flex;
@@ -235,22 +241,24 @@ export async function POST(request: NextRequest) {
 
     /* 裏面 */
     .page2 h1 {
-      font-size: 18px;
-      margin-bottom: 12px;
+      font-size: 20px;
+      margin-bottom: 15px;
     }
     .step {
-      margin-bottom: 12px;
+      margin-bottom: 15px;
     }
     .step-title {
       font-weight: bold;
       font-size: 11px;
-      margin-bottom: 4px;
-      background: #f5f5f5;
-      padding: 4px 8px;
+      margin-bottom: 6px;
+      background: #e8e8e8;
+      padding: 6px 10px;
+      border-left: 3px solid #333;
     }
     .step-content {
-      padding: 4px 8px;
+      padding: 6px 10px;
       font-size: 9px;
+      line-height: 1.6;
     }
     .checkbox-item {
       margin-bottom: 2px;
@@ -288,9 +296,13 @@ export async function POST(request: NextRequest) {
     }
     .qr-box {
       text-align: center;
+      flex-shrink: 0;
     }
     .qr-box img {
       border: 1px solid #ddd;
+      display: block;
+      width: auto;
+      height: auto;
     }
     .qr-label {
       font-size: 8px;
