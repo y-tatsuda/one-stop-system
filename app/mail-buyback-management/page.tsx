@@ -448,9 +448,13 @@ export default function MailBuybackManagementPage() {
 
       // 通知送信
       try {
-        await fetch('/api/mail-buyback/notify', {
+        const authToken = localStorage.getItem('auth_token')
+        const notifyRes = await fetch('/api/mail-buyback/notify', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authToken ? `Bearer ${authToken}` : '',
+          },
           body: JSON.stringify({
             action: 'assessed',
             requestId: selectedRequest.id,
@@ -458,6 +462,8 @@ export default function MailBuybackManagementPage() {
             finalPrice,
           }),
         })
+        const notifyResult = await notifyRes.json()
+        console.log('通知結果:', notifyResult)
       } catch (notifyError) {
         console.error('通知エラー:', notifyError)
       }
@@ -614,9 +620,13 @@ export default function MailBuybackManagementPage() {
       const notifyActions = ['kit_sent', 'assessed', 'approved', 'rejected', 'paid']
       if (notifyActions.includes(newStatus)) {
         try {
+          const authToken = localStorage.getItem('auth_token')
           const notifyRes = await fetch('/api/mail-buyback/notify', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': authToken ? `Bearer ${authToken}` : '',
+            },
             body: JSON.stringify({ action: newStatus, requestId: id }),
           })
           const notifyResult = await notifyRes.json()
