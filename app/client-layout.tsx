@@ -16,7 +16,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // 郵送買取の未処理件数
-  const [mailBuybackCounts, setMailBuybackCounts] = useState({ pending: 0, approved: 0 })
+  const [mailBuybackCounts, setMailBuybackCounts] = useState({ pending: 0, waitingPayment: 0 })
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -27,15 +27,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           .select('*', { count: 'exact', head: true })
           .eq('status', 'pending')
 
-        // 振込待ち（approved）
-        const { count: approvedCount } = await supabase
+        // 振込待ち（waiting_payment）← お客様承諾済み、振込が必要
+        const { count: waitingPaymentCount } = await supabase
           .from('t_mail_buyback_requests')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'approved')
+          .eq('status', 'waiting_payment')
 
         setMailBuybackCounts({
           pending: pendingCount || 0,
-          approved: approvedCount || 0,
+          waitingPayment: waitingPaymentCount || 0,
         })
       } catch (e) {
         console.error('郵送買取件数取得エラー:', e)
@@ -117,7 +117,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <Link href="/buyback" className="desktop-nav-link">店頭買取</Link>
             <Link href="/mail-buyback-management" className="desktop-nav-link" style={{ position: 'relative' }}>
               郵送買取
-              {(mailBuybackCounts.approved > 0 || mailBuybackCounts.pending > 0) && (
+              {(mailBuybackCounts.waitingPayment > 0 || mailBuybackCounts.pending > 0) && (
                 <span style={{
                   position: 'absolute',
                   top: '-4px',
@@ -125,7 +125,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   minWidth: '18px',
                   height: '18px',
                   borderRadius: '9px',
-                  background: mailBuybackCounts.approved > 0 ? '#EF4444' : '#F59E0B',
+                  background: mailBuybackCounts.waitingPayment > 0 ? '#EF4444' : '#F59E0B',
                   color: 'white',
                   fontSize: '0.7rem',
                   fontWeight: '700',
@@ -134,7 +134,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   justifyContent: 'center',
                   padding: '0 4px',
                 }}>
-                  {mailBuybackCounts.approved > 0 ? mailBuybackCounts.approved : mailBuybackCounts.pending}
+                  {mailBuybackCounts.waitingPayment > 0 ? mailBuybackCounts.waitingPayment : mailBuybackCounts.pending}
                 </span>
               )}
             </Link>
@@ -228,12 +228,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </Link>
         <Link href="/mail-buyback-management" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           郵送買取
-          {(mailBuybackCounts.approved > 0 || mailBuybackCounts.pending > 0) && (
+          {(mailBuybackCounts.waitingPayment > 0 || mailBuybackCounts.pending > 0) && (
             <span style={{
               minWidth: '20px',
               height: '20px',
               borderRadius: '10px',
-              background: mailBuybackCounts.approved > 0 ? '#EF4444' : '#F59E0B',
+              background: mailBuybackCounts.waitingPayment > 0 ? '#EF4444' : '#F59E0B',
               color: 'white',
               fontSize: '0.75rem',
               fontWeight: '700',
@@ -242,7 +242,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               justifyContent: 'center',
               padding: '0 6px',
             }}>
-              {mailBuybackCounts.approved > 0 ? mailBuybackCounts.approved : mailBuybackCounts.pending}
+              {mailBuybackCounts.waitingPayment > 0 ? mailBuybackCounts.waitingPayment : mailBuybackCounts.pending}
             </span>
           )}
         </Link>
