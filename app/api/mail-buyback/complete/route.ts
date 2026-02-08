@@ -4,8 +4,12 @@
  * =====================================================
  *
  * 振込待ちの郵送買取を完了し、在庫に登録する
- * 1. t_used_inventory に INSERT
- * 2. t_mail_buyback_requests を DELETE
+ * 既存の店頭買取と同じテーブル構造を使用:
+ * 1. t_customers に顧客登録
+ * 2. t_buyback にヘッダー登録
+ * 3. t_used_inventory に在庫登録
+ * 4. t_buyback_items に明細登録
+ * 5. t_mail_buyback_requests を DELETE
  * =====================================================
  */
 
@@ -60,6 +64,11 @@ type MailBuybackRequest = {
   final_price: number | null
   assessment_details: AssessmentDetails | null
   agreement_document_path: string | null
+  bank_name: string | null
+  bank_branch: string | null
+  bank_account_type: string | null
+  bank_account_number: string | null
+  bank_account_holder: string | null
 }
 
 export async function POST(request: NextRequest) {
@@ -106,16 +115,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 認証ユーザーの店舗IDを取得（m_staffテーブルから）
+    // 認証ユーザーの店舗ID・スタッフIDを取得
     let shopId = 1
+    let staffId = 1
     if (authResult.auth?.staffId) {
       const { data: staffData } = await supabaseAdmin
         .from('m_staff')
-        .select('shop_id')
+        .select('id, shop_id')
         .eq('id', authResult.auth.staffId)
         .single()
-      if (staffData?.shop_id) {
-        shopId = staffData.shop_id
+      if (staffData) {
+        staffId = staffData.id
+        if (staffData.shop_id) {
+          shopId = staffData.shop_id
+        }
       }
     }
 
@@ -126,7 +139,6 @@ export async function POST(request: NextRequest) {
     const getChangedValue = (field: string, original: unknown): unknown => {
       const change = changes.find(c => c.field === field && c.hasChanged)
       if (change) {
-        // 各フィールドに応じた値変換
         if (field === 'batteryPercent') {
           return parseInt(change.afterValue.replace('%', '')) || original
         }
@@ -146,85 +158,175 @@ export async function POST(request: NextRequest) {
     const finalRepairHistory = getChangedValue('repairHistory', item?.repairHistory || false) as boolean
 
     const buybackPrice = mailReq.final_price || mailReq.total_estimated_price
-
-    // 管理番号を生成
     const now = new Date()
-    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+    const buybackDate = now.toISOString().split('T')[0]
 
-    // 今日の既存在庫数を取得
-    const { data: existingInventory } = await supabaseAdmin
-      .from('t_used_inventory')
-      .select('management_number')
-      .like('management_number', `UI-${dateStr}-%`)
-      .order('management_number', { ascending: false })
-      .limit(1)
+    // 生年月日を組み立て
+    const birthDate = mailReq.birth_year && mailReq.birth_month && mailReq.birth_day
+      ? `${mailReq.birth_year}-${String(mailReq.birth_month).padStart(2, '0')}-${String(mailReq.birth_day).padStart(2, '0')}`
+      : null
 
-    let sequence = 1
-    if (existingInventory && existingInventory.length > 0) {
-      const lastNumber = existingInventory[0].management_number
-      const lastSeq = parseInt(lastNumber.split('-').pop() || '0')
-      sequence = lastSeq + 1
-    }
-
-    const managementNumber = `UI-${dateStr}-${String(sequence).padStart(3, '0')}`
-
-    // 在庫データを作成
-    const inventoryData = {
-      tenant_id: 1,
-      shop_id: shopId,
-      model: item?.model || item?.modelDisplayName || 'unknown',
-      storage: parseInt(item?.storage) || 128,
-      color: item?.color || null,
-      rank: finalRank,
-      imei: item?.imei || null,
-      battery_percent: finalBatteryPercent,
-      is_service_state: false,
-      nw_status: finalNwStatus,
-      camera_stain_level: finalCameraStain,
-      camera_broken: finalCameraBroken,
-      repair_history: finalRepairHistory,
-      repair_types: null,
-      buyback_price: buybackPrice,
-      repair_cost: 0,
-      total_cost: buybackPrice,
-      sales_price: null,
-      status: '販売可',
-      ec_status: null,
-      arrival_date: now.toISOString().split('T')[0],
-      management_number: managementNumber,
-      memo: `郵送買取 ${mailReq.request_number} より登録\n顧客: ${mailReq.customer_name}`,
-      // 古物商に必要な情報
-      buyback_customer_name: mailReq.customer_name,
-      buyback_customer_kana: mailReq.customer_name_kana,
-      buyback_address: [
-        mailReq.postal_code ? `〒${mailReq.postal_code}` : '',
-        mailReq.address || '',
-        mailReq.address_detail || '',
-      ].filter(Boolean).join(' '),
-      buyback_birth_date: mailReq.birth_year && mailReq.birth_month && mailReq.birth_day
-        ? `${mailReq.birth_year}-${String(mailReq.birth_month).padStart(2, '0')}-${String(mailReq.birth_day).padStart(2, '0')}`
-        : null,
-      buyback_date: now.toISOString().split('T')[0],
-      agreement_document_path: mailReq.agreement_document_path,
-      mail_buyback_request_number: mailReq.request_number,
-    }
-
-    // 在庫に登録
-    const { data: insertedInventory, error: insertError } = await supabaseAdmin
-      .from('t_used_inventory')
-      .insert(inventoryData)
+    // 1. 顧客登録（t_customers）
+    const { data: customerData, error: customerError } = await supabaseAdmin
+      .from('t_customers')
+      .insert({
+        tenant_id: 1,
+        name: mailReq.customer_name,
+        name_kana: mailReq.customer_name_kana,
+        birth_date: birthDate,
+        phone: mailReq.phone || '',
+        address: [mailReq.address || '', mailReq.address_detail || ''].filter(Boolean).join(' '),
+      })
       .select()
       .single()
 
-    if (insertError) {
-      console.error('在庫登録エラー:', insertError)
+    if (customerError) {
+      console.error('顧客登録エラー:', customerError)
       return NextResponse.json(
-        { success: false, error: `在庫登録に失敗しました: ${insertError.message}` },
+        { success: false, error: `顧客登録に失敗しました: ${customerError.message}` },
         { status: 500 }
       )
     }
 
-    // 郵送買取リクエストを削除
+    // 2. 買取ヘッダー登録（t_buyback）
+    const { data: buybackData, error: buybackError } = await supabaseAdmin
+      .from('t_buyback')
+      .insert({
+        customer_id: customerData.id,
+        tenant_id: 1,
+        shop_id: shopId,
+        staff_id: staffId,
+        buyback_date: buybackDate,
+        buyback_type: 'mail',
+        item_count: mailReq.items.length,
+        total_buyback_price: buybackPrice,
+        total_sales_price: 0,
+        total_expected_profit: 0,
+        customer_name: mailReq.customer_name,
+        customer_birth_date: birthDate,
+        customer_postal_code: mailReq.postal_code,
+        customer_address: mailReq.address,
+        customer_address_detail: mailReq.address_detail,
+        customer_occupation: mailReq.occupation,
+        customer_phone: mailReq.phone,
+        id_verified: true,
+        id_verification_method: 'image',
+        consent_completed: true,
+        consent_image_url: mailReq.agreement_document_path,
+        payment_method: 'transfer',
+        bank_name: mailReq.bank_name,
+        bank_branch: mailReq.bank_branch,
+        bank_account_type: mailReq.bank_account_type,
+        bank_account_number: mailReq.bank_account_number,
+        bank_account_holder: mailReq.bank_account_holder,
+        // 後方互換性
+        model: item?.model || item?.modelDisplayName,
+        storage: parseInt(item?.storage) || 128,
+        rank: finalRank,
+        imei: item?.imei,
+        battery_percent: finalBatteryPercent,
+        nw_status: finalNwStatus,
+        camera_broken: finalCameraBroken,
+        camera_stain: finalCameraStain !== 'none',
+        repair_history: finalRepairHistory,
+        final_price: buybackPrice,
+        memo: `郵送買取 ${mailReq.request_number}`,
+      })
+      .select()
+      .single()
+
+    if (buybackError) {
+      console.error('買取ヘッダー登録エラー:', buybackError)
+      // 顧客は登録済みだが続行不可
+      return NextResponse.json(
+        { success: false, error: `買取登録に失敗しました: ${buybackError.message}` },
+        { status: 500 }
+      )
+    }
+
+    const buybackId = buybackData.id
+
+    // 3. 在庫登録（t_used_inventory）
+    const { data: inventoryData, error: inventoryError } = await supabaseAdmin
+      .from('t_used_inventory')
+      .insert({
+        tenant_id: 1,
+        shop_id: shopId,
+        arrival_date: buybackDate,
+        model: item?.model || item?.modelDisplayName || 'unknown',
+        storage: parseInt(item?.storage) || 128,
+        rank: finalRank,
+        color: item?.color || null,
+        imei: item?.imei || null,
+        management_number: item?.imei ? item.imei.slice(-4) : null,
+        battery_percent: finalBatteryPercent,
+        is_service_state: false,
+        nw_status: finalNwStatus,
+        camera_stain_level: finalCameraStain,
+        camera_broken: finalCameraBroken,
+        repair_history: finalRepairHistory,
+        buyback_price: buybackPrice,
+        repair_cost: 0,
+        total_cost: buybackPrice,
+        sales_price: null,
+        status: '販売可',
+        buyback_id: buybackId,
+        memo: `郵送買取 ${mailReq.request_number} より登録`,
+      })
+      .select()
+      .single()
+
+    if (inventoryError) {
+      console.error('在庫登録エラー:', inventoryError)
+      return NextResponse.json(
+        { success: false, error: `在庫登録に失敗しました: ${inventoryError.message}` },
+        { status: 500 }
+      )
+    }
+
+    // 4. 明細登録（t_buyback_items）
+    const { error: itemError } = await supabaseAdmin
+      .from('t_buyback_items')
+      .insert({
+        tenant_id: 1,
+        buyback_id: buybackId,
+        item_number: 1,
+        model: item?.model || item?.modelDisplayName,
+        storage: parseInt(item?.storage) || 128,
+        rank: finalRank,
+        color: item?.color || null,
+        imei: item?.imei || null,
+        battery_percent: finalBatteryPercent,
+        is_service_state: false,
+        nw_status: finalNwStatus,
+        camera_stain: finalCameraStain,
+        camera_broken: finalCameraBroken,
+        repair_history: finalRepairHistory,
+        needs_repair: false,
+        repair_cost: 0,
+        base_price: item?.estimatedPrice || buybackPrice,
+        total_deduction: 0,
+        calculated_price: buybackPrice,
+        guarantee_price: 0,
+        special_price_enabled: false,
+        final_price: buybackPrice,
+        sales_price: 0,
+        expected_profit: 0,
+        used_inventory_id: inventoryData.id,
+      })
+
+    if (itemError) {
+      console.error('明細登録エラー:', itemError)
+      // 続行可能（在庫は登録済み）
+    }
+
+    // 買取ヘッダーにused_inventory_idを更新（後方互換）
+    await supabaseAdmin
+      .from('t_buyback')
+      .update({ used_inventory_id: inventoryData.id })
+      .eq('id', buybackId)
+
+    // 5. 郵送買取リクエストを削除
     const { error: deleteError } = await supabaseAdmin
       .from('t_mail_buyback_requests')
       .delete()
@@ -232,19 +334,19 @@ export async function POST(request: NextRequest) {
 
     if (deleteError) {
       console.error('削除エラー:', deleteError)
-      // 削除に失敗しても在庫登録は成功しているので、警告として返す
       return NextResponse.json({
         success: true,
         warning: '在庫登録は成功しましたが、郵送買取リクエストの削除に失敗しました',
-        inventoryId: insertedInventory.id,
-        managementNumber,
+        inventoryId: inventoryData.id,
+        managementNumber: inventoryData.management_number,
       })
     }
 
     return NextResponse.json({
       success: true,
-      inventoryId: insertedInventory.id,
-      managementNumber,
+      inventoryId: inventoryData.id,
+      managementNumber: inventoryData.management_number,
+      buybackId: buybackId,
     })
   } catch (error) {
     console.error('完了処理エラー:', error)
