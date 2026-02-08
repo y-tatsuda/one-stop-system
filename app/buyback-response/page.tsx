@@ -261,14 +261,15 @@ function BuybackResponseContent() {
               <div style={{ marginBottom: '8px' }}><strong>振込先:</strong> {bankInfo.bankName} {bankInfo.branchName}</div>
               <div><strong>口座:</strong> {bankInfo.accountType} {bankInfo.accountNumber}</div>
             </div>
-            <div style={{ background: '#fef3c7', padding: '16px', borderRadius: '8px', textAlign: 'left', fontSize: '0.9rem' }}>
+            <div style={{ background: '#fef3c7', padding: '16px', borderRadius: '8px', textAlign: 'left', fontSize: '0.9rem', marginBottom: '20px' }}>
               <strong>振込予定</strong>
               <p style={{ margin: '8px 0 0', color: '#92400e' }}>
                 {isBefore19
-                  ? '翌営業日の朝9時までにお振込みいたします。'
-                  : '翌々営業日の朝9時までにお振込みいたします。'}
+                  ? '19時までの振込依頼は、翌営業日の朝9時までにお振込みいたします。'
+                  : '19時以降の振込依頼は、翌々営業日の朝9時までにお振込みいたします。'}
               </p>
             </div>
+            <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>このまま画面を閉じてください。</p>
           </div>
         </div>
       </div>
