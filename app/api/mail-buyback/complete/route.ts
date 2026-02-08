@@ -1,6 +1,6 @@
 /**
  * =====================================================
- * 郵送買取 完了API（在庫登録 & 削除）
+ * 郵送買取 完了API（在庫登録 & 削除 & 振込完了通知）
  * =====================================================
  *
  * 振込待ちの郵送買取を完了し、在庫に登録する
@@ -9,13 +9,18 @@
  * 2. t_buyback にヘッダー登録
  * 3. t_used_inventory に在庫登録
  * 4. t_buyback_items に明細登録
- * 5. t_mail_buyback_requests を DELETE
+ * 5. 振込完了通知（LINE/メール）を送信
+ * 6. t_mail_buyback_requests を DELETE
  * =====================================================
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { requireAuth } from '@/app/lib/auth'
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN
 
 type ItemChange = {
   field: string
@@ -46,6 +51,8 @@ type MailBuybackRequest = {
   postal_code: string | null
   address: string | null
   address_detail: string | null
+  line_user_id: string | null
+  source: 'web' | 'liff'
   items: Array<{
     model?: string
     modelDisplayName: string
@@ -66,10 +73,10 @@ type MailBuybackRequest = {
   assessment_details: AssessmentDetails | null
   agreement_document_path: string | null
   bank_name: string | null
-  bank_branch: string | null
-  bank_account_type: string | null
-  bank_account_number: string | null
-  bank_account_holder: string | null
+  branch_name: string | null
+  account_type: string | null
+  account_number: string | null
+  account_holder: string | null
 }
 
 export async function POST(request: NextRequest) {
@@ -216,10 +223,10 @@ export async function POST(request: NextRequest) {
         consent_image_url: mailReq.agreement_document_path,
         payment_method: 'transfer',
         bank_name: mailReq.bank_name,
-        bank_branch: mailReq.bank_branch,
-        bank_account_type: mailReq.bank_account_type,
-        bank_account_number: mailReq.bank_account_number,
-        bank_account_holder: mailReq.bank_account_holder,
+        bank_branch: mailReq.branch_name,
+        bank_account_type: mailReq.account_type,
+        bank_account_number: mailReq.account_number,
+        bank_account_holder: mailReq.account_holder,
         // 後方互換性（店頭買取と同じカラム）
         model: item?.model || item?.modelDisplayName,
         storage: parseInt(item?.storage) || 128,
@@ -331,7 +338,75 @@ export async function POST(request: NextRequest) {
       .update({ used_inventory_id: inventoryData.id })
       .eq('id', buybackId)
 
-    // 5. 郵送買取リクエストを削除
+    // 5. 振込完了通知を送信（削除前に実行）
+    const finalPrice = mailReq.final_price || mailReq.total_estimated_price
+    const isLiff = mailReq.source === 'liff' && mailReq.line_user_id
+
+    if (isLiff) {
+      // LINE通知
+      try {
+        const message = `💰 お振込みが完了しました
+
+${mailReq.customer_name} 様
+
+買取代金のお振込みが完了いたしました。
+
+【申込番号】${mailReq.request_number}
+【振込金額】¥${finalPrice.toLocaleString()}
+
+この度はご利用いただき、誠にありがとうございました。
+またのご利用をお待ちしております。`
+
+        await fetch('https://api.line.me/v2/bot/message/push', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+          },
+          body: JSON.stringify({
+            to: mailReq.line_user_id,
+            messages: [{ type: 'text', text: message }],
+          }),
+        })
+      } catch (lineErr) {
+        console.error('LINE通知エラー:', lineErr)
+      }
+    } else if (mailReq.email) {
+      // メール通知
+      try {
+        await resend.emails.send({
+          from: 'ONE STOP <noreply@and-and.net>',
+          to: mailReq.email,
+          subject: `【ONE STOP】お振込みが完了しました（${mailReq.request_number}）`,
+          text: `${mailReq.customer_name} 様
+
+買取代金のお振込みが完了いたしました。
+
+■ 申込番号: ${mailReq.request_number}
+■ 振込金額: ¥${finalPrice.toLocaleString()}
+
+お振込先:
+${mailReq.bank_name} ${mailReq.branch_name}
+${mailReq.account_type} ${mailReq.account_number}
+${mailReq.account_holder} 様
+
+この度はご利用いただき、誠にありがとうございました。
+またのご利用をお待ちしております。
+
+━━━━━━━━━━━━━━━━━━━━
+ONE STOP
+福井店：080-9361-6018
+鯖江店：080-5720-1164
+メール：onestop.mobile2024@gmail.com
+LINE：https://lin.ee/F5fr4V7
+━━━━━━━━━━━━━━━━━━━━`,
+        })
+      } catch (emailErr) {
+        console.error('メール通知エラー:', emailErr)
+      }
+    }
+
+    // 6. 郵送買取リクエストを削除
     const { error: deleteError } = await supabaseAdmin
       .from('t_mail_buyback_requests')
       .delete()
