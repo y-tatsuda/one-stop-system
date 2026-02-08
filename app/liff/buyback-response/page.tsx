@@ -125,10 +125,10 @@ export default function BuybackResponsePage() {
 
       if (error) throw error
 
-      await fetch('/api/mail-buyback/notify', {
+      await fetch('/api/mail-buyback/customer-notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'waiting_payment', requestId: request.id }),
+        body: JSON.stringify({ action: 'waiting_payment', requestId: request.id, requestNumber: request.request_number }),
       })
 
       setPhase('complete-approve')
@@ -186,10 +186,10 @@ export default function BuybackResponsePage() {
 
       if (error) throw error
 
-      await fetch('/api/mail-buyback/notify', {
+      await fetch('/api/mail-buyback/customer-notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'return_requested', requestId: request.id }),
+        body: JSON.stringify({ action: 'return_requested', requestId: request.id, requestNumber: request.request_number }),
       })
 
       setPhase('complete-return')
