@@ -83,7 +83,8 @@ type MailBuybackRequest = {
     modelDisplayName: string
     storage: string
     rank: string
-    basePrice?: number  // 減額前の基準価格（本査定計算用）
+    basePrice?: number  // 選択ランクの価格
+    bihinPrice?: number  // 美品価格（減額計算の基準）
     estimatedPrice: number
     guaranteePrice?: number  // 最低保証価格
     cameraPhoto?: string
@@ -152,7 +153,8 @@ export default function MailBuybackManagementPage() {
   const [calculatedPrice, setCalculatedPrice] = useState<number>(0)  // 実際の査定価格（減額計算後）
   const [finalPrice, setFinalPrice] = useState<number>(0)  // 本査定価格（最低保証価格適用後）
   const [guaranteePrice, setGuaranteePrice] = useState<number>(0)  // 最低保証価格
-  const [basePrice, setBasePrice] = useState<number>(0)  // 基準価格（美品）
+  const [basePrice, setBasePrice] = useState<number>(0)  // 選択ランクの価格
+  const [bihinPrice, setBihinPrice] = useState<number>(0)  // 美品価格（減額計算の基準）
   const [isGuaranteePriceApplied, setIsGuaranteePriceApplied] = useState(false)  // 最低保証価格適用フラグ
   const [uploading, setUploading] = useState(false)
 
@@ -363,12 +365,14 @@ export default function MailBuybackManagementPage() {
       },
     ]
 
-    // 最低保証価格と基準価格を設定
-    // basePriceがある場合はそれを使用（減額前の価格）、なければestimatedPriceを使用（既存データ互換）
+    // 価格情報を設定
     const itemGuaranteePrice = item?.guaranteePrice || 0
     const itemBasePrice = item?.basePrice || item?.estimatedPrice || req.total_estimated_price
+    // bihinPrice（美品価格）がない場合はbasePriceを使用（既存データ互換）
+    const itemBihinPrice = item?.bihinPrice || itemBasePrice
     setGuaranteePrice(itemGuaranteePrice)
     setBasePrice(itemBasePrice)
+    setBihinPrice(itemBihinPrice)
 
     // 既存の査定詳細があればそれを使用、なければ初期化
     let details: AssessmentDetails
@@ -390,46 +394,36 @@ export default function MailBuybackManagementPage() {
     }
     setAssessmentDetails(details)
 
-    // 初期金額計算
-    // 事前査定価格（total_estimated_price）を渡して、変更がない場合はその価格を表示
-    recalculatePrice(details.item_changes, itemBasePrice, itemGuaranteePrice, req.total_estimated_price)
+    // 初期価格を設定（事前査定価格をそのまま表示）
+    setCalculatedPrice(req.total_estimated_price)
+    setFinalPrice(req.total_estimated_price)
+    setIsGuaranteePriceApplied(false)
 
     setShowAssessmentModal(true)
   }
 
   // 金額を再計算する関数
-  // estimatedPriceValue: 事前査定価格（お客様に提示した価格）
-  // basePriceValue: 減額前の基準価格（美品価格）
+  // bihinPrice（美品価格）を基準に減額を計算する（事前査定と同じロジック）
   const recalculatePrice = (
     itemChanges: ItemChange[],
-    basePriceValue: number,
-    guaranteePriceValue: number,
-    estimatedPriceValue: number  // 事前査定価格を追加
+    rankBasePriceValue: number,  // 選択ランクの価格
+    bihinPriceValue: number,     // 美品価格（減額計算の基準）
+    guaranteePriceValue: number
   ) => {
     // 変更があった項目のみをチェック
     const hasAnyChange = itemChanges.some(c => c.hasChanged)
 
-    // 変更がない場合は事前査定価格をそのまま使用
+    // 変更がない場合は現在の価格を維持
     if (!hasAnyChange) {
-      setCalculatedPrice(estimatedPriceValue)
-      setFinalPrice(estimatedPriceValue)
-      setIsGuaranteePriceApplied(false)
       return
     }
 
-    // 変更がある場合のみ、本査定値で減額を再計算
-    // hasChanged=true の項目は afterValue を使用、hasChanged=false の項目は beforeValue ベースの値を使用
+    // 本査定値で減額を再計算
     const getValueForCalculation = (field: string, defaultValue: string): string => {
       const change = itemChanges.find(c => c.field === field)
       if (!change) return defaultValue
-
-      // 変更ありの場合は afterValue（スタッフが入力した本査定値）
-      if (change.hasChanged) {
-        return change.afterValue
-      }
-      // 変更なしの場合は beforeValue をベースに、計算用の値に変換
-      // beforeValue は表示用の文字列なので、計算用の値に変換する必要がある
-      return convertBeforeValueToCalcValue(field, change.beforeValue)
+      // afterValueを使用（hasChanged=trueの項目は変更後の値、falseの項目は事前査定と同じ値）
+      return change.afterValue
     }
 
     const batteryPercent = parseInt(getValueForCalculation('batteryPercent', '80').replace('%', '')) || 80
@@ -448,9 +442,9 @@ export default function MailBuybackManagementPage() {
       repairHistory,
     }
 
-    // 減額計算（美品価格を基準に計算）
-    const totalDeduction = calculateBuybackDeduction(basePriceValue, condition, [], basePriceValue)
-    const rawPrice = Math.max(basePriceValue - totalDeduction, 0)
+    // 減額計算（美品価格を基準に計算）← 事前査定と同じロジック
+    const totalDeduction = calculateBuybackDeduction(rankBasePriceValue, condition, [], bihinPriceValue)
+    const rawPrice = Math.max(rankBasePriceValue - totalDeduction, 0)
 
     // 最低保証価格との比較
     const finalPriceValue = Math.max(rawPrice, guaranteePriceValue)
@@ -459,26 +453,6 @@ export default function MailBuybackManagementPage() {
     setCalculatedPrice(rawPrice)
     setFinalPrice(finalPriceValue)
     setIsGuaranteePriceApplied(isGuaranteeApplied)
-  }
-
-  // beforeValue（表示用文字列）を計算用の値に変換
-  const convertBeforeValueToCalcValue = (field: string, beforeValue: string): string => {
-    switch (field) {
-      case 'batteryPercent':
-        return beforeValue.replace('%', '')
-      case 'isServiceState':
-        return beforeValue === 'はい' ? 'yes' : 'no'
-      case 'cameraStain':
-        return beforeValue === 'なし' ? 'none' : beforeValue === '少' ? 'minor' : beforeValue === '多' ? 'major' : 'none'
-      case 'cameraBroken':
-        return beforeValue === 'あり' ? 'yes' : 'no'
-      case 'repairHistory':
-        return beforeValue === 'あり' ? 'yes' : 'no'
-      case 'nwStatus':
-        return beforeValue === '○' ? 'ok' : beforeValue === '△' ? 'triangle' : beforeValue === '×' ? 'cross' : 'ok'
-      default:
-        return beforeValue
-    }
   }
 
   // 本査定画像アップロード
@@ -1608,7 +1582,7 @@ export default function MailBuybackManagementPage() {
                                 ...prev,
                                 item_changes: newItemChanges,
                               }))
-                              recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
+                              recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
                             }}
                           />
                           <span style={{ fontSize: '0.8rem' }}>なし</span>
@@ -1626,7 +1600,7 @@ export default function MailBuybackManagementPage() {
                                 ...prev,
                                 item_changes: newItemChanges,
                               }))
-                              recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
+                              recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
                             }}
                           />
                           <span style={{ fontSize: '0.8rem' }}>あり</span>
@@ -1646,7 +1620,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
+                                  recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1674,7 +1648,7 @@ export default function MailBuybackManagementPage() {
                                       ...prev,
                                       item_changes: newItemChanges,
                                     }))
-                                    recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
+                                    recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
                                   }}
                                   className="form-input"
                                   style={{ fontSize: '0.85rem', padding: '4px 8px', width: '70px' }}
@@ -1693,7 +1667,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
+                                  recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1713,7 +1687,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
+                                  recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1734,7 +1708,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
+                                  recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1755,7 +1729,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
+                                  recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1775,7 +1749,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
+                                  recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}

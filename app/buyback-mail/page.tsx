@@ -46,7 +46,8 @@ type MailBuybackItem = {
   cameraBroken: boolean | ''  // 空文字は未選択
   repairHistory: boolean | ''  // 空文字は未選択
   cameraPhoto: string  // カメラ部分の写真（必須）
-  basePrice: number
+  basePrice: number       // 選択ランクの価格
+  bihinPrice: number      // 美品価格（減額計算の基準）
   totalDeduction: number
   estimatedPrice: number
   guaranteePrice: number  // 最低保証価格
@@ -99,6 +100,7 @@ const createEmptyItem = (): MailBuybackItem => ({
   repairHistory: '',  // 未選択状態
   cameraPhoto: '',  // カメラ部分の写真
   basePrice: 0,
+  bihinPrice: 0,
   totalDeduction: 0,
   estimatedPrice: 0,
   guaranteePrice: 0,
@@ -305,7 +307,7 @@ function MailBuybackPageContent() {
     const calculatedPrice = Math.max(basePrice - totalDeduction, 0)
     const estimatedPrice = Math.max(calculatedPrice, guaranteePrice)
 
-    updateItem(index, { basePrice, totalDeduction, estimatedPrice, guaranteePrice })
+    updateItem(index, { basePrice, bihinPrice, totalDeduction, estimatedPrice, guaranteePrice })
   }, [items])
 
   // =====================================================
@@ -488,7 +490,8 @@ function MailBuybackPageContent() {
         cameraBroken: item.cameraBroken,
         repairHistory: item.repairHistory,
         cameraPhoto: item.cameraPhoto,  // カメラ部分の写真
-        basePrice: item.basePrice,  // 減額前の基準価格（本査定計算用）
+        basePrice: item.basePrice,  // 選択ランクの価格
+        bihinPrice: item.bihinPrice,  // 美品価格（減額計算の基準）
         estimatedPrice: item.estimatedPrice,
         guaranteePrice: item.guaranteePrice,
       }))
@@ -1436,6 +1439,7 @@ function DeviceItemForm({
       colorDisplayName: '',
       rank: '',
       basePrice: 0,
+      bihinPrice: 0,
       totalDeduction: 0,
       estimatedPrice: 0,
     })
