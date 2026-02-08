@@ -23,6 +23,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { calculateBuybackDeduction, BuybackCondition } from '../lib/pricing'
 
 // ステータス定義
 const STATUS_CONFIG = {
@@ -45,17 +46,21 @@ type ItemChange = {
   hasChanged: boolean  // 変更ありか
 }
 
-// 本査定詳細の型（シンプル化）
+// 写真+備考の型
+type AssessmentPhoto = {
+  path: string   // 写真パス
+  note: string   // この写真の備考（ECサイトにも反映）
+}
+
+// 本査定詳細の型
 type AssessmentDetails = {
-  item_changes: ItemChange[]  // 項目変更リスト
-  photos: string[]            // 確認画像（任意）
-  notes: string               // 備考
+  item_changes: ItemChange[]    // 項目変更リスト
+  photos: AssessmentPhoto[]     // 確認画像（各写真に備考付き）
 }
 
 const createEmptyAssessmentDetails = (): AssessmentDetails => ({
   item_changes: [],
   photos: [],
-  notes: '',
 })
 
 type MailBuybackRequest = {
@@ -79,10 +84,12 @@ type MailBuybackRequest = {
     storage: string
     rank: string
     estimatedPrice: number
+    guaranteePrice?: number  // 最低保証価格
     cameraPhoto?: string
     colorDisplayName?: string
     color?: string  // カラーコード（在庫登録用）
     batteryPercent?: number
+    isServiceState?: boolean
     imei?: string
     nwStatus?: string
     cameraStain?: string
@@ -141,7 +148,11 @@ export default function MailBuybackManagementPage() {
   // 本査定モーダル
   const [showAssessmentModal, setShowAssessmentModal] = useState(false)
   const [assessmentDetails, setAssessmentDetails] = useState<AssessmentDetails>(createEmptyAssessmentDetails())
-  const [finalPrice, setFinalPrice] = useState<number>(0)
+  const [calculatedPrice, setCalculatedPrice] = useState<number>(0)  // 実際の査定価格（減額計算後）
+  const [finalPrice, setFinalPrice] = useState<number>(0)  // 本査定価格（最低保証価格適用後）
+  const [guaranteePrice, setGuaranteePrice] = useState<number>(0)  // 最低保証価格
+  const [basePrice, setBasePrice] = useState<number>(0)  // 基準価格（美品）
+  const [isGuaranteePriceApplied, setIsGuaranteePriceApplied] = useState(false)  // 最低保証価格適用フラグ
   const [uploading, setUploading] = useState(false)
 
   // 買取同意書アップロード用
@@ -296,7 +307,6 @@ export default function MailBuybackManagementPage() {
   // 本査定モーダルを開く
   const openAssessmentModal = (req: MailBuybackRequest) => {
     setSelectedRequest(req)
-    setFinalPrice(req.final_price || req.total_estimated_price)
 
     // 事前査定値から項目変更リストを初期化
     const item = req.items[0] // 1台目の端末
@@ -312,13 +322,20 @@ export default function MailBuybackManagementPage() {
         field: 'batteryPercent',
         label: 'バッテリー',
         beforeValue: item?.batteryPercent ? `${item.batteryPercent}%` : '',
-        afterValue: item?.batteryPercent?.toString() || '',
+        afterValue: item?.batteryPercent?.toString() || '80',
+        hasChanged: false,
+      },
+      {
+        field: 'isServiceState',
+        label: 'サービス状態',
+        beforeValue: item?.isServiceState ? 'はい' : 'いいえ',
+        afterValue: item?.isServiceState ? 'yes' : 'no',
         hasChanged: false,
       },
       {
         field: 'cameraStain',
         label: 'カメラ染み',
-        beforeValue: item?.cameraStain === 'none' ? 'なし' : item?.cameraStain === 'minor' ? 'あり（小）' : item?.cameraStain === 'major' ? 'あり（大）' : 'なし',
+        beforeValue: item?.cameraStain === 'none' ? 'なし' : item?.cameraStain === 'minor' ? '少' : item?.cameraStain === 'major' ? '多' : 'なし',
         afterValue: item?.cameraStain || 'none',
         hasChanged: false,
       },
@@ -345,23 +362,81 @@ export default function MailBuybackManagementPage() {
       },
     ]
 
+    // 最低保証価格と基準価格を設定
+    const itemGuaranteePrice = item?.guaranteePrice || 0
+    setGuaranteePrice(itemGuaranteePrice)
+    setBasePrice(item?.estimatedPrice || req.total_estimated_price)
+
     // 既存の査定詳細があればそれを使用、なければ初期化
+    let details: AssessmentDetails
     if (req.assessment_details && req.assessment_details.item_changes && req.assessment_details.item_changes.length > 0) {
-      setAssessmentDetails(req.assessment_details)
+      // 旧形式（photos: string[]）から新形式（photos: AssessmentPhoto[]）への変換
+      const existingPhotos = req.assessment_details.photos || []
+      const convertedPhotos: AssessmentPhoto[] = existingPhotos.map((p: string | AssessmentPhoto) =>
+        typeof p === 'string' ? { path: p, note: '' } : p
+      )
+      details = {
+        ...req.assessment_details,
+        photos: convertedPhotos,
+      }
     } else {
-      setAssessmentDetails({
+      details = {
         item_changes: initialItemChanges,
         photos: [],
-        notes: '',
-      })
+      }
     }
+    setAssessmentDetails(details)
+
+    // 初期金額計算
+    recalculatePrice(details.item_changes, item?.estimatedPrice || req.total_estimated_price, itemGuaranteePrice)
+
     setShowAssessmentModal(true)
+  }
+
+  // 金額を再計算する関数
+  const recalculatePrice = (itemChanges: ItemChange[], basePriceValue: number, guaranteePriceValue: number) => {
+    // 変更後の値を取得
+    const getAfterValue = (field: string, defaultValue: string): string => {
+      const change = itemChanges.find(c => c.field === field)
+      if (change?.hasChanged) {
+        return change.afterValue
+      }
+      return change?.afterValue || defaultValue
+    }
+
+    const batteryPercent = parseInt(getAfterValue('batteryPercent', '80')) || 80
+    const isServiceState = getAfterValue('isServiceState', 'no') === 'yes'
+    const nwStatus = getAfterValue('nwStatus', 'ok') as 'ok' | 'triangle' | 'cross'
+    const cameraStain = getAfterValue('cameraStain', 'none') as 'none' | 'minor' | 'major'
+    const cameraBroken = getAfterValue('cameraBroken', 'no') === 'yes'
+    const repairHistory = getAfterValue('repairHistory', 'no') === 'yes'
+
+    const condition: BuybackCondition = {
+      batteryPercent,
+      isServiceState,
+      nwStatus,
+      cameraStain,
+      cameraBroken,
+      repairHistory,
+    }
+
+    // 減額計算（美品価格を基準に計算）
+    const totalDeduction = calculateBuybackDeduction(basePriceValue, condition, [], basePriceValue)
+    const rawPrice = Math.max(basePriceValue - totalDeduction, 0)
+
+    // 最低保証価格との比較
+    const finalPriceValue = Math.max(rawPrice, guaranteePriceValue)
+    const isGuaranteeApplied = rawPrice < guaranteePriceValue && guaranteePriceValue > 0
+
+    setCalculatedPrice(rawPrice)
+    setFinalPrice(finalPriceValue)
+    setIsGuaranteePriceApplied(isGuaranteeApplied)
   }
 
   // 本査定画像アップロード
   const handleAssessmentPhotoUpload = async (file: File) => {
-    if (assessmentDetails.photos.length >= 5) {
-      alert('画像は最大5枚までです')
+    if (assessmentDetails.photos.length >= 10) {
+      alert('画像は最大10枚までです')
       return
     }
 
@@ -380,7 +455,7 @@ export default function MailBuybackManagementPage() {
         const { path } = await res.json()
         setAssessmentDetails(prev => ({
           ...prev,
-          photos: [...prev.photos, path],
+          photos: [...prev.photos, { path, note: '' }],
         }))
       } else {
         alert('画像のアップロードに失敗しました')
@@ -398,6 +473,14 @@ export default function MailBuybackManagementPage() {
     setAssessmentDetails(prev => ({
       ...prev,
       photos: prev.photos.filter((_, i) => i !== photoIndex),
+    }))
+  }
+
+  // 本査定画像の備考更新
+  const updatePhotoNote = (photoIndex: number, note: string) => {
+    setAssessmentDetails(prev => ({
+      ...prev,
+      photos: prev.photos.map((p, i) => i === photoIndex ? { ...p, note } : p),
     }))
   }
 
@@ -1435,12 +1518,14 @@ export default function MailBuybackManagementPage() {
                             name={`change_${change.field}`}
                             checked={!change.hasChanged}
                             onChange={() => {
+                              const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                c.field === change.field ? { ...c, hasChanged: false } : c
+                              ) || []
                               setAssessmentDetails(prev => ({
                                 ...prev,
-                                item_changes: prev.item_changes?.map(c =>
-                                  c.field === change.field ? { ...c, hasChanged: false } : c
-                                ),
+                                item_changes: newItemChanges,
                               }))
+                              recalculatePrice(newItemChanges, basePrice, guaranteePrice)
                             }}
                           />
                           <span style={{ fontSize: '0.8rem' }}>なし</span>
@@ -1451,12 +1536,14 @@ export default function MailBuybackManagementPage() {
                             name={`change_${change.field}`}
                             checked={change.hasChanged}
                             onChange={() => {
+                              const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                c.field === change.field ? { ...c, hasChanged: true } : c
+                              ) || []
                               setAssessmentDetails(prev => ({
                                 ...prev,
-                                item_changes: prev.item_changes?.map(c =>
-                                  c.field === change.field ? { ...c, hasChanged: true } : c
-                                ),
+                                item_changes: newItemChanges,
                               }))
+                              recalculatePrice(newItemChanges, basePrice, guaranteePrice)
                             }}
                           />
                           <span style={{ fontSize: '0.8rem' }}>あり</span>
@@ -1469,12 +1556,14 @@ export default function MailBuybackManagementPage() {
                               <select
                                 value={change.afterValue}
                                 onChange={(e) => {
+                                  const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                    c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                  ) || []
                                   setAssessmentDetails(prev => ({
                                     ...prev,
-                                    item_changes: prev.item_changes?.map(c =>
-                                      c.field === change.field ? { ...c, afterValue: e.target.value } : c
-                                    ),
+                                    item_changes: newItemChanges,
                                   }))
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1487,34 +1576,61 @@ export default function MailBuybackManagementPage() {
                               </select>
                             )}
                             {change.field === 'batteryPercent' && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="100"
+                                  value={change.afterValue.replace('%', '')}
+                                  onChange={(e) => {
+                                    const val = Math.min(100, Math.max(1, parseInt(e.target.value) || 1))
+                                    const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                      c.field === change.field ? { ...c, afterValue: val.toString() } : c
+                                    ) || []
+                                    setAssessmentDetails(prev => ({
+                                      ...prev,
+                                      item_changes: newItemChanges,
+                                    }))
+                                    recalculatePrice(newItemChanges, basePrice, guaranteePrice)
+                                  }}
+                                  className="form-input"
+                                  style={{ fontSize: '0.85rem', padding: '4px 8px', width: '70px' }}
+                                />
+                                <span style={{ fontSize: '0.85rem' }}>%</span>
+                              </div>
+                            )}
+                            {change.field === 'isServiceState' && (
                               <select
-                                value={change.afterValue.replace('%', '')}
+                                value={change.afterValue}
                                 onChange={(e) => {
+                                  const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                    c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                  ) || []
                                   setAssessmentDetails(prev => ({
                                     ...prev,
-                                    item_changes: prev.item_changes?.map(c =>
-                                      c.field === change.field ? { ...c, afterValue: `${e.target.value}%` } : c
-                                    ),
+                                    item_changes: newItemChanges,
                                   }))
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
                               >
-                                {Array.from({ length: 21 }, (_, i) => 100 - i * 5).map(v => (
-                                  <option key={v} value={v}>{v}%</option>
-                                ))}
+                                <option value="no">いいえ</option>
+                                <option value="yes">はい（79%以下扱い）</option>
                               </select>
                             )}
                             {change.field === 'nwStatus' && (
                               <select
                                 value={change.afterValue}
                                 onChange={(e) => {
+                                  const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                    c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                  ) || []
                                   setAssessmentDetails(prev => ({
                                     ...prev,
-                                    item_changes: prev.item_changes?.map(c =>
-                                      c.field === change.field ? { ...c, afterValue: e.target.value } : c
-                                    ),
+                                    item_changes: newItemChanges,
                                   }))
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1528,31 +1644,35 @@ export default function MailBuybackManagementPage() {
                               <select
                                 value={change.afterValue}
                                 onChange={(e) => {
+                                  const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                    c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                  ) || []
                                   setAssessmentDetails(prev => ({
                                     ...prev,
-                                    item_changes: prev.item_changes?.map(c =>
-                                      c.field === change.field ? { ...c, afterValue: e.target.value } : c
-                                    ),
+                                    item_changes: newItemChanges,
                                   }))
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
                               >
                                 <option value="none">なし</option>
-                                <option value="minor">あり（小）</option>
-                                <option value="major">あり（大）</option>
+                                <option value="minor">少</option>
+                                <option value="major">多</option>
                               </select>
                             )}
                             {change.field === 'cameraBroken' && (
                               <select
                                 value={change.afterValue}
                                 onChange={(e) => {
+                                  const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                    c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                  ) || []
                                   setAssessmentDetails(prev => ({
                                     ...prev,
-                                    item_changes: prev.item_changes?.map(c =>
-                                      c.field === change.field ? { ...c, afterValue: e.target.value } : c
-                                    ),
+                                    item_changes: newItemChanges,
                                   }))
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1565,12 +1685,14 @@ export default function MailBuybackManagementPage() {
                               <select
                                 value={change.afterValue}
                                 onChange={(e) => {
+                                  const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                    c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                  ) || []
                                   setAssessmentDetails(prev => ({
                                     ...prev,
-                                    item_changes: prev.item_changes?.map(c =>
-                                      c.field === change.field ? { ...c, afterValue: e.target.value } : c
-                                    ),
+                                    item_changes: newItemChanges,
                                   }))
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1587,113 +1709,149 @@ export default function MailBuybackManagementPage() {
                 </div>
               </div>
 
-              {/* 確認画像（任意） */}
+              {/* 確認画像（任意） - 各写真に個別の備考欄（ECサイト反映用） */}
               <div style={{ marginBottom: '20px', padding: '16px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                 <h3 style={{ fontSize: '0.95rem', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>
-                  確認画像（任意）
+                  確認画像（任意） - ECサイトに反映されます
                 </h3>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+
+                {/* 写真リスト */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '12px' }}>
                   {assessmentDetails.photos.map((photo, i) => (
-                    <div key={i} style={{ position: 'relative' }}>
-                      <img
-                        src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${photo}`}
-                        alt={`確認画像 ${i + 1}`}
-                        style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 4, border: '1px solid #e5e7eb', cursor: 'pointer' }}
-                        onClick={() => window.open(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${photo}`, '_blank')}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeAssessmentPhoto(i)}
-                        style={{
-                          position: 'absolute',
-                          top: -6,
-                          right: -6,
-                          width: 20,
-                          height: 20,
-                          borderRadius: '50%',
-                          background: '#ef4444',
-                          color: 'white',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: 12,
-                        }}
-                      >
-                        ×
-                      </button>
+                    <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '10px', background: 'white', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <img
+                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${photo.path}`}
+                          alt={`確認画像 ${i + 1}`}
+                          style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 4, border: '1px solid #e5e7eb', cursor: 'pointer' }}
+                          onClick={() => window.open(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${photo.path}`, '_blank')}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeAssessmentPhoto(i)}
+                          style={{
+                            position: 'absolute',
+                            top: -6,
+                            right: -6,
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            background: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 12,
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '4px' }}>
+                          画像{i + 1}の備考（ECサイトに表示）
+                        </label>
+                        <input
+                          type="text"
+                          value={photo.note}
+                          onChange={(e) => updatePhotoNote(i, e.target.value)}
+                          placeholder="例：画面右下に小さな傷あり"
+                          className="form-input"
+                          style={{ fontSize: '0.85rem', padding: '6px 10px' }}
+                        />
+                      </div>
                     </div>
                   ))}
-                  {assessmentDetails.photos.length < 5 && (
-                    <label style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 80,
-                      height: 80,
-                      background: 'white',
-                      border: '2px dashed #d1d5db',
-                      borderRadius: 4,
-                      cursor: 'pointer',
-                      fontSize: '0.75rem',
-                      color: '#666',
-                    }}>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (file) handleAssessmentPhotoUpload(file)
-                          e.target.value = ''
-                        }}
-                        style={{ display: 'none' }}
-                        disabled={uploading}
-                      />
-                      {uploading ? '...' : '📷 追加'}
-                    </label>
-                  )}
-                  <span style={{ fontSize: '0.75rem', color: '#999' }}>
-                    ({assessmentDetails.photos.length}/5)
-                  </span>
                 </div>
-              </div>
 
-              {/* 備考 */}
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px' }}>
-                  備考
-                </label>
-                <textarea
-                  placeholder="お客様に伝える内容を入力（例：画面右下に小さな傷あり）"
-                  value={assessmentDetails.notes}
-                  onChange={(e) => setAssessmentDetails(prev => ({
-                    ...prev,
-                    notes: e.target.value,
-                  }))}
-                  className="form-input"
-                  style={{ fontSize: '0.9rem', minHeight: '80px', resize: 'vertical' }}
-                />
-              </div>
-
-              {/* 本査定価格 */}
-              <div style={{ marginBottom: '20px', padding: '16px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #10B981' }}>
-                <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px' }}>
-                  本査定価格
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <input
-                    type="number"
-                    value={finalPrice}
-                    onChange={(e) => setFinalPrice(parseInt(e.target.value) || 0)}
-                    className="form-input"
-                    style={{ width: '200px', fontSize: '1.2rem', fontWeight: '700' }}
-                  />
-                  <span style={{ fontSize: '1rem' }}>円</span>
-                  {finalPrice !== selectedRequest.total_estimated_price && (
-                    <span style={{ fontWeight: '600', color: finalPrice < selectedRequest.total_estimated_price ? '#DC2626' : '#059669' }}>
-                      （差額: {finalPrice - selectedRequest.total_estimated_price > 0 ? '+' : ''}{(finalPrice - selectedRequest.total_estimated_price).toLocaleString()}円）
+                {/* 追加ボタン */}
+                {assessmentDetails.photos.length < 5 && (
+                  <label style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '8px 16px',
+                    background: 'white',
+                    border: '2px dashed #d1d5db',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    color: '#666',
+                    gap: '6px',
+                  }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleAssessmentPhotoUpload(file)
+                        e.target.value = ''
+                      }}
+                      style={{ display: 'none' }}
+                      disabled={uploading}
+                    />
+                    {uploading ? '...' : '📷 画像を追加'}
+                    <span style={{ fontSize: '0.75rem', color: '#999' }}>
+                      ({assessmentDetails.photos.length}/5)
                     </span>
-                  )}
+                  </label>
+                )}
+              </div>
+
+              {/* 査定価格 */}
+              <div style={{ marginBottom: '20px', padding: '16px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>
+                  査定価格
+                </h3>
+
+                {/* 実際の査定価格（自動計算） */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#6b7280', marginBottom: '4px' }}>
+                    実際の査定価格（自動計算）
+                  </label>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '600', color: '#374151' }}>
+                    ¥{calculatedPrice.toLocaleString()}
+                    {calculatedPrice !== basePrice && (
+                      <span style={{ fontSize: '0.85rem', fontWeight: '400', color: '#DC2626', marginLeft: '8px' }}>
+                        （事前査定から -{(basePrice - calculatedPrice).toLocaleString()}円）
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 最低保証価格適用時のメッセージ */}
+                {isGuaranteePriceApplied && (
+                  <div style={{ padding: '12px', background: '#fef3c7', borderRadius: '6px', marginBottom: '16px', border: '1px solid #f59e0b' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#92400e', marginBottom: '4px' }}>
+                      最低保証価格が適用されました
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: '#78350f' }}>
+                      計算上の査定価格（¥{calculatedPrice.toLocaleString()}）を下回るため、最低保証価格（¥{guaranteePrice.toLocaleString()}）が適用されます。
+                      これ以上の減額はありません。
+                    </div>
+                  </div>
+                )}
+
+                {/* 本査定価格（最終価格） */}
+                <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: '6px', border: '1px solid #10B981' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#065f46', marginBottom: '4px', fontWeight: '500' }}>
+                    本査定価格（お客様に通知する金額）
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input
+                      type="number"
+                      value={finalPrice}
+                      onChange={(e) => setFinalPrice(parseInt(e.target.value) || 0)}
+                      className="form-input"
+                      style={{ width: '180px', fontSize: '1.2rem', fontWeight: '700' }}
+                    />
+                    <span style={{ fontSize: '1rem' }}>円</span>
+                    {finalPrice !== selectedRequest.total_estimated_price && (
+                      <span style={{ fontWeight: '600', color: finalPrice < selectedRequest.total_estimated_price ? '#DC2626' : '#059669' }}>
+                        （事前査定との差額: {finalPrice - selectedRequest.total_estimated_price > 0 ? '+' : ''}{(finalPrice - selectedRequest.total_estimated_price).toLocaleString()}円）
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
