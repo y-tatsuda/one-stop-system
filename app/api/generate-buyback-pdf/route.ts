@@ -242,12 +242,6 @@ export async function POST(request: NextRequest) {
       color: #333;
       font-weight: bold;
     }
-    .staff-section {
-      margin-top: auto;
-      border: 2px solid #333;
-      padding: 15px;
-    }
-
     /* 裏面 */
     .page2 h1 {
       font-size: 22px;
@@ -336,23 +330,62 @@ export async function POST(request: NextRequest) {
       ${item?.imei ? `<span>IMEI：${item.imei}</span>` : ''}
     </div>
 
-    <div class="device-box">
-      <div class="device-row">
-        <span><strong>機種：</strong>${item?.modelDisplayName || item?.model || ''}</span>
-        <span><strong>容量：</strong>${item?.storage || ''}GB</span>
-        <span><strong>ランク：</strong>${item?.rank || ''}</span>
+    <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+      <!-- 左側：事前査定 -->
+      <div class="device-box" style="flex: 1; margin-bottom: 0;">
+        <div style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background: #e8e8e8; padding: 5px 8px; border-left: 3px solid #333;">事前査定</div>
+        <div class="device-row">
+          <span><strong>機種：</strong>${item?.modelDisplayName || item?.model || ''}</span>
+          <span><strong>容量：</strong>${item?.storage || ''}GB</span>
+        </div>
+        <div class="device-row">
+          <span><strong>ランク：</strong>${item?.rank || ''}</span>
+          <span><strong>バッテリー：</strong>${item?.batteryPercent || ''}%</span>
+        </div>
+        <div class="device-row">
+          <span><strong>NW制限：</strong>${formatNwStatus(item?.nwStatus)}</span>
+          <span><strong>カメラ染み：</strong>${formatCameraStain(item?.cameraStain)}</span>
+        </div>
+        <div class="device-row">
+          <span><strong>カメラ窓：</strong>${item?.cameraBroken ? '割れあり' : '割れなし'}</span>
+          <span><strong>非正規修理：</strong>${item?.repairHistory ? '利用あり' : '利用なし'}</span>
+        </div>
+        <div class="price-row">
+          事前査定価格：${body.totalEstimatedPrice.toLocaleString()}円
+        </div>
       </div>
-      <div class="device-row">
-        <span><strong>バッテリー：</strong>${item?.batteryPercent || ''}%</span>
-        <span><strong>NW制限：</strong>${formatNwStatus(item?.nwStatus)}</span>
-      </div>
-      <div class="device-row">
-        <span><strong>カメラ染み：</strong>${formatCameraStain(item?.cameraStain)}</span>
-        <span><strong>カメラ窓：</strong>${item?.cameraBroken ? '割れあり' : '割れなし'}</span>
-        <span><strong>非正規修理：</strong>${item?.repairHistory ? '利用あり' : '利用なし'}</span>
-      </div>
-      <div class="price-row">
-        事前査定価格：${body.totalEstimatedPrice.toLocaleString()}円
+
+      <!-- 右側：本査定での変更点（スタッフ記入） -->
+      <div style="flex: 1; border: 2px solid #000; padding: 12px 15px;">
+        <div style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background: #f0f0f0; padding: 5px 8px; border-left: 3px solid #c00;">本査定での変更点</div>
+        <div style="font-size: 9px; color: #666; margin-bottom: 8px;">※事前査定との差異がある場合に記入</div>
+        <div style="display: flex; gap: 10px; margin-bottom: 8px;">
+          <div style="flex: 1;">
+            <div style="font-size: 9px; margin-bottom: 3px;">□ ランク</div>
+            <div style="height: 20px; border-bottom: 1px solid #999;"></div>
+          </div>
+          <div style="flex: 1;">
+            <div style="font-size: 9px; margin-bottom: 3px;">□ バッテリー</div>
+            <div style="height: 20px; border-bottom: 1px solid #999;"></div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; margin-bottom: 8px;">
+          <div style="flex: 1;">
+            <div style="font-size: 9px; margin-bottom: 3px;">□ カメラ染み</div>
+            <div style="height: 20px; border-bottom: 1px solid #999;"></div>
+          </div>
+          <div style="flex: 1;">
+            <div style="font-size: 9px; margin-bottom: 3px;">□ その他</div>
+            <div style="height: 20px; border-bottom: 1px solid #999;"></div>
+          </div>
+        </div>
+        <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #ccc;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; font-weight: bold;">本査定価格：</span>
+            <div style="width: 80px; height: 24px; background: #f9f9f9; border: 1px solid #999; border-radius: 3px;"></div>
+            <span style="font-size: 11px;">円</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -440,44 +473,6 @@ export async function POST(request: NextRequest) {
 
     <div class="footer-note">
       ※裏面の発送方法をご参照の上、発送をお願いいたします。
-    </div>
-
-    <!-- 本査定変更点セクション（スタッフ記入用）- ページ下部に配置 -->
-    <div class="staff-section">
-      <div style="font-weight: bold; font-size: 12px; margin-bottom: 12px; background: #f0f0f0; padding: 8px 12px; border-left: 4px solid #333;">
-        【本査定での変更点】（スタッフ記入欄）
-      </div>
-      <div style="font-size: 10px; color: #666; margin-bottom: 12px;">
-        ※ 事前査定との差異がある場合、下記に記載してください。
-      </div>
-      <div style="display: flex; gap: 20px; margin-bottom: 12px;">
-        <div style="flex: 1;">
-          <div style="font-size: 10px; font-weight: bold; margin-bottom: 6px;">□ カメラ染み</div>
-          <div style="height: 30px; border-bottom: 1px solid #999;"></div>
-        </div>
-        <div style="flex: 1;">
-          <div style="font-size: 10px; font-weight: bold; margin-bottom: 6px;">□ 画面の傷</div>
-          <div style="height: 30px; border-bottom: 1px solid #999;"></div>
-        </div>
-      </div>
-      <div style="display: flex; gap: 20px; margin-bottom: 12px;">
-        <div style="flex: 1;">
-          <div style="font-size: 10px; font-weight: bold; margin-bottom: 6px;">□ 本体の傷</div>
-          <div style="height: 30px; border-bottom: 1px solid #999;"></div>
-        </div>
-        <div style="flex: 1;">
-          <div style="font-size: 10px; font-weight: bold; margin-bottom: 6px;">□ その他</div>
-          <div style="height: 30px; border-bottom: 1px solid #999;"></div>
-        </div>
-      </div>
-      <div style="display: flex; gap: 20px; align-items: center; margin-top: 15px;">
-        <div style="font-size: 12px; font-weight: bold;">本査定価格：</div>
-        <div style="width: 150px; height: 35px; background: #f9f9f9; border: 1px solid #999; border-radius: 3px;"></div>
-        <div style="font-size: 12px;">円</div>
-        <div style="margin-left: 25px; font-size: 10px; color: #666;">
-          （事前査定: ${body.totalEstimatedPrice.toLocaleString()}円）
-        </div>
-      </div>
     </div>
   </div>
 
