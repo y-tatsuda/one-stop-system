@@ -451,14 +451,6 @@ export default function BuybackPage() {
       .eq('rank', rank)
       .single()
 
-    // 販売減額取得（storageなし - 機種ごとに定義）
-    const { data: salesDeductionData } = await supabase
-      .from('m_sales_price_deductions')
-      .select('deduction_type, amount')
-      .eq('tenant_id', DEFAULT_TENANT_ID)
-      .eq('model', model)
-      .eq('is_active', true)
-
     const basePrice = priceData?.price || 0
     const bihinPrice = bihinData?.price || basePrice
     const guaranteePrice = guaranteeData?.guarantee_price || 0
@@ -466,7 +458,6 @@ export default function BuybackPage() {
 
     // 現在のアイテムの状態を取得して減額計算
     const item = items[index]
-    const salesDeductions = salesDeductionData || []
     const batteryPercent = parseInt(item.batteryPercent) || 100
 
     // 買取減額計算（共有ユーティリティ使用・美品基準）
@@ -487,22 +478,14 @@ export default function BuybackPage() {
     const calculatedPrice = basePrice - totalDeduction
     const finalPrice = Math.max(calculatedPrice, guaranteePrice)
 
-    // 販売価格減額計算（共有ユーティリティ使用）
-    // バッテリー%から状態区分に変換
-    const getBatteryStatus = (): '90' | '80_89' | '79' => {
-      if (item.isServiceState || batteryPercent <= 79) return '79'
-      if (batteryPercent <= 89) return '80_89'
-      return '90'
-    }
-
-    const salesDeductionTotal = calculateSalesDeduction(
-      {
-        batteryStatus: getBatteryStatus(),
-        cameraStain: item.cameraStain as 'none' | 'minor' | 'major',
-        nwStatus: item.nwStatus as 'ok' | 'triangle' | 'cross',
-      },
-      salesDeductions
-    )
+    // 販売価格減額計算（固定ルール使用）
+    const salesDeductionTotal = calculateSalesDeduction({
+      model,
+      batteryPercent: item.isServiceState ? null : batteryPercent,
+      isServiceState: item.isServiceState,
+      cameraStain: item.cameraStain as 'none' | 'minor' | 'major',
+      nwStatus: item.nwStatus as 'ok' | 'triangle' | 'cross',
+    })
 
     const salesPrice = salesBasePrice - salesDeductionTotal
     const totalCost = finalPrice + item.repairCost
@@ -1144,9 +1127,6 @@ function ItemForm({
   onCalculate: (model: string, storage: string, rank: string) => void
   onRemove?: () => void
 }) {
-  // 販売減額マスタのキャッシュ（機種ごと、減額の同期再計算に使用）
-  const [salesDeductions, setSalesDeductions] = useState<{ deduction_type: string; amount: number }[]>([])
-
   const [availableStorages, setAvailableStorages] = useState<number[]>([])
   const [partsCosts, setPartsCosts] = useState<CostData[]>([])
 
@@ -1191,22 +1171,7 @@ function ItemForm({
     fetchPartsCosts()
   }, [item.model])
 
-  // 機種変更時に販売減額マスタを取得（同期再計算用キャッシュ）
-  useEffect(() => {
-    async function fetchSalesDeductions() {
-      if (!item.model) { setSalesDeductions([]); return }
-      const { data } = await supabase
-        .from('m_sales_price_deductions')
-        .select('deduction_type, amount')
-        .eq('tenant_id', DEFAULT_TENANT_ID)
-        .eq('model', item.model)
-        .eq('is_active', true)
-      setSalesDeductions(data || [])
-    }
-    fetchSalesDeductions()
-  }, [item.model])
-
-  // 減額の同期再計算（Supabase問い合わせなし。評価項目変更時に使用）
+  // 減額の同期再計算（固定ルール使用。評価項目変更時に使用）
   const recalculatePrices = useCallback((fieldUpdates: Partial<BuybackItem>) => {
     const merged = { ...item, ...fieldUpdates }
     if (!merged.basePrice) return fieldUpdates // まだ初期計算前
@@ -1230,20 +1195,14 @@ function ItemForm({
     const calculatedPrice = merged.basePrice - totalDeduction
     const finalPrice = Math.max(calculatedPrice, merged.guaranteePrice)
 
-    const getBatteryStatus = (): '90' | '80_89' | '79' => {
-      if (merged.isServiceState || batteryPercent <= 79) return '79'
-      if (batteryPercent <= 89) return '80_89'
-      return '90'
-    }
-
-    const salesDeductionTotal = calculateSalesDeduction(
-      {
-        batteryStatus: getBatteryStatus(),
-        cameraStain: merged.cameraStain as 'none' | 'minor' | 'major',
-        nwStatus: merged.nwStatus as 'ok' | 'triangle' | 'cross',
-      },
-      salesDeductions
-    )
+    // 販売価格減額計算（固定ルール使用）
+    const salesDeductionTotal = calculateSalesDeduction({
+      model: merged.model,
+      batteryPercent: merged.isServiceState ? null : batteryPercent,
+      isServiceState: merged.isServiceState,
+      cameraStain: merged.cameraStain as 'none' | 'minor' | 'major',
+      nwStatus: merged.nwStatus as 'ok' | 'triangle' | 'cross',
+    })
 
     const salesPrice = merged.salesBasePrice - salesDeductionTotal
     const effectiveFinal = merged.specialPriceEnabled && merged.specialPrice ? parseInt(merged.specialPrice) : finalPrice
@@ -1258,7 +1217,7 @@ function ItemForm({
       salesPrice,
       expectedProfit,
     }
-  }, [item, salesDeductions])
+  }, [item])
 
   // 評価項目変更ハンドラ（同期再計算付き、チカチカしない）
   const handleAssessmentChange = useCallback((updates: Partial<BuybackItem>) => {

@@ -1133,16 +1133,16 @@ function DeviceItemForm({
       formData.append('file', file)
       formData.append('folder', 'camera-check')
 
-      const res = await fetch('/api/upload-document', {
+      const res = await fetch('/api/buyback-upload', {
         method: 'POST',
         body: formData,
       })
 
-      if (res.ok) {
-        const { path } = await res.json()
-        onUpdate({ cameraPhoto: path })
+      const result = await res.json()
+      if (res.ok && result.path) {
+        onUpdate({ cameraPhoto: result.path })
       } else {
-        alert('画像のアップロードに失敗しました')
+        alert(result.error || '画像のアップロードに失敗しました')
       }
     } catch (err) {
       console.error('Upload error:', err)
@@ -1429,8 +1429,7 @@ function DeviceItemForm({
         <div className="form-group" style={{ marginBottom: 16 }}>
           <label className="form-label form-label-required">カメラ部分の写真</label>
           <div style={{ fontSize: 12, color: '#666', marginBottom: 8, lineHeight: 1.6 }}>
-            ※ 白またはグレーの無地の背景にカメラをかざして撮影してください<br />
-            ※ カメラ染みの確認に使用します（EC商品画像には使用しません）
+            ※ 白またはグレーの無地の背景にカメラをかざして撮影してください
           </div>
 
           {item.cameraPhoto ? (

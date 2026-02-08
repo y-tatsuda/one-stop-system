@@ -519,8 +519,7 @@ export default function DeviceAssessmentForm({
         <div className="form-group" style={{ marginBottom: 16 }}>
           <label className="form-label form-label-required">カメラ部分の写真</label>
           <div style={{ fontSize: 12, color: '#666', marginBottom: 8, lineHeight: 1.6 }}>
-            ※ 白またはグレーの無地の背景にカメラをかざして撮影してください<br />
-            ※ カメラ染みの確認に使用します
+            ※ 白またはグレーの無地の背景にカメラをかざして撮影してください
           </div>
 
           {data.cameraPhoto ? (

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { DEFAULT_TENANT_ID } from '@/app/lib/constants'
+import { requireAuth } from '@/app/lib/auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -88,6 +88,19 @@ async function upsertCatalogItem(item: {
 
 export async function POST(request: NextRequest) {
   try {
+    // 認可チェック（owner/adminのみSquare連携可能）
+    const authResult = await requireAuth(
+      request.headers.get('authorization'),
+      ['owner', 'admin']
+    )
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.message },
+        { status: authResult.status }
+      )
+    }
+
+    const tenantId = authResult.auth.tenantId
     const { action, shopId } = await request.json()
 
     if (action === 'sync_repair_menus') {
@@ -95,7 +108,7 @@ export async function POST(request: NextRequest) {
       const { data: repairPrices } = await supabase
         .from('m_repair_prices_iphone')
         .select('id, model, menu, price')
-        .eq('tenant_id', DEFAULT_TENANT_ID)
+        .eq('tenant_id', tenantId)
         .eq('is_active', true)
 
       let synced = 0
@@ -112,7 +125,7 @@ export async function POST(request: NextRequest) {
           await supabase
             .from('m_square_catalog_mapping')
             .upsert({
-              tenant_id: DEFAULT_TENANT_ID,
+              tenant_id: tenantId,
               square_catalog_id: catalogItem.id,
               item_type: 'repair',
               item_id: item.id,
@@ -133,7 +146,7 @@ export async function POST(request: NextRequest) {
       const { data: inventory } = await supabase
         .from('t_used_inventory')
         .select('id, model, storage, rank, sales_price, management_number')
-        .eq('tenant_id', DEFAULT_TENANT_ID)
+        .eq('tenant_id', tenantId)
         .eq('status', '販売可')
         .eq('shop_id', shopId)
 
@@ -153,7 +166,7 @@ export async function POST(request: NextRequest) {
           await supabase
             .from('m_square_catalog_mapping')
             .upsert({
-              tenant_id: DEFAULT_TENANT_ID,
+              tenant_id: tenantId,
               square_catalog_id: catalogItem.id,
               item_type: 'used_inventory',
               item_id: item.id,
@@ -177,8 +190,20 @@ export async function POST(request: NextRequest) {
 }
 
 // カタログ一覧を取得
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // 認可チェック（owner/adminのみSquare連携可能）
+    const authResult = await requireAuth(
+      request.headers.get('authorization'),
+      ['owner', 'admin']
+    )
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.message },
+        { status: authResult.status }
+      )
+    }
+
     const response = await squareRequest('/catalog/list?types=ITEM', 'GET')
     return NextResponse.json(response)
   } catch (error: any) {

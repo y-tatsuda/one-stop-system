@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
-import { DEFAULT_TENANT_ID } from '@/app/lib/constants'
+import { requireAuth } from '@/app/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    // 認可チェック（owner/adminのみスタッフ作成可能）
+    const authResult = await requireAuth(
+      request.headers.get('authorization'),
+      ['owner', 'admin']
+    )
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.message },
+        { status: authResult.status }
+      )
+    }
+
     const { name, email, password, role, is_2fa_enabled, shopIds } = await request.json()
 
     // 入力チェック
@@ -64,7 +76,7 @@ export async function POST(request: NextRequest) {
     const { data: newStaff, error: staffError } = await supabaseAdmin
       .from('m_staff')
       .insert({
-        tenant_id: DEFAULT_TENANT_ID,
+        tenant_id: authResult.auth.tenantId,
         auth_user_id: authData.user.id,
         email,
         name,

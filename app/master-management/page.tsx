@@ -6,7 +6,7 @@ import { DEFAULT_TENANT_ID } from '../lib/constants'
 
 type MainTab = 'repair_parts' | 'buyback' | 'sales' | 'accessory' | 'imei_lookup'
 type BuybackSubTab = 'price' | 'deduction' | 'guarantee'
-type SalesSubTab = 'price' | 'deduction'
+type SalesSubTab = 'price'
 
 type IphoneModel = {
   model: string
@@ -64,13 +64,6 @@ type SalesPrice = {
   rank: string
   price: number
   price_excl_tax: number
-}
-
-type SalesDeduction = {
-  id: number
-  model: string
-  deduction_type: string
-  amount: number
 }
 
 type Accessory = {
@@ -188,13 +181,6 @@ const BUYBACK_DEDUCTION_TYPES: { [key: string]: string } = {
   'repair_history': '非正規修理履歴',
 }
 
-// 販売減額種別
-const SALES_DEDUCTION_TYPES: { [key: string]: string } = {
-  'battery_90': 'バッテリー90%以上',
-  'battery_80_89': 'バッテリー80-89%',
-  'battery_79': 'バッテリー79%以下',
-}
-
 export default function MasterManagementPage() {
   const [activeTab, setActiveTab] = useState<MainTab>('repair_parts')
   const [buybackSubTab, setBuybackSubTab] = useState<BuybackSubTab>('price')
@@ -217,7 +203,6 @@ export default function MasterManagementPage() {
   const [buybackDeductions, setBuybackDeductions] = useState<BuybackDeduction[]>([])
   const [buybackGuarantees, setBuybackGuarantees] = useState<BuybackGuarantee[]>([])
   const [salesPrices, setSalesPrices] = useState<SalesPrice[]>([])
-  const [salesDeductions, setSalesDeductions] = useState<SalesDeduction[]>([])
   const [accessories, setAccessories] = useState<Accessory[]>([])
   const [accessoryCategories, setAccessoryCategories] = useState<AccessoryCategory[]>([])
 
@@ -359,17 +344,6 @@ export default function MasterManagementPage() {
 
     setSalesPrices(salesData || [])
 
-    // 販売減額
-    const { data: salesDeductionData } = await supabase
-      .from('m_sales_price_deductions')
-      .select('id, model, deduction_type, amount')
-      .eq('tenant_id', DEFAULT_TENANT_ID)
-      .eq('is_active', true)
-      .order('model')
-      .order('deduction_type')
-
-    setSalesDeductions(salesDeductionData || [])
-
     // アクセサリカテゴリ
     const { data: categoryData } = await supabase
       .from('m_accessory_categories')
@@ -490,14 +464,6 @@ export default function MasterManagementPage() {
     }
   }
 
-  // 販売減額更新
-  const updateSalesDeduction = async (id: number) => {
-    if (await updateRecord('m_sales_price_deductions', id, { amount: editValue })) {
-      setSalesDeductions(salesDeductions.map(d => d.id === id ? { ...d, amount: editValue } : d))
-      cancelEdit()
-    }
-  }
-
   // アクセサリ更新
   const updateAccessory = async (id: number) => {
     if (await updateRecord('m_accessories', id, { price: editValue, cost: editValue2 })) {
@@ -537,9 +503,6 @@ export default function MasterManagementPage() {
           break
         case 'm_sales_prices':
           setSalesPrices(salesPrices.filter(p => p.id !== id))
-          break
-        case 'm_sales_price_deductions':
-          setSalesDeductions(salesDeductions.filter(d => d.id !== id))
           break
         case 'm_accessories':
           setAccessories(accessories.filter(a => a.id !== id))
@@ -696,26 +659,6 @@ export default function MasterManagementPage() {
       alert(error.code === '23505' ? 'この組み合わせは既に登録されています' : '追加に失敗しました')
     } else if (data) {
       setSalesPrices([...salesPrices, data])
-      setShowAddModal(false)
-    }
-    setSaving(false)
-  }
-
-  // 販売減額新規追加
-  const addSalesDeduction = async () => {
-    if (!newModel || !newDeductionType) { alert('機種と減額種別を選択してください'); return }
-
-    setSaving(true)
-    const { data, error } = await supabase
-      .from('m_sales_price_deductions')
-      .insert({ tenant_id: DEFAULT_TENANT_ID, model: newModel, deduction_type: newDeductionType, amount: newAmount, is_active: true })
-      .select()
-      .single()
-
-    if (error) {
-      alert(error.code === '23505' ? 'この組み合わせは既に登録されています' : '追加に失敗しました')
-    } else if (data) {
-      setSalesDeductions([...salesDeductions, data])
       setShowAddModal(false)
     }
     setSaving(false)
@@ -993,8 +936,6 @@ export default function MasterManagementPage() {
     return 0
   })
 
-  const filteredSalesDeductions = sortByModel(filterByModel(salesDeductions))
-
   const filteredAccessories = accessories.filter(a =>
     !modelFilter || a.name.toLowerCase().includes(modelFilter.toLowerCase()) || a.category_name.toLowerCase().includes(modelFilter.toLowerCase())
   )
@@ -1007,8 +948,7 @@ export default function MasterManagementPage() {
       else if (buybackSubTab === 'deduction') addBuybackDeduction()
       else if (buybackSubTab === 'guarantee') addBuybackGuarantee()
     } else if (activeTab === 'sales') {
-      if (salesSubTab === 'price') addSalesPrice()
-      else if (salesSubTab === 'deduction') addSalesDeduction()
+      addSalesPrice()
     } else if (activeTab === 'accessory') addAccessory()
   }
 
@@ -1027,8 +967,7 @@ export default function MasterManagementPage() {
       if (buybackSubTab === 'guarantee') return '買取保証 新規追加'
     }
     if (activeTab === 'sales') {
-      if (salesSubTab === 'price') return '販売価格 新規追加'
-      if (salesSubTab === 'deduction') return '販売減額 新規追加'
+      return '販売価格 新規追加'
     }
     if (activeTab === 'accessory') return 'アクセサリ 新規追加'
     return '新規追加'
@@ -1067,26 +1006,6 @@ export default function MasterManagementPage() {
                   key={sub.id}
                   onClick={() => { setBuybackSubTab(sub.id); cancelEdit(); }}
                   className={`btn btn-sm ${buybackSubTab === sub.id ? 'btn-primary' : 'btn-secondary'}`}
-                >
-                  {sub.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 販売マスタのサブタブ */}
-        {activeTab === 'sales' && (
-          <div style={{ borderTop: '1px solid var(--color-border)', padding: '8px 16px', background: 'var(--color-bg)' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {[
-                { id: 'price' as SalesSubTab, label: '価格' },
-                { id: 'deduction' as SalesSubTab, label: '減額' },
-              ].map(sub => (
-                <button
-                  key={sub.id}
-                  onClick={() => { setSalesSubTab(sub.id); cancelEdit(); }}
-                  className={`btn btn-sm ${salesSubTab === sub.id ? 'btn-primary' : 'btn-secondary'}`}
                 >
                   {sub.label}
                 </button>
@@ -1401,56 +1320,6 @@ export default function MasterManagementPage() {
                             <div className="flex justify-center gap-xs">
                               <button onClick={() => startEdit(item.id, 'sales_price', item.price, item.price_excl_tax)} className="btn btn-sm btn-secondary">編集</button>
                               <button onClick={() => deleteItem('m_sales_prices', item.id, `${getDisplayName(item.model)} ${item.storage}GB ${item.rank}`)} className="btn btn-sm btn-danger" disabled={saving}>削除</button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* 販売減額 */}
-        {activeTab === 'sales' && salesSubTab === 'deduction' && (
-          <div className="card-body" style={{ padding: 0 }}>
-            <div className="table-wrapper" style={{ border: 'none' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>機種</th>
-                    <th>減額種別</th>
-                    <th className="text-right">減額金額</th>
-                    <th className="text-center">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSalesDeductions.length === 0 ? (
-                    <tr><td colSpan={4}><div className="empty-state"><p className="empty-state-text">データがありません</p></div></td></tr>
-                  ) : (
-                    filteredSalesDeductions.map(item => (
-                      <tr key={item.id}>
-                        <td style={{ fontWeight: 500 }}>{getDisplayName(item.model)}</td>
-                        <td>{SALES_DEDUCTION_TYPES[item.deduction_type] || item.deduction_type}</td>
-                        <td className="text-right">
-                          {editingId === item.id && editingTable === 'sales_deduction' ? (
-                            <input type="number" value={editValue} onChange={(e) => setEditValue(parseInt(e.target.value) || 0)} className="form-input" style={{ width: '100px', textAlign: 'right', padding: '4px 8px' }} autoFocus />
-                          ) : (
-                            <span>¥{item.amount.toLocaleString()}</span>
-                          )}
-                        </td>
-                        <td className="text-center">
-                          {editingId === item.id && editingTable === 'sales_deduction' ? (
-                            <div className="flex justify-center gap-xs">
-                              <button onClick={() => updateSalesDeduction(item.id)} disabled={saving} className="btn btn-sm btn-success">保存</button>
-                              <button onClick={cancelEdit} className="btn btn-sm btn-secondary">取消</button>
-                            </div>
-                          ) : (
-                            <div className="flex justify-center gap-xs">
-                              <button onClick={() => startEdit(item.id, 'sales_deduction', item.amount)} className="btn btn-sm btn-secondary">編集</button>
-                              <button onClick={() => deleteItem('m_sales_price_deductions', item.id, `${getDisplayName(item.model)} ${SALES_DEDUCTION_TYPES[item.deduction_type]}`)} className="btn btn-sm btn-danger" disabled={saving}>削除</button>
                             </div>
                           )}
                         </td>
@@ -1786,28 +1655,6 @@ export default function MasterManagementPage() {
                   <div className="form-group">
                     <label className="form-label">税抜価格</label>
                     <input type="number" value={newPriceExclTax} onChange={e => setNewPriceExclTax(parseInt(e.target.value) || 0)} className="form-input" />
-                  </div>
-                </div>
-              )}
-
-              {/* 販売減額 */}
-              {activeTab === 'sales' && salesSubTab === 'deduction' && (
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label className="form-label form-label-required">機種</label>
-                    <select value={newModel} onChange={e => setNewModel(e.target.value)} className="form-select">
-                      {iphoneModels.map(m => <option key={m.model} value={m.model}>{m.display_name}</option>)}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label form-label-required">減額種別</label>
-                    <select value={newDeductionType} onChange={e => setNewDeductionType(e.target.value)} className="form-select">
-                      {Object.entries(SALES_DEDUCTION_TYPES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">減額金額</label>
-                    <input type="number" value={newAmount} onChange={e => setNewAmount(parseInt(e.target.value) || 0)} className="form-input" />
                   </div>
                 </div>
               )}

@@ -18,6 +18,13 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { DEFAULT_TENANT_ID, MODELS_WITH_COLOR, getRepairTypes, getColorOptions, getColorOptionsForModel, getColorByCode } from '../lib/constants'
 import { Shop, IphoneModel, UsedInventory } from '../lib/types'
+import {
+  calculateSalesDeduction,
+  getModelGeneration,
+  SALES_BATTERY_DEDUCTION,
+  SALES_CAMERA_STAIN_DEDUCTION,
+  SALES_NW_DEDUCTION,
+} from '../lib/pricing'
 
 type PartsInventory = {
   id: number
@@ -71,6 +78,7 @@ export default function InventoryPage() {
 
   const [showRepairModal, setShowRepairModal] = useState(false)
   const [selectedParts, setSelectedParts] = useState<string[]>([])
+  const [baseSalesPrice, setBaseSalesPrice] = useState<number | null>(null)  // 基準価格（減額前）
   const [partsInventory, setPartsInventory] = useState<PartsInventory[]>([])
 
   const getDisplayName = (model: string) => {
@@ -273,7 +281,7 @@ export default function InventoryPage() {
     setLoading(false)
   }
 
-  const openDetailModal = (item: UsedInventory) => {
+  const openDetailModal = async (item: UsedInventory) => {
     setSelectedItem(item)
     const salesPrice = item.sales_price || 0
     setEditData({
@@ -292,6 +300,19 @@ export default function InventoryPage() {
       color: item.color || '',
       rank: item.rank || '',
     })
+
+    // 基準価格を取得
+    const { data: priceData } = await supabase
+      .from('m_sales_prices')
+      .select('price')
+      .eq('tenant_id', DEFAULT_TENANT_ID)
+      .eq('model', item.model)
+      .eq('storage', item.storage)
+      .eq('rank', item.rank)
+      .eq('is_active', true)
+      .single()
+
+    setBaseSalesPrice(priceData?.price || null)
     setShowDetailModal(true)
   }
 
@@ -313,38 +334,17 @@ export default function InventoryPage() {
       .single()
 
     if (salesPriceData?.price) {
-      // 減額マスタを取得
-      const { data: deductions } = await supabase
-        .from('m_sales_price_deductions')
-        .select('deduction_type, amount')
-        .eq('tenant_id', DEFAULT_TENANT_ID)
-        .eq('model', selectedItem.model)
-        .eq('is_active', true)
+      // 基準価格を更新
+      setBaseSalesPrice(salesPriceData.price)
 
-      let deduction = 0
-      const dedMap = new Map((deductions || []).map(d => [d.deduction_type, d.amount]))
-
-      // バッテリー減額（現在の編集データを使用）
-      const batteryPercent = editData.is_service_state ? null : editData.battery_percent
-      if (editData.is_service_state || (batteryPercent !== null && batteryPercent < 80)) {
-        deduction += dedMap.get('battery_79') || 0
-      } else if (batteryPercent !== null && batteryPercent < 90) {
-        deduction += dedMap.get('battery_80_89') || 0
-      }
-
-      // カメラ染み減額
-      if (editData.camera_stain_level === 'minor') {
-        deduction += dedMap.get('camera_stain_minor') || 0
-      } else if (editData.camera_stain_level === 'major') {
-        deduction += dedMap.get('camera_stain_major') || 0
-      }
-
-      // NW制限減額
-      if (editData.nw_status === 'triangle') {
-        deduction += dedMap.get('nw_triangle') || 0
-      } else if (editData.nw_status === 'cross') {
-        deduction += dedMap.get('nw_cross') || 0
-      }
+      // 固定減額ルールで計算（pricing.tsの関数を使用）
+      const deduction = calculateSalesDeduction({
+        model: selectedItem.model,
+        batteryPercent: editData.is_service_state ? null : editData.battery_percent,
+        isServiceState: editData.is_service_state,
+        cameraStain: (editData.camera_stain_level as 'none' | 'minor' | 'major') || 'none',
+        nwStatus: (editData.nw_status as 'ok' | 'triangle' | 'cross') || 'ok',
+      })
 
       const finalPrice = salesPriceData.price - deduction
 
@@ -356,6 +356,7 @@ export default function InventoryPage() {
       }))
     } else {
       // 価格マスタに該当がない場合はランクのみ変更
+      setBaseSalesPrice(null)
       setEditData(prev => ({ ...prev, rank: newRank }))
     }
   }
@@ -1060,6 +1061,62 @@ export default function InventoryPage() {
                             </span>
                           </span>
                         </div>
+                      </div>
+                    )
+                  })()}
+                  {/* 減額内訳表示 */}
+                  {baseSalesPrice && (() => {
+                    const generation = getModelGeneration(selectedItem.model)
+                    const deductions: { label: string; amount: number }[] = []
+
+                    // バッテリー減額
+                    if (editData.is_service_state || (editData.battery_percent !== null && editData.battery_percent < 80)) {
+                      deductions.push({ label: 'バッテリー（80%未満/サービス）', amount: SALES_BATTERY_DEDUCTION.PERCENT_79_OR_SERVICE })
+                    } else if (editData.battery_percent !== null && editData.battery_percent < 90) {
+                      deductions.push({ label: 'バッテリー（80-89%）', amount: SALES_BATTERY_DEDUCTION.PERCENT_80_89 })
+                    }
+
+                    // カメラ染み減額
+                    const cameraStain = editData.camera_stain_level as 'none' | 'minor' | 'major'
+                    if (cameraStain === 'minor' || cameraStain === 'major') {
+                      const table = generation === 'gen_11_or_earlier' ? SALES_CAMERA_STAIN_DEDUCTION.GEN_11_OR_EARLIER
+                        : generation === 'gen_12' ? SALES_CAMERA_STAIN_DEDUCTION.GEN_12 : SALES_CAMERA_STAIN_DEDUCTION.GEN_13_OR_LATER
+                      deductions.push({ label: `カメラ染み（${cameraStain === 'minor' ? '少' : '多'}）`, amount: cameraStain === 'minor' ? table.minor : table.major })
+                    }
+
+                    // NW制限減額
+                    const nwStatus = editData.nw_status as 'ok' | 'triangle' | 'cross'
+                    if (nwStatus === 'triangle' || nwStatus === 'cross') {
+                      const table = generation === 'gen_11_or_earlier' ? SALES_NW_DEDUCTION.GEN_11_OR_EARLIER
+                        : generation === 'gen_12' ? SALES_NW_DEDUCTION.GEN_12 : SALES_NW_DEDUCTION.GEN_13_OR_LATER
+                      deductions.push({ label: `NW制限（${nwStatus === 'triangle' ? '△' : '×'}）`, amount: nwStatus === 'triangle' ? table.triangle : table.cross })
+                    }
+
+                    const totalDeduction = deductions.reduce((sum, d) => sum + d.amount, 0)
+
+                    return (
+                      <div style={{ marginTop: '8px', padding: '8px', background: '#FEF3C7', borderRadius: '4px', fontSize: '0.78rem' }}>
+                        <div style={{ fontWeight: '600', marginBottom: '4px', color: '#92400E' }}>減額内訳</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                          <span>基準価格:</span>
+                          <span style={{ fontWeight: '500' }}>¥{baseSalesPrice.toLocaleString()}</span>
+                        </div>
+                        {deductions.length === 0 ? (
+                          <div style={{ color: '#059669', fontSize: '0.75rem' }}>減額なし</div>
+                        ) : (
+                          <>
+                            {deductions.map((d, i) => (
+                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px', color: '#B45309' }}>
+                                <span>- {d.label}:</span>
+                                <span>-¥{d.amount.toLocaleString()}</span>
+                              </div>
+                            ))}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #F59E0B', paddingTop: '4px', marginTop: '4px', fontWeight: '600' }}>
+                              <span>計算価格:</span>
+                              <span>¥{(baseSalesPrice - totalDeduction).toLocaleString()}</span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )
                   })()}

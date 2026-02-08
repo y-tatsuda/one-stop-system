@@ -304,3 +304,88 @@ export async function sendInvitationEmail(
     return false
   }
 }
+
+// =====================================================
+// API認可チェック
+// =====================================================
+
+export type AuthTokenData = {
+  staffId: number
+  tenantId: number
+  role: 'owner' | 'admin' | 'staff'
+  email: string
+  name: string
+  exp: number  // 有効期限（Unix timestamp）
+}
+
+/**
+ * リクエストヘッダーから認証トークンを検証し、スタッフ情報を返す
+ * @param authHeader Authorization ヘッダーの値（"Bearer xxxx"）
+ * @returns 認証されたスタッフ情報、または null（認証失敗時）
+ */
+export async function verifyAuthToken(authHeader: string | null): Promise<AuthTokenData | null> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null
+  }
+
+  const token = authHeader.replace('Bearer ', '')
+
+  try {
+    // Base64デコード
+    const decoded = Buffer.from(token, 'base64').toString('utf-8')
+    const tokenData = JSON.parse(decoded) as AuthTokenData
+
+    // 有効期限チェック
+    if (tokenData.exp && tokenData.exp < Date.now()) {
+      return null
+    }
+
+    // スタッフの存在確認（DBで最新状態を確認）
+    const staff = await getStaffById(tokenData.staffId)
+    if (!staff || !staff.is_active) {
+      return null
+    }
+
+    // ロールが一致するか確認（改ざん検出）
+    if (staff.role !== tokenData.role || staff.tenant_id !== tokenData.tenantId) {
+      return null
+    }
+
+    return tokenData
+  } catch {
+    return null
+  }
+}
+
+/**
+ * ロールベースのアクセス制御
+ * @param userRole ユーザーのロール
+ * @param requiredRoles 許可されるロールの配列
+ */
+export function hasRequiredRole(
+  userRole: 'owner' | 'admin' | 'staff',
+  requiredRoles: Array<'owner' | 'admin' | 'staff'>
+): boolean {
+  return requiredRoles.includes(userRole)
+}
+
+/**
+ * API認可チェックのヘルパー
+ * 認証失敗時は適切なエラーレスポンスを返す
+ */
+export async function requireAuth(
+  authHeader: string | null,
+  requiredRoles?: Array<'owner' | 'admin' | 'staff'>
+): Promise<{ success: true; auth: AuthTokenData } | { success: false; status: number; message: string }> {
+  const auth = await verifyAuthToken(authHeader)
+
+  if (!auth) {
+    return { success: false, status: 401, message: '認証が必要です' }
+  }
+
+  if (requiredRoles && !hasRequiredRole(auth.role, requiredRoles)) {
+    return { success: false, status: 403, message: 'この操作を行う権限がありません' }
+  }
+
+  return { success: true, auth }
+}

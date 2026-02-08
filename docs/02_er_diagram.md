@@ -21,7 +21,7 @@
 │    │  m_buyback_guarantees            │                             │
 │    │  m_buyback_deductions            │                             │
 │    │  m_sales_prices                  │                             │
-│    │  m_sales_price_deductions        │                             │
+│    │  m_sales_price_deductions (非推奨)│                             │
 │    │                                  │                             │
 │    │  m_system_settings               │                             │
 │    │  m_sales_targets ── m_shops      │                             │

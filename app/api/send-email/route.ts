@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/app/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    // 認可チェック（認証済みユーザーのみ）
+    const authResult = await requireAuth(request.headers.get('authorization'))
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.message },
+        { status: authResult.status }
+      )
+    }
+
     const { to, subject, body } = await request.json()
 
     // Resend APIを使用（または他のメール送信サービス）

@@ -2,11 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import {
   logAuthAction,
-  sendInvitationEmail
+  sendInvitationEmail,
+  requireAuth
 } from '@/app/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    // 認可チェック（owner/adminのみ招待可能）
+    const authResult = await requireAuth(
+      request.headers.get('authorization'),
+      ['owner', 'admin']
+    )
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.message },
+        { status: authResult.status }
+      )
+    }
+
     const { email, name, role = 'staff', shopIds = [] } = await request.json()
     const ipAddress = request.headers.get('x-forwarded-for') || 'unknown'
     const userAgent = request.headers.get('user-agent') || 'unknown'
@@ -28,9 +41,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: セッション管理実装後に権限チェックを追加
-    // 現在は tenant_id: 1 固定で動作させる
-    const tenantId = 1
+    // 認証されたユーザーのテナントIDを使用
+    const tenantId = authResult.auth.tenantId
 
     // 既存のメールアドレスチェック
     const { data: existingStaff } = await supabaseAdmin

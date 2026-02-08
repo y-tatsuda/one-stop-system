@@ -196,7 +196,9 @@ repair_type: パネル, バッテリー
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | |
 | updated_at | TIMESTAMPTZ | DEFAULT NOW() | |
 
-### m_sales_price_deductions（販売減額マスタ）
+### m_sales_price_deductions（販売減額マスタ）【非推奨】
+
+> **注意:** このテーブルは非推奨です。販売減額は `app/lib/pricing.ts` の固定ルールで計算されます。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|

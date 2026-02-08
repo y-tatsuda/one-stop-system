@@ -1,3 +1,9 @@
+/**
+ * 買取フォーム用 公開アップロードAPI
+ * - 認証不要（顧客向け）
+ * - 許可されたフォルダのみアップロード可能
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -6,17 +12,22 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// TODO: 認証を追加する（現在はフォルダ制限とファイルタイプ制限で保護）
-// 管理ページからのアップロードが認証ヘッダーを送信するようになったら有効化
+// 許可するフォルダ（買取関連のみ）
+const ALLOWED_FOLDERS = ['camera-check', 'buyback-documents', 'id-documents']
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File
-    const folder = formData.get('folder') as string || 'documents'
+    const folder = formData.get('folder') as string || 'buyback-documents'
 
     if (!file) {
       return NextResponse.json({ error: 'ファイルが指定されていません' }, { status: 400 })
+    }
+
+    // フォルダ制限チェック
+    if (!ALLOWED_FOLDERS.includes(folder)) {
+      return NextResponse.json({ error: '許可されていないフォルダです' }, { status: 403 })
     }
 
     // ファイルサイズチェック（10MB）
@@ -24,14 +35,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ファイルサイズが10MBを超えています' }, { status: 400 })
     }
 
-    // MIMEタイプチェック
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+    // MIMEタイプチェック（画像のみ許可）
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: '対応していないファイル形式です' }, { status: 400 })
+      return NextResponse.json({ error: '対応していないファイル形式です（画像のみ）' }, { status: 400 })
     }
 
     // ファイル名生成
-    const ext = file.name.split('.').pop() || 'jpg'
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
     const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
 
     // ArrayBufferに変換

@@ -130,8 +130,11 @@ export default function ProductDetailPage() {
 
   const getNWStatusLabel = (status: string | null) => {
     switch (status) {
+      case 'ok':
       case '○': return '○（利用制限なし）'
+      case 'triangle':
       case '△': return '△（残債あり）'
+      case 'cross':
       case '×': return '×（利用制限あり）'
       default: return status || '確認中'
     }
@@ -139,9 +142,13 @@ export default function ProductDetailPage() {
 
   const getCameraStainLabel = (level: string | null) => {
     switch (level) {
+      case 'none':
       case 'なし': return 'なし'
+      case 'minor':
       case '少': return '少（軽微）'
+      case 'medium':
       case '中': return '中（ややあり）'
+      case 'major':
       case '多': return '多（目立つ）'
       default: return level || '確認中'
     }

@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { requireAuth } from '@/app/lib/auth'
 
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL_BUYBACK
@@ -54,6 +55,15 @@ type RequestData = {
 
 export async function POST(request: NextRequest) {
   try {
+    // 認可チェック（スタッフ以上が通知操作可能）
+    const authResult = await requireAuth(request.headers.get('authorization'))
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.message },
+        { status: authResult.status }
+      )
+    }
+
     const { action, requestId } = await request.json() as { action: NotifyAction; requestId: number }
 
     // リクエストデータを取得

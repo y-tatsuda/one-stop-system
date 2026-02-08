@@ -1,13 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { requireAuth } from '@/app/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    // 認可チェック（owner/adminのみ削除可能）
+    const authResult = await requireAuth(
+      request.headers.get('authorization'),
+      ['owner', 'admin']
+    )
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.message },
+        { status: authResult.status }
+      )
+    }
+
     const { staffId } = await request.json()
 
     if (!staffId) {
       return NextResponse.json(
         { success: false, error: 'スタッフIDが必要です' },
+        { status: 400 }
+      )
+    }
+
+    // 自分自身は削除できない
+    if (staffId === authResult.auth.staffId) {
+      return NextResponse.json(
+        { success: false, error: '自分自身を削除することはできません' },
         { status: 400 }
       )
     }
