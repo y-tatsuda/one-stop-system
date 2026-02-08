@@ -562,7 +562,7 @@ export default function MailBuybackManagementPage() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('folder', `buyback-documents/agreements`)
+      formData.append('folder', `agreements`)
       formData.append('filename', `${req.request_number}`)
 
       const res = await fetch('/api/upload-document', {
@@ -581,13 +581,18 @@ export default function MailBuybackManagementPage() {
         if (!error) {
           await fetchRequests()
           alert('買取同意書をアップロードしました')
+        } else {
+          console.error('DB update error:', error)
+          alert('DBの更新に失敗しました: ' + error.message)
         }
       } else {
-        alert('アップロードに失敗しました')
+        const errorData = await res.json()
+        console.error('Upload failed:', errorData)
+        alert('アップロードに失敗しました: ' + (errorData.error || res.statusText))
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Upload error:', err)
-      alert('アップロードに失敗しました')
+      alert('アップロードに失敗しました: ' + (err.message || '不明なエラー'))
     } finally {
       setUploadingAgreement(false)
     }
