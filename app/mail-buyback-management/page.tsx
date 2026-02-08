@@ -63,6 +63,9 @@ type AssessmentDetails = {
   item_changes?: ItemChange[]  // 項目変更リスト
 }
 
+// 画像アップロード対象のキー（item_changes以外）
+type AssessmentIssueKey = 'screen_scratches' | 'body_scratches' | 'camera_stain' | 'other'
+
 const createEmptyAssessmentDetails = (): AssessmentDetails => ({
   screen_scratches: { hasIssue: false, description: '', photos: [] },
   body_scratches: { hasIssue: false, description: '', photos: [] },
@@ -366,7 +369,7 @@ export default function MailBuybackManagementPage() {
   }
 
   // 本査定画像アップロード
-  const handleAssessmentPhotoUpload = async (key: keyof AssessmentDetails, file: File) => {
+  const handleAssessmentPhotoUpload = async (key: AssessmentIssueKey, file: File) => {
     const details = assessmentDetails[key]
     if (details.photos.length >= 3) {
       alert('画像は各項目につき最大3枚までです')
@@ -405,7 +408,7 @@ export default function MailBuybackManagementPage() {
   }
 
   // 本査定画像削除
-  const removeAssessmentPhoto = (key: keyof AssessmentDetails, photoIndex: number) => {
+  const removeAssessmentPhoto = (key: AssessmentIssueKey, photoIndex: number) => {
     setAssessmentDetails(prev => ({
       ...prev,
       [key]: {

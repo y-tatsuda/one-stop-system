@@ -17,22 +17,33 @@
 |------|------|--------|------|
 | `/app/buyback/page.tsx` | 店頭買取入力 | スタッフ | 要ログイン |
 | `/app/buyback-kiosk/page.tsx` | KIOSKメニュー | お客様 | パスコード |
-| `/app/buyback-mail/page.tsx` | **郵送買取フォーム（EC・LIFF共通）** | お客様 | 不要 |
+| `/app/buyback-mail/page.tsx` | 郵送買取フォーム（EC・LIFF共通） | お客様 | 不要 |
 | `/app/liff/buyback/page.tsx` | LIFFエントリー（リダイレクトのみ） | お客様 | LINE認証 |
 | `/app/shop/buyback/page.tsx` | ECサイト買取トップ（情報ページ） | お客様 | 不要 |
+| `/app/mail-buyback-management/page.tsx` | 郵送買取管理（進捗・本査定・振込） | スタッフ | 要ログイン |
+| `/app/buyback-response/page.tsx` | 承諾/返却選択（WEB） | お客様 | トークン |
+| `/app/liff/buyback-response/page.tsx` | 承諾/返却選択（LINE） | お客様 | LINE認証 |
+| `/app/buyback-assessment/page.tsx` | 減額理由確認（画像付き） | お客様 | トークン |
 
 ### バックエンド（API）
 
 | パス | 用途 | 呼び出し元 |
 |------|------|-----------|
-| `/app/api/mail-buyback/route.ts` | **郵送買取API（メイン）** | `/buyback-mail` |
-| `/app/api/liff/buyback/submit/route.ts` | ⚠️ **重複・未使用** | なし |
+| `/app/api/mail-buyback/route.ts` | 郵送買取申込み | `/buyback-mail` |
+| `/app/api/mail-buyback/notify/route.ts` | 通知送信（LINE/メール/Slack） | `/mail-buyback-management` |
+| `/app/api/mail-buyback/decline/route.ts` | 査定辞退記録 | `/buyback-mail` |
+| `/app/api/generate-buyback-pdf/route.ts` | 買取同意書PDF生成 | `/mail-buyback-management` |
+| `/app/api/upload-document/route.ts` | 画像アップロード | 各種フォーム |
+| `/app/api/convert-to-sjis/route.ts` | CSV Shift-JIS変換 | `/mail-buyback-management` |
 
 ### 共通ライブラリ
 
 | パス | 用途 |
 |------|------|
-| `/app/lib/pricing.ts` | **価格計算マスタ（唯一の計算ロジック）** |
+| `/app/lib/pricing.ts` | 価格計算マスタ（唯一の計算ロジック） |
+| `/app/lib/supabase.ts` | Supabaseクライアント |
+| `/app/lib/supabase-admin.ts` | Supabase管理者クライアント |
+| `/app/lib/auth.ts` | 認可チェック |
 
 ---
 
@@ -80,29 +91,48 @@
      Supabase保存（別テーブル: t_buybacks）
 ```
 
+### 4. 郵送買取管理フロー
+
+```
+/mail-buyback-management
+        ↓ ステータス更新
+     /api/mail-buyback/notify
+        ↓
+        ├── Slack通知
+        ├── LINE Push（LIFF経由の場合）
+        └── メール送信（WEB経由の場合）
+```
+
 ---
 
 ## 通知の条件分岐
 
-`/api/mail-buyback/route.ts` の処理：
+### 申込み時（`/api/mail-buyback/route.ts`）
 
 | 条件 | Slack | LINE返信 | メール返信 | Lステップ |
 |------|-------|----------|-----------|----------|
-| LIFF経由（lineUserId あり） | ✅ | ✅ | ❌ | ✅ |
-| WEB経由（email あり、lineUserId なし） | ✅ | ❌ | ✅ | ❌ |
+| LIFF経由（lineUserId あり） | ✓ | ✓ | - | ✓ |
+| WEB経由（email あり、lineUserId なし） | ✓ | - | ✓ | - |
 
-```typescript
-// LINE返信・Lステップ
-if (lineUserId) {
-  // LINE Push Message
-  // Lステップタグ付け
-}
+### ステータス変更時（`/api/mail-buyback/notify/route.ts`）
 
-// メール返信
-if (email && !lineUserId) {
-  // Resend でメール送信
-}
-```
+| アクション | Slack | LINE | メール |
+|-----------|-------|------|--------|
+| kit_sent | ✓ | ✓（LIFF） | ✓（WEB） |
+| assessed | ✓ | ✓（LIFF） | ✓（WEB） |
+| approved | ✓ | - | - |
+| rejected | ✓ | - | - |
+| paid | ✓ | ✓（LIFF） | ✓（WEB） |
+
+---
+
+## 本査定メール 3パターン
+
+| パターン | 条件 | 内容 |
+|---------|------|------|
+| 1. 変更なし | final_price = total_estimated_price | 事前査定と同額 |
+| 2. 増額 | final_price > total_estimated_price | 増額理由リスト |
+| 3. 減額 | final_price < total_estimated_price | 減額理由リスト + 画像確認URL |
 
 ---
 
@@ -131,7 +161,8 @@ const deduction = calculateBuybackDeduction(basePrice, {
 | バッテリー | 80%未満 or サービス状態 | 基準価格の20% |
 | NW利用制限 | △ | 基準価格の20% |
 | NW利用制限 | × | 基準価格の40% |
-| カメラ染み | あり | 基準価格の20% |
+| カメラ染み（小） | minor | 基準価格の10% |
+| カメラ染み（大） | major | 基準価格の20% |
 | カメラ窓破損 | あり | 基準価格の10% |
 | 非正規修理歴 | あり | 基準価格の20% |
 
@@ -144,15 +175,36 @@ const deduction = calculateBuybackDeduction(basePrice, {
 | カラム | 型 | 説明 |
 |--------|-----|------|
 | id | int | 主キー |
-| request_number | text | 申込番号（MB-YYYY-MM-DD-NNN） |
-| status | text | pending / completed / cancelled |
+| request_number | text | 申込番号（MB-/DC-YYYY-MM-DD-NNN） |
+| status | text | pending/kit_sent/arrived/assessing/assessed/approved/rejected/paid/completed/returned/declined |
 | customer_name | text | 顧客名 |
+| customer_name_kana | text | フリガナ |
+| birth_year/month/day | text | 生年月日 |
+| occupation | text | 職業 |
 | phone | text | 電話番号 |
 | email | text | メールアドレス |
+| postal_code | text | 郵便番号 |
+| address | text | 住所 |
+| address_detail | text | 建物名等 |
 | items | jsonb | 端末情報（配列） |
 | total_estimated_price | int | 合計査定金額 |
+| final_price | int | 最終査定金額 |
+| assessment_details | jsonb | 本査定詳細（傷・写真・変更） |
 | line_user_id | text | LINE UID（LIFF経由の場合） |
+| line_display_name | text | LINE表示名 |
 | source | text | web / liff |
+| bank_name/branch_name | text | 振込先銀行 |
+| account_type/number/holder | text | 口座情報 |
+| kit_sent_at | timestamp | キット送付日時 |
+| arrived_at | timestamp | 到着日時 |
+| assessed_at | timestamp | 本査定完了日時 |
+| approved_at | timestamp | 承諾日時 |
+| rejected_at | timestamp | 返却希望日時 |
+| paid_at | timestamp | 振込日時 |
+| completed_at | timestamp | 完了日時 |
+| returned_at | timestamp | 返送完了日時 |
+| staff_notes | text | スタッフメモ |
+| created_at | timestamp | 作成日時 |
 
 ### 店頭買取テーブル: `t_buybacks`
 
@@ -170,19 +222,8 @@ const deduction = calculateBuybackDeduction(basePrice, {
 | `LSTEP_ACCOUNT_ID` | Lステップアカウント | LIFF用 |
 | `SLACK_WEBHOOK_URL_BUYBACK` | Slack通知 | 全経路 |
 | `NEXT_PUBLIC_LIFF_ID` | LIFF初期化 | LIFF用 |
-
----
-
-## 整理が必要な箇所
-
-### ⚠️ 重複API
-- `/app/api/liff/buyback/submit/route.ts` は未使用
-- `/app/api/mail-buyback/route.ts` に統合済み
-- **削除推奨**
-
-### ⚠️ ECサイト買取トップ
-- `/app/shop/buyback/page.tsx` の価格表はハードコード
-- Supabaseから取得するよう変更推奨
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase URL | 必須 |
+| `NEXT_PUBLIC_BASE_URL` | サイトURL | 通知リンク用 |
 
 ---
 
@@ -192,10 +233,16 @@ const deduction = calculateBuybackDeduction(basePrice, {
    - `/app/lib/pricing.ts` のみを修正
    - 各ページには計算ロジックを書かない
 
-2. **通知を追加する場合**
-   - `/app/api/mail-buyback/route.ts` に追加
+2. **通知を追加・変更する場合**
+   - 申込み時: `/app/api/mail-buyback/route.ts`
+   - ステータス変更時: `/app/api/mail-buyback/notify/route.ts`
 
 3. **フォーム項目を追加する場合**
    - `/app/buyback-mail/page.tsx` のフォームを修正
    - `/app/api/mail-buyback/route.ts` のバリデーション・保存を修正
    - DBマイグレーションが必要な場合あり
+
+4. **本査定の項目を追加する場合**
+   - `/app/mail-buyback-management/page.tsx` の AssessmentDetails 型を修正
+   - `/app/api/mail-buyback/notify/route.ts` のメール本文を修正
+   - `/app/buyback-assessment/page.tsx` の表示を修正
