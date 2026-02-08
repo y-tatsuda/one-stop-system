@@ -400,13 +400,6 @@ ${data.customer_name} 様
 async function sendLineWaitingPayment(data: RequestData): Promise<boolean> {
   const finalPrice = data.final_price || data.total_estimated_price
 
-  // 振込予定の判定（19時以前/以降）
-  const now = new Date()
-  const hour = now.getHours()
-  const paymentTiming = hour < 19
-    ? '翌営業日の朝9時までにお振込みいたします。'
-    : '翌々営業日の朝9時までにお振込みいたします。'
-
   const message = `✅ 買取のご依頼を承りました
 
 ${data.customer_name} 様
@@ -423,7 +416,8 @@ ${data.account_type} ${data.account_number}
 ${data.account_holder} 様
 
 【振込予定】
-${paymentTiming}
+・19時までのご依頼：翌営業日の朝9時までにお振込み
+・19時以降のご依頼：翌々営業日の朝9時までにお振込み
 
 ※内容に誤りがある場合は、お手数ですがこのLINEまたはお電話でご連絡ください。
 
@@ -713,13 +707,6 @@ LINE：https://lin.ee/F5fr4V7
 async function sendEmailWaitingPayment(data: RequestData): Promise<boolean> {
   const finalPrice = data.final_price || data.total_estimated_price
 
-  // 振込予定の判定（19時以前/以降）
-  const now = new Date()
-  const hour = now.getHours()
-  const paymentTiming = hour < 19
-    ? '翌営業日の朝9時までにお振込みいたします。'
-    : '翌々営業日の朝9時までにお振込みいたします。'
-
   const subject = `【ONE STOP】買取のご依頼を承りました（${data.request_number}）`
   const body = `${data.customer_name} 様
 
@@ -735,7 +722,8 @@ ${data.account_type} ${data.account_number}
 ${data.account_holder} 様
 
 ■ 振込予定
-${paymentTiming}
+・19時までのご依頼：翌営業日の朝9時までにお振込み
+・19時以降のご依頼：翌々営業日の朝9時までにお振込み
 
 ※内容に誤りがある場合は、お手数ですがメール・LINE・お電話にてご連絡ください。
 
