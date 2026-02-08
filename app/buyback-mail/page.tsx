@@ -64,7 +64,21 @@ type CustomerInfo = {
   phone: string
   email: string
   occupation: string
+  // 未成年対応
+  isMinor: boolean
+  guardianConsent: boolean
+  guardianName: string
+  guardianNameKana: string
+  guardianRelationship: string
+  guardianPhone: string
 }
+
+// 保護者/後見人の続柄
+const GUARDIAN_RELATIONSHIP_OPTIONS = [
+  { value: 'father', label: '父' },
+  { value: 'mother', label: '母' },
+  { value: 'guardian', label: '未成年後見人' },
+]
 
 type Step = 'device' | 'customer' | 'confirm' | 'complete' | 'declined'
 
@@ -133,7 +147,48 @@ function MailBuybackPageContent() {
     phone: '',
     email: '',
     occupation: '',
+    // 未成年対応
+    isMinor: false,
+    guardianConsent: false,
+    guardianName: '',
+    guardianNameKana: '',
+    guardianRelationship: '',
+    guardianPhone: '',
   })
+
+  // 年齢計算
+  const calculateAge = (year: string, month: string, day: string): number | null => {
+    if (!year || !month || !day) return null
+    const birthDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+    const today = new Date()
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    return age
+  }
+
+  // 生年月日変更時の処理
+  const handleBirthDateChange = (field: 'birthYear' | 'birthMonth' | 'birthDay', value: string) => {
+    const newInfo = { ...customerInfo, [field]: value }
+    const age = calculateAge(
+      field === 'birthYear' ? value : customerInfo.birthYear,
+      field === 'birthMonth' ? value : customerInfo.birthMonth,
+      field === 'birthDay' ? value : customerInfo.birthDay
+    )
+    const isMinor = age !== null && age < 18
+    setCustomerInfo({
+      ...newInfo,
+      isMinor,
+      // 18歳以上になったら保護者情報をリセット
+      guardianConsent: isMinor ? newInfo.guardianConsent : false,
+      guardianName: isMinor ? newInfo.guardianName : '',
+      guardianNameKana: isMinor ? newInfo.guardianNameKana : '',
+      guardianRelationship: isMinor ? newInfo.guardianRelationship : '',
+      guardianPhone: isMinor ? newInfo.guardianPhone : '',
+    })
+  }
 
   // 同意チェック
   const [agreed, setAgreed] = useState(false)
@@ -342,6 +397,22 @@ function MailBuybackPageContent() {
       newErrors.email = '正しいメールアドレスを入力してください'
     }
 
+    // 未成年の場合は保護者情報必須
+    if (customerInfo.isMinor) {
+      if (!customerInfo.guardianConsent) {
+        newErrors.guardianConsent = '保護者/後見人の同意が必要です'
+      }
+      if (!customerInfo.guardianRelationship) {
+        newErrors.guardianRelationship = '続柄を選択してください'
+      }
+      if (!customerInfo.guardianName.trim()) {
+        newErrors.guardianName = '保護者/後見人の氏名を入力してください'
+      }
+      if (!customerInfo.guardianPhone.trim()) {
+        newErrors.guardianPhone = '保護者/後見人の電話番号を入力してください'
+      }
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -441,6 +512,13 @@ function MailBuybackPageContent() {
           lineUserId: lineUserId || null,
           lineDisplayName: lineDisplayName || null,
           source: isFromLiff ? 'liff' : 'web',
+          // 未成年の場合の保護者情報
+          isMinor: customerInfo.isMinor,
+          guardianConsent: customerInfo.isMinor ? customerInfo.guardianConsent : null,
+          guardianName: customerInfo.isMinor ? customerInfo.guardianName : null,
+          guardianNameKana: customerInfo.isMinor ? customerInfo.guardianNameKana : null,
+          guardianRelationship: customerInfo.isMinor ? customerInfo.guardianRelationship : null,
+          guardianPhone: customerInfo.isMinor ? customerInfo.guardianPhone : null,
         }),
       })
 
@@ -847,7 +925,7 @@ function MailBuybackPageContent() {
                     <input
                       type="number"
                       value={customerInfo.birthYear}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, birthYear: e.target.value })}
+                      onChange={(e) => handleBirthDateChange('birthYear', e.target.value)}
                       className={`form-input ${errors.birthDate ? 'form-input-error' : ''}`}
                       placeholder="1990"
                       style={{ width: 90 }}
@@ -858,7 +936,7 @@ function MailBuybackPageContent() {
                     <input
                       type="number"
                       value={customerInfo.birthMonth}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, birthMonth: e.target.value })}
+                      onChange={(e) => handleBirthDateChange('birthMonth', e.target.value)}
                       className={`form-input ${errors.birthDate ? 'form-input-error' : ''}`}
                       placeholder="1"
                       style={{ width: 70 }}
@@ -869,7 +947,7 @@ function MailBuybackPageContent() {
                     <input
                       type="number"
                       value={customerInfo.birthDay}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, birthDay: e.target.value })}
+                      onChange={(e) => handleBirthDateChange('birthDay', e.target.value)}
                       className={`form-input ${errors.birthDate ? 'form-input-error' : ''}`}
                       placeholder="15"
                       style={{ width: 70 }}
@@ -880,6 +958,25 @@ function MailBuybackPageContent() {
                   </div>
                   {errors.birthDate && <div className="form-error">{errors.birthDate}</div>}
                 </div>
+
+                {/* 18歳未満の警告 */}
+                {customerInfo.isMinor && (
+                  <div style={{
+                    background: '#FEF3C7',
+                    border: '2px solid #F59E0B',
+                    borderRadius: 8,
+                    padding: 16,
+                    marginBottom: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}>
+                    <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+                    <span style={{ fontWeight: 600, color: '#92400E' }}>
+                      18歳未満のお客様です。保護者または後見人の同意が必要です。
+                    </span>
+                  </div>
+                )}
 
                 {/* 職業 */}
                 <div className="form-group" style={{ marginBottom: 16 }}>
@@ -975,6 +1072,88 @@ function MailBuybackPageContent() {
               </div>
             </div>
 
+            {/* 保護者/後見人情報（18歳未満の場合のみ） */}
+            {customerInfo.isMinor && (
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div className="card-header" style={{ background: '#F59E0B' }}>
+                  <h2 className="card-title" style={{ color: 'white', margin: 0 }}>保護者/後見人情報</h2>
+                </div>
+                <div className="card-body">
+                  <div className="form-group" style={{ marginBottom: 16 }}>
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 16,
+                      background: '#FEF3C7',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={customerInfo.guardianConsent}
+                        onChange={(e) => setCustomerInfo({ ...customerInfo, guardianConsent: e.target.checked })}
+                        style={{ width: 24, height: 24 }}
+                      />
+                      <span style={{ fontWeight: 600, fontSize: '1.05rem' }}>保護者/後見人の同意を得ています</span>
+                    </label>
+                    {errors.guardianConsent && <div className="form-error">{errors.guardianConsent}</div>}
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 16 }}>
+                    <label className="form-label form-label-required">続柄</label>
+                    <select
+                      value={customerInfo.guardianRelationship}
+                      onChange={(e) => setCustomerInfo({ ...customerInfo, guardianRelationship: e.target.value })}
+                      className={`form-select ${errors.guardianRelationship ? 'form-input-error' : ''}`}
+                    >
+                      <option value="">選択してください</option>
+                      {GUARDIAN_RELATIONSHIP_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    {errors.guardianRelationship && <div className="form-error">{errors.guardianRelationship}</div>}
+                  </div>
+
+                  <div className="form-grid-2" style={{ marginBottom: 16 }}>
+                    <div className="form-group">
+                      <label className="form-label form-label-required">氏名</label>
+                      <input
+                        type="text"
+                        value={customerInfo.guardianName}
+                        onChange={(e) => setCustomerInfo({ ...customerInfo, guardianName: e.target.value })}
+                        className={`form-input ${errors.guardianName ? 'form-input-error' : ''}`}
+                        placeholder="山田 一郎"
+                      />
+                      {errors.guardianName && <div className="form-error">{errors.guardianName}</div>}
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">フリガナ</label>
+                      <input
+                        type="text"
+                        value={customerInfo.guardianNameKana}
+                        onChange={(e) => setCustomerInfo({ ...customerInfo, guardianNameKana: e.target.value })}
+                        className="form-input"
+                        placeholder="ヤマダ イチロウ"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label form-label-required">電話番号</label>
+                    <input
+                      type="tel"
+                      value={customerInfo.guardianPhone}
+                      onChange={(e) => setCustomerInfo({ ...customerInfo, guardianPhone: e.target.value })}
+                      className={`form-input ${errors.guardianPhone ? 'form-input-error' : ''}`}
+                      placeholder="090-1234-5678"
+                    />
+                    {errors.guardianPhone && <div className="form-error">{errors.guardianPhone}</div>}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 12 }}>
               <button
                 onClick={() => { setErrors({}); setStep('device') }}
@@ -1058,6 +1237,29 @@ function MailBuybackPageContent() {
                 {customerInfo.email && <ConfirmRow label="メールアドレス" value={customerInfo.email} />}
               </div>
             </div>
+
+            {/* 保護者/後見人情報（18歳未満の場合） */}
+            {customerInfo.isMinor && (
+              <div className="card" style={{ marginBottom: 16, background: '#FFFBEB' }}>
+                <div className="card-header" style={{ background: '#F59E0B' }}>
+                  <h2 className="card-title" style={{ color: 'white', margin: 0 }}>保護者/後見人情報</h2>
+                </div>
+                <div className="card-body">
+                  <ConfirmRow
+                    label="同意"
+                    value={customerInfo.guardianConsent ? '✓ 同意済み' : '未同意'}
+                    valueStyle={{ color: customerInfo.guardianConsent ? '#059669' : '#DC2626', fontWeight: 600 }}
+                  />
+                  <ConfirmRow
+                    label="続柄"
+                    value={GUARDIAN_RELATIONSHIP_OPTIONS.find(opt => opt.value === customerInfo.guardianRelationship)?.label || ''}
+                  />
+                  <ConfirmRow label="氏名" value={customerInfo.guardianName} />
+                  {customerInfo.guardianNameKana && <ConfirmRow label="フリガナ" value={customerInfo.guardianNameKana} />}
+                  <ConfirmRow label="電話番号" value={customerInfo.guardianPhone} />
+                </div>
+              </div>
+            )}
 
             {/* 注意事項 */}
             <div className="card" style={{ marginBottom: 16 }}>
@@ -1570,7 +1772,7 @@ function DeviceItemForm({
 // =====================================================
 // 確認行コンポーネント
 // =====================================================
-function ConfirmRow({ label, value }: { label: string; value: string }) {
+function ConfirmRow({ label, value, valueStyle }: { label: string; value: string; valueStyle?: React.CSSProperties }) {
   return (
     <div style={{
       display: 'flex',
@@ -1579,7 +1781,7 @@ function ConfirmRow({ label, value }: { label: string; value: string }) {
       fontSize: 14,
     }}>
       <span style={{ width: 120, flexShrink: 0, color: '#666', fontWeight: 500 }}>{label}</span>
-      <span style={{ color: '#111' }}>{value}</span>
+      <span style={{ color: '#111', ...valueStyle }}>{value}</span>
     </div>
   )
 }

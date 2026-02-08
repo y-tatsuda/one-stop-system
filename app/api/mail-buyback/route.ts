@@ -28,6 +28,13 @@ export async function POST(request: NextRequest) {
       lineUserId,
       lineDisplayName,
       source,
+      // 未成年の場合の保護者情報
+      isMinor,
+      guardianConsent,
+      guardianName,
+      guardianNameKana,
+      guardianRelationship,
+      guardianPhone,
     } = body
 
     // バリデーション
@@ -86,6 +93,13 @@ export async function POST(request: NextRequest) {
         line_user_id: lineUserId || null,
         line_display_name: lineDisplayName || null,
         source: source || 'web',
+        // 未成年の場合の保護者情報
+        is_minor: isMinor || false,
+        guardian_consent: guardianConsent || null,
+        guardian_name: guardianName || null,
+        guardian_name_kana: guardianNameKana || null,
+        guardian_relationship: guardianRelationship || null,
+        guardian_phone: guardianPhone || null,
       })
       .select()
       .single()
