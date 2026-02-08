@@ -315,7 +315,7 @@ async function sendEmail(to: string, subject: string, body: string): Promise<boo
       },
       body: JSON.stringify({
         from: 'ONE STOP <noreply@onestop-mobile.net>',
-        reply_to: ['y-tatsuda@nichellc.net', 't-hori@nichellc.net', 'm-tsuchimoto@nichellc.net'],
+        reply_to: ['onestop.mobile2024@gmail.com'],
         to: [to],
         subject,
         text: body,
@@ -339,11 +339,23 @@ async function sendEmailKitSent(data: RequestData): Promise<boolean> {
 
 届きましたら、端末をキットに入れてご返送ください。
 
-ご不明点がございましたら、このメールに返信いただくか、
-お電話にてお問い合わせください。
+■ お問い合わせ
+ご不明点などございましたら、いずれかの方法でお問い合わせください。
+
+・公式LINE（オススメ）
+https://lin.ee/F5fr4V7
+
+・メール
+このメールに直接ご返信ください。
+
+※公式LINEの方が回答までのスピードが早いためオススメです。
+※メールでのお問い合わせは回答までにお時間がかかる場合がございます。
 
 ━━━━━━━━━━━━━━━━━━━━
 ONE STOP
+福井店：080-9361-6018
+鯖江店：080-5720-1164
+メール：onestop.mobile2024@gmail.com
 ━━━━━━━━━━━━━━━━━━━━`
 
   return sendEmail(data.email!, subject, body)
@@ -385,11 +397,23 @@ ${responseUrl}
 承諾いただいた場合は、振込先情報をご入力いただき、
 2営業日以内にお振込みいたします。
 
-ご不明点がございましたら、このメールに返信いただくか、
-お電話にてお問い合わせください。
+■ お問い合わせ
+ご不明点などございましたら、いずれかの方法でお問い合わせください。
+
+・公式LINE（オススメ）
+https://lin.ee/F5fr4V7
+
+・メール
+このメールに直接ご返信ください。
+
+※公式LINEの方が回答までのスピードが早いためオススメです。
+※メールでのお問い合わせは回答までにお時間がかかる場合がございます。
 
 ━━━━━━━━━━━━━━━━━━━━
 ONE STOP
+福井店：080-9361-6018
+鯖江店：080-5720-1164
+メール：onestop.mobile2024@gmail.com
 ━━━━━━━━━━━━━━━━━━━━`
 
   return sendEmail(data.email!, subject, body)
@@ -412,8 +436,23 @@ ${data.account_holder} 様
 この度はご利用いただき、誠にありがとうございました。
 またのご利用をお待ちしております。
 
+■ お問い合わせ
+ご不明点などございましたら、いずれかの方法でお問い合わせください。
+
+・公式LINE（オススメ）
+https://lin.ee/F5fr4V7
+
+・メール
+このメールに直接ご返信ください。
+
+※公式LINEの方が回答までのスピードが早いためオススメです。
+※メールでのお問い合わせは回答までにお時間がかかる場合がございます。
+
 ━━━━━━━━━━━━━━━━━━━━
 ONE STOP
+福井店：080-9361-6018
+鯖江店：080-5720-1164
+メール：onestop.mobile2024@gmail.com
 ━━━━━━━━━━━━━━━━━━━━`
 
   return sendEmail(data.email!, subject, body)
