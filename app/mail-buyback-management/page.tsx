@@ -581,14 +581,16 @@ export default function MailBuybackManagementPage() {
     }
   }
 
-  // 完了処理（在庫登録 & 削除）
+  // 完了処理（在庫登録 & 削除 & 振込完了メール送信）
   const completeRequest = async (req: MailBuybackRequest) => {
-    if (!confirm('在庫に登録してこの申込を完了しますか？\n\n完了後、この申込は一覧から削除されます。')) {
+    if (!confirm('振込完了として在庫に登録しますか？\n\nお客様に振込完了メールが送信されます。\n完了後、この申込は一覧から削除されます。')) {
       return
     }
 
     try {
       const authToken = localStorage.getItem('auth_token')
+
+      // 在庫登録
       const res = await fetch('/api/mail-buyback/complete', {
         method: 'POST',
         headers: {
@@ -600,9 +602,23 @@ export default function MailBuybackManagementPage() {
 
       const result = await res.json()
       if (result.success) {
+        // 振込完了メールを送信
+        try {
+          await fetch('/api/mail-buyback/notify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': authToken ? `Bearer ${authToken}` : '',
+            },
+            body: JSON.stringify({ action: 'paid', requestId: req.id }),
+          })
+        } catch (notifyErr) {
+          console.error('通知エラー:', notifyErr)
+        }
+
         await fetchRequests()
         setSelectedRequest(null)
-        alert('在庫に登録しました')
+        alert('在庫に登録し、振込完了メールを送信しました')
       } else {
         alert(`エラー: ${result.error}`)
       }
@@ -612,15 +628,34 @@ export default function MailBuybackManagementPage() {
     }
   }
 
-  // 返送完了処理（ステータスをreturnedに変更、1ヶ月後に自動削除）
+  // 返送完了処理（ステータスをreturnedに変更 & 返送完了メール送信）
   const completeReturn = async (req: MailBuybackRequest) => {
-    if (!confirm('返送完了にしますか？\n\n1ヶ月後に自動的に削除されます（クレーム対策）。')) {
+    if (!confirm('返送完了にしますか？\n\nお客様に返送完了メールが送信されます。\n1ヶ月後に自動的に削除されます（クレーム対策）。')) {
       return
     }
 
     try {
+      const authToken = localStorage.getItem('auth_token')
+
+      // ステータス更新
       await updateStatus(req.id, 'returned')
+
+      // 返送完了メールを送信
+      try {
+        await fetch('/api/mail-buyback/notify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authToken ? `Bearer ${authToken}` : '',
+          },
+          body: JSON.stringify({ action: 'returned', requestId: req.id }),
+        })
+      } catch (notifyErr) {
+        console.error('通知エラー:', notifyErr)
+      }
+
       setSelectedRequest(null)
+      alert('返送完了にし、返送完了メールを送信しました')
     } catch (error) {
       console.error('返送完了エラー:', error)
       alert('エラーが発生しました')

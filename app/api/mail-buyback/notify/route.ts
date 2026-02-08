@@ -25,6 +25,7 @@ type NotifyAction =
   | 'waiting_payment'   // 振込待ち（お客様が承諾）
   | 'return_requested'  // 返送依頼（お客様が返却希望）
   | 'paid'              // 振込完了
+  | 'returned'          // 返送完了
   // 旧互換性のため残す
   | 'approved'          // 旧: 承諾受付
   | 'rejected'          // 旧: 返却希望
@@ -161,6 +162,15 @@ export async function POST(request: NextRequest) {
           results.email = await sendEmailPaid(data)
         }
         break
+
+      case 'returned':
+        results.slack = await sendSlackReturned(data)
+        if (isLiff) {
+          results.line = await sendLineReturned(data)
+        } else if (data.email) {
+          results.email = await sendEmailReturned(data)
+        }
+        break
     }
 
     return NextResponse.json({ success: true, results })
@@ -241,6 +251,14 @@ async function sendSlackPaid(data: RequestData): Promise<boolean> {
 氏名: ${data.customer_name} 様
 振込金額: ¥${(data.final_price || data.total_estimated_price).toLocaleString()}
 振込先: ${data.bank_name} ${data.branch_name} ${data.account_number}`
+  return sendSlack(message)
+}
+
+async function sendSlackReturned(data: RequestData): Promise<boolean> {
+  const message = `📮 返送完了
+申込番号: ${data.request_number}
+氏名: ${data.customer_name} 様
+→ お客様に返送完了メールを送信しました`
   return sendSlack(message)
 }
 
@@ -369,6 +387,21 @@ ${data.customer_name} 様
 
 この度はご利用いただき、誠にありがとうございました。
 またのご利用をお待ちしております。`
+
+  return sendLine(data.line_user_id!, message)
+}
+
+async function sendLineReturned(data: RequestData): Promise<boolean> {
+  const message = `端末の返送が完了しました
+
+${data.customer_name} 様
+
+端末の返送手続きが完了いたしました。
+数日中にお届け予定です。
+
+【申込番号】${data.request_number}
+
+この度はご利用いただき、誠にありがとうございました。`
 
   return sendLine(data.line_user_id!, message)
 }
@@ -617,23 +650,36 @@ ${data.account_holder} 様
 この度はご利用いただき、誠にありがとうございました。
 またのご利用をお待ちしております。
 
-■ お問い合わせ
-ご不明点などございましたら、いずれかの方法でお問い合わせください。
+━━━━━━━━━━━━━━━━━━━━
+ONE STOP
+福井店：080-9361-6018
+鯖江店：080-5720-1164
+メール：onestop.mobile2024@gmail.com
+LINE：https://lin.ee/F5fr4V7
+━━━━━━━━━━━━━━━━━━━━`
 
-・公式LINE（オススメ）
-https://lin.ee/F5fr4V7
+  return sendEmail(data.email!, subject, body)
+}
 
-・メール
-このメールに直接ご返信ください。
+async function sendEmailReturned(data: RequestData): Promise<boolean> {
+  const subject = `【ONE STOP】端末を返送いたしました（${data.request_number}）`
+  const body = `${data.customer_name} 様
 
-※公式LINEの方が回答までのスピードが早いためオススメです。
-※メールでのお問い合わせは回答までにお時間がかかる場合がございます。
+端末の返送手続きが完了いたしました。
+
+■ 申込番号: ${data.request_number}
+
+数日中にお届け予定です。
+届きましたらご確認ください。
+
+この度はご利用いただき、誠にありがとうございました。
 
 ━━━━━━━━━━━━━━━━━━━━
 ONE STOP
 福井店：080-9361-6018
 鯖江店：080-5720-1164
 メール：onestop.mobile2024@gmail.com
+LINE：https://lin.ee/F5fr4V7
 ━━━━━━━━━━━━━━━━━━━━`
 
   return sendEmail(data.email!, subject, body)
