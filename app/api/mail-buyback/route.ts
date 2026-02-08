@@ -345,10 +345,21 @@ ${customerName} 様
 ${emailFullAddress}
 TEL: ${phone}
 
+■ お問い合わせ
 ご不明点がございましたら、お気軽にお問い合わせください。
+
+【公式LINE】（回答スピードが早くオススメです）
+https://lin.ee/F5fr4V7
+
+【メール】
+このメールに直接ご返信ください。
+※メールでのお問い合わせは回答までにお時間がかかる場合がございます。
 
 ━━━━━━━━━━━━━━━━━━━━
 ONE STOP
+福井店：080-9361-6018
+鯖江店：080-5720-1164
+メール：onestop.mobile2024@gmail.com
 ━━━━━━━━━━━━━━━━━━━━`
 
         const RESEND_API_KEY = process.env.RESEND_API_KEY
@@ -361,7 +372,7 @@ ONE STOP
             },
             body: JSON.stringify({
               from: 'ONE STOP <noreply@onestop-mobile.net>',
-              reply_to: ['y-tatsuda@nichellc.net', 't-hori@nichellc.net', 'm-tsuchimoto@nichellc.net'],
+              reply_to: ['onestop.mobile2024@gmail.com'],
               to: [email],
               subject: `【ONE STOP】買取申込みを受け付けました（${requestNumber}）`,
               text: emailBody,
