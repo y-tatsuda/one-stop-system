@@ -96,8 +96,8 @@ export default function BuybackResponsePage() {
       const { error } = await supabase
         .from('t_mail_buyback_requests')
         .update({
-          status: 'approved',
-          approved_at: new Date().toISOString(),
+          status: 'waiting_payment',
+          waiting_payment_at: new Date().toISOString(),
           bank_name: bankInfo.bankName,
           branch_name: bankInfo.branchName,
           account_type: bankInfo.accountType,
@@ -112,7 +112,7 @@ export default function BuybackResponsePage() {
       await fetch('/api/mail-buyback/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approved', requestId: request.id }),
+        body: JSON.stringify({ action: 'waiting_payment', requestId: request.id }),
       })
 
       setPhase('complete')
@@ -134,8 +134,8 @@ export default function BuybackResponsePage() {
       const { error } = await supabase
         .from('t_mail_buyback_requests')
         .update({
-          status: 'rejected',
-          rejected_at: new Date().toISOString(),
+          status: 'return_requested',
+          return_requested_at: new Date().toISOString(),
         })
         .eq('id', request.id)
 
@@ -145,7 +145,7 @@ export default function BuybackResponsePage() {
       await fetch('/api/mail-buyback/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'rejected', requestId: request.id }),
+        body: JSON.stringify({ action: 'return_requested', requestId: request.id }),
       })
 
       alert('返却希望を受け付けました。\n端末は後日ご返送いたします。')
@@ -178,10 +178,10 @@ export default function BuybackResponsePage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', padding: '20px' }}>
         <div style={{ background: 'white', padding: '24px', borderRadius: '12px', textAlign: 'center', maxWidth: '400px' }}>
           <p style={{ fontSize: '1.1rem', marginBottom: '8px' }}>
-            {request.status === 'approved' && '✅ 既に承諾済みです'}
-            {request.status === 'rejected' && '返却希望を受け付け済みです'}
-            {request.status === 'paid' && '✅ お振込み完了済みです'}
-            {!['assessed', 'approved', 'rejected', 'paid'].includes(request.status) && 'この申込みは現在処理中です'}
+            {request.status === 'waiting_payment' && '✅ 既に承諾済みです。振込をお待ちください。'}
+            {request.status === 'return_requested' && '返却希望を受け付け済みです'}
+            {request.status === 'returned' && '端末は返送済みです'}
+            {!['assessed', 'waiting_payment', 'return_requested', 'returned'].includes(request.status) && 'この申込みは現在処理中です'}
           </p>
           <p style={{ color: '#666', fontSize: '0.9rem' }}>申込番号: {request.request_number}</p>
         </div>

@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
   <style>
     @page {
       size: A4;
-      margin: 10mm 12mm;
+      margin: 8mm 10mm;
     }
     * {
       margin: 0;
@@ -78,221 +78,231 @@ export async function POST(request: NextRequest) {
     }
     body {
       font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
-      font-size: 10px;
-      line-height: 1.4;
+      font-size: 11px;
+      line-height: 1.5;
       color: #000;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
     .page {
       width: 100%;
-      max-width: 186mm;
-      min-height: 267mm;
+      max-width: 190mm;
+      height: 277mm;
       margin: 0 auto;
-      padding: 5mm;
+      padding: 3mm;
       page-break-after: always;
+      display: flex;
+      flex-direction: column;
     }
     .page:last-child {
       page-break-after: auto;
     }
     h1 {
-      font-size: 20px;
+      font-size: 22px;
       text-align: center;
-      margin-bottom: 8px;
-      padding-bottom: 5px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
       border-bottom: 2px solid #000;
     }
     .header-info {
       display: flex;
       justify-content: flex-end;
-      gap: 20px;
-      margin-bottom: 10px;
-      font-size: 9px;
+      gap: 25px;
+      margin-bottom: 12px;
+      font-size: 10px;
     }
     .device-box {
       border: 2px solid #000;
-      padding: 8px 12px;
-      margin-bottom: 10px;
+      padding: 12px 15px;
+      margin-bottom: 15px;
     }
     .device-row {
       display: flex;
-      gap: 12px;
-      margin-bottom: 3px;
+      gap: 15px;
+      margin-bottom: 5px;
+      font-size: 11px;
     }
     .device-row span {
-      min-width: 90px;
+      min-width: 100px;
     }
     .price-row {
-      font-size: 13px;
+      font-size: 15px;
       font-weight: bold;
-      margin-top: 6px;
-      padding-top: 6px;
+      margin-top: 10px;
+      padding-top: 10px;
       border-top: 1px dashed #ccc;
     }
     .terms {
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
     .terms-title {
       font-weight: bold;
-      margin-bottom: 4px;
-      font-size: 9px;
+      margin-bottom: 6px;
+      font-size: 10px;
     }
     .terms-list {
-      font-size: 8px;
-      line-height: 1.5;
+      font-size: 9px;
+      line-height: 1.6;
     }
     .terms-list li {
-      margin-bottom: 1px;
+      margin-bottom: 2px;
       list-style: none;
     }
     .customer-box {
       border: 2px solid #000;
-      padding: 10px 12px;
-      margin-top: 10px;
+      padding: 15px;
+      margin-top: 12px;
     }
     .customer-row {
       display: flex;
       align-items: center;
-      margin-bottom: 6px;
-      min-height: 24px;
+      margin-bottom: 10px;
+      min-height: 28px;
     }
     .customer-row label {
-      width: 70px;
+      width: 80px;
       font-weight: bold;
-      font-size: 9px;
+      font-size: 10px;
       flex-shrink: 0;
     }
     .customer-row .value {
       flex: 1;
       border-bottom: 1px solid #000;
-      min-height: 22px;
-      padding: 2px 4px;
-      font-size: 11px;
+      min-height: 26px;
+      padding: 4px 6px;
+      font-size: 12px;
     }
     .birth-value {
       display: flex;
       align-items: center;
-      gap: 4px;
-      font-size: 11px;
+      gap: 6px;
+      font-size: 12px;
     }
     .birth-value .year {
-      width: 50px;
+      width: 55px;
       text-align: center;
       border-bottom: 1px solid #000;
-      padding: 2px;
+      padding: 3px;
     }
     .birth-value .month, .birth-value .day {
-      width: 30px;
+      width: 35px;
       text-align: center;
       border-bottom: 1px solid #000;
-      padding: 2px;
+      padding: 3px;
     }
     .occupation-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 10px;
+      gap: 12px;
+      font-size: 11px;
     }
     .occupation-row span {
       white-space: nowrap;
     }
     .signature-row {
-      margin-top: 10px;
+      margin-top: 15px;
       display: flex;
       align-items: flex-end;
     }
     .signature-row label {
-      width: 50px;
+      width: 60px;
       font-weight: bold;
-      font-size: 10px;
+      font-size: 11px;
     }
     .signature-line {
       flex: 1;
-      height: 45px;
+      height: 55px;
       background: #f0f0f0;
       border: 1px solid #999;
       border-radius: 4px;
     }
     .date-row {
-      margin-bottom: 8px;
+      margin-bottom: 10px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+      font-size: 11px;
     }
     .date-input {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
     }
     .date-input .input-box {
-      width: 45px;
-      height: 22px;
+      width: 50px;
+      height: 26px;
       background: #f0f0f0;
       border: 1px solid #999;
       border-radius: 3px;
       text-align: center;
     }
     .footer-note {
-      margin-top: 8px;
-      font-size: 9px;
+      margin-top: 12px;
+      font-size: 10px;
       color: #333;
       font-weight: bold;
+    }
+    .staff-section {
+      margin-top: auto;
+      border: 2px solid #333;
+      padding: 15px;
     }
 
     /* 裏面 */
     .page2 h1 {
-      font-size: 20px;
-      margin-bottom: 15px;
+      font-size: 22px;
+      margin-bottom: 20px;
     }
     .step {
-      margin-bottom: 15px;
+      margin-bottom: 20px;
     }
     .step-title {
       font-weight: bold;
-      font-size: 11px;
-      margin-bottom: 6px;
+      font-size: 12px;
+      margin-bottom: 8px;
       background: #e8e8e8;
-      padding: 6px 10px;
-      border-left: 3px solid #333;
+      padding: 8px 12px;
+      border-left: 4px solid #333;
     }
     .step-content {
-      padding: 6px 10px;
-      font-size: 9px;
-      line-height: 1.6;
+      padding: 8px 12px;
+      font-size: 10px;
+      line-height: 1.7;
     }
     .checkbox-item {
-      margin-bottom: 2px;
+      margin-bottom: 4px;
     }
     .checkbox-item input[type="checkbox"] {
-      margin-right: 4px;
+      margin-right: 6px;
     }
     .shipping-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 8px;
-      font-size: 9px;
+      margin-top: 10px;
+      font-size: 10px;
     }
     .shipping-table td {
-      padding: 4px 6px;
+      padding: 6px 8px;
       border: 1px solid #ddd;
     }
     .shipping-table td:first-child {
-      width: 90px;
+      width: 100px;
       background: #f9f9f9;
       font-weight: bold;
     }
     .address-box {
       background: #f9f9f9;
-      padding: 8px;
-      margin-top: 8px;
+      padding: 12px;
+      margin-top: 12px;
       border: 1px solid #ddd;
-      font-size: 10px;
+      font-size: 11px;
+      line-height: 1.6;
     }
     .qr-section {
       display: flex;
       align-items: flex-start;
-      gap: 15px;
-      margin-top: 8px;
+      gap: 20px;
+      margin-top: 10px;
     }
     .qr-box {
       text-align: center;
@@ -305,8 +315,8 @@ export async function POST(request: NextRequest) {
       height: auto;
     }
     .qr-label {
-      font-size: 8px;
-      margin-top: 2px;
+      font-size: 9px;
+      margin-top: 4px;
       color: #666;
     }
     @media print {
@@ -432,39 +442,39 @@ export async function POST(request: NextRequest) {
       ※裏面の発送方法をご参照の上、発送をお願いいたします。
     </div>
 
-    <!-- 本査定変更点セクション（スタッフ記入用） -->
-    <div style="margin-top: 15px; border: 2px solid #333; padding: 12px;">
-      <div style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background: #f0f0f0; padding: 6px 10px; border-left: 3px solid #333;">
+    <!-- 本査定変更点セクション（スタッフ記入用）- ページ下部に配置 -->
+    <div class="staff-section">
+      <div style="font-weight: bold; font-size: 12px; margin-bottom: 12px; background: #f0f0f0; padding: 8px 12px; border-left: 4px solid #333;">
         【本査定での変更点】（スタッフ記入欄）
       </div>
-      <div style="font-size: 9px; color: #666; margin-bottom: 8px;">
+      <div style="font-size: 10px; color: #666; margin-bottom: 12px;">
         ※ 事前査定との差異がある場合、下記に記載してください。
       </div>
-      <div style="display: flex; gap: 15px; margin-bottom: 8px;">
+      <div style="display: flex; gap: 20px; margin-bottom: 12px;">
         <div style="flex: 1;">
-          <div style="font-size: 9px; font-weight: bold; margin-bottom: 4px;">□ カメラ染み</div>
-          <div style="height: 24px; border-bottom: 1px solid #999;"></div>
+          <div style="font-size: 10px; font-weight: bold; margin-bottom: 6px;">□ カメラ染み</div>
+          <div style="height: 30px; border-bottom: 1px solid #999;"></div>
         </div>
         <div style="flex: 1;">
-          <div style="font-size: 9px; font-weight: bold; margin-bottom: 4px;">□ 画面の傷</div>
-          <div style="height: 24px; border-bottom: 1px solid #999;"></div>
-        </div>
-      </div>
-      <div style="display: flex; gap: 15px; margin-bottom: 8px;">
-        <div style="flex: 1;">
-          <div style="font-size: 9px; font-weight: bold; margin-bottom: 4px;">□ 本体の傷</div>
-          <div style="height: 24px; border-bottom: 1px solid #999;"></div>
-        </div>
-        <div style="flex: 1;">
-          <div style="font-size: 9px; font-weight: bold; margin-bottom: 4px;">□ その他</div>
-          <div style="height: 24px; border-bottom: 1px solid #999;"></div>
+          <div style="font-size: 10px; font-weight: bold; margin-bottom: 6px;">□ 画面の傷</div>
+          <div style="height: 30px; border-bottom: 1px solid #999;"></div>
         </div>
       </div>
-      <div style="display: flex; gap: 15px; align-items: center;">
-        <div style="font-size: 10px; font-weight: bold;">本査定価格：</div>
-        <div style="width: 120px; height: 28px; background: #f9f9f9; border: 1px solid #999; border-radius: 3px;"></div>
-        <div style="font-size: 10px;">円</div>
-        <div style="margin-left: 20px; font-size: 9px; color: #666;">
+      <div style="display: flex; gap: 20px; margin-bottom: 12px;">
+        <div style="flex: 1;">
+          <div style="font-size: 10px; font-weight: bold; margin-bottom: 6px;">□ 本体の傷</div>
+          <div style="height: 30px; border-bottom: 1px solid #999;"></div>
+        </div>
+        <div style="flex: 1;">
+          <div style="font-size: 10px; font-weight: bold; margin-bottom: 6px;">□ その他</div>
+          <div style="height: 30px; border-bottom: 1px solid #999;"></div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 20px; align-items: center; margin-top: 15px;">
+        <div style="font-size: 12px; font-weight: bold;">本査定価格：</div>
+        <div style="width: 150px; height: 35px; background: #f9f9f9; border: 1px solid #999; border-radius: 3px;"></div>
+        <div style="font-size: 12px;">円</div>
+        <div style="margin-left: 25px; font-size: 10px; color: #666;">
           （事前査定: ${body.totalEstimatedPrice.toLocaleString()}円）
         </div>
       </div>
@@ -479,21 +489,21 @@ export async function POST(request: NextRequest) {
       <div class="step-title">① 発送前に必ず初期化とiPhoneの場合は[iPhoneを探す]をオフにして下さい。</div>
       <div class="step-content">
         以下の手順で操作を行い、完了したらレ点チェックをお願いします。
-        <div style="margin-top: 6px; padding: 8px; background: #f9f9f9; border: 1px solid #ddd;">
-          <div class="checkbox-item">
+        <div style="margin-top: 10px; padding: 12px; background: #f9f9f9; border: 1px solid #ddd;">
+          <div class="checkbox-item" style="margin-bottom: 8px;">
             <input type="checkbox"> <strong>iPhoneを探すをオフ</strong><br>
-            <span style="margin-left: 18px;">設定→一番上のアカウント名→探す→iPhoneを探す→オフ</span>
+            <span style="margin-left: 20px; font-size: 10px;">設定→一番上のアカウント名→探す→iPhoneを探す→オフ</span>
           </div>
-          <div class="checkbox-item" style="margin-top: 4px; font-size: 8px; color: #666;">
+          <div class="checkbox-item" style="margin-top: 6px; font-size: 9px; color: #666;">
             ※盗難デバイスの保護がオンの場合は以下の操作も必要です。<br>
-            <span style="margin-left: 18px;">設定→FaceIDとパスコード→盗難デバイスの保護→オフ</span>
+            <span style="margin-left: 20px;">設定→FaceIDとパスコード→盗難デバイスの保護→オフ</span>
           </div>
-          <div class="checkbox-item" style="margin-top: 6px;">
+          <div class="checkbox-item" style="margin-top: 10px;">
             <input type="checkbox"> <strong>iPhoneの初期化</strong><br>
-            <span style="margin-left: 18px;">設定→一般→転送またはiPhoneをリセット→すべてのコンテンツと設定を消去</span>
+            <span style="margin-left: 20px; font-size: 10px;">設定→一般→転送またはiPhoneをリセット→すべてのコンテンツと設定を消去</span>
           </div>
         </div>
-        <div style="font-size: 8px; color: #c00; margin-top: 4px;">
+        <div style="font-size: 10px; color: #c00; margin-top: 8px; font-weight: bold;">
           ※初期化が完了していない場合、買取後にご協力頂く場合がございます。
         </div>
       </div>
@@ -502,13 +512,13 @@ export async function POST(request: NextRequest) {
     <div class="step">
       <div class="step-title">② 箱を組み立て査定端末と買取同意書を一緒に送って下さい。</div>
       <div class="step-content">
-        <div style="display: flex; align-items: flex-start; gap: 15px;">
-          <div style="flex: 1;">
-            必要に応じて緩衝材を入れて下さい。<br>
+        <div style="display: flex; align-items: flex-start; gap: 20px;">
+          <div style="flex: 1; font-size: 11px;">
+            必要に応じて緩衝材を入れて下さい。<br><br>
             <strong>※組み立て方法は右のQRコードの動画（2:10以降）を参考にして下さい。</strong>
           </div>
           <div class="qr-box">
-            <img src="${videoQRUrl}" alt="組み立て動画QR" width="80" height="80">
+            <img src="${videoQRUrl}" alt="組み立て動画QR" width="90" height="90">
             <div class="qr-label">組み立て動画</div>
           </div>
         </div>
@@ -520,7 +530,7 @@ export async function POST(request: NextRequest) {
       <div class="step-content">
         <div class="qr-section">
           <div class="qr-box">
-            <img src="${pickupQRUrl}" alt="集荷用QR" width="100" height="100">
+            <img src="${pickupQRUrl}" alt="集荷用QR" width="110" height="110">
             <div class="qr-label">集荷用QRコード</div>
           </div>
           <div style="flex: 1;">
@@ -536,20 +546,24 @@ export async function POST(request: NextRequest) {
         </div>
 
         <div class="address-box">
-          <strong>お届け先</strong><br>
+          <strong style="font-size: 12px;">お届け先</strong><br><br>
           〒916-0038<br>
           福井県鯖江市下河端町16字下町16-1<br>
           アル・プラザ鯖江1F フードコート前<br>
-          ONE STOP 鯖江店 宛<br>
+          <strong>ONE STOP 鯖江店 宛</strong><br>
           TEL:080-5720-1164
         </div>
       </div>
     </div>
 
-    <div class="step">
+    <div class="step" style="margin-top: auto;">
       <div class="step-title">④ やり取り中のチャット（LINE）宛に本人確認書類を送信お願いします。</div>
-      <div class="step-content">
-        査定端末と一緒にコピーを発送いただくか、LINEで画像を送信してください。
+      <div class="step-content" style="font-size: 11px; padding: 12px;">
+        査定端末と一緒にコピーを発送いただくか、LINEで画像を送信してください。<br><br>
+        <div style="background: #fff3cd; padding: 10px; border: 1px solid #ffc107; border-radius: 4px;">
+          <strong>本人確認書類の例：</strong><br>
+          運転免許証 / マイナンバーカード / パスポート / 健康保険証 など
+        </div>
       </div>
     </div>
   </div>

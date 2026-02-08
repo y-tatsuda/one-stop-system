@@ -20,11 +20,14 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://one-stop-system.vercel.app'
 
 type NotifyAction =
-  | 'kit_sent'      // キット送付
-  | 'assessed'      // 本査定完了
-  | 'approved'      // 承諾受付
-  | 'rejected'      // 返却希望
-  | 'paid'          // 振込完了
+  | 'kit_sent'          // キット送付
+  | 'assessed'          // 本査定完了
+  | 'waiting_payment'   // 振込待ち（お客様が承諾）
+  | 'return_requested'  // 返送依頼（お客様が返却希望）
+  | 'paid'              // 振込完了
+  // 旧互換性のため残す
+  | 'approved'          // 旧: 承諾受付
+  | 'rejected'          // 旧: 返却希望
 
 type AssessmentIssue = {
   hasIssue: boolean
@@ -129,12 +132,14 @@ export async function POST(request: NextRequest) {
         }
         break
 
-      case 'approved':
-        results.slack = await sendSlackApproved(data)
+      case 'waiting_payment':
+      case 'approved': // 旧互換性
+        results.slack = await sendSlackWaitingPayment(data)
         break
 
-      case 'rejected':
-        results.slack = await sendSlackRejected(data)
+      case 'return_requested':
+      case 'rejected': // 旧互換性
+        results.slack = await sendSlackReturnRequested(data)
         break
 
       case 'paid':
@@ -198,8 +203,8 @@ async function sendSlackAssessed(data: RequestData): Promise<boolean> {
   return sendSlack(message)
 }
 
-async function sendSlackApproved(data: RequestData): Promise<boolean> {
-  const message = `✅ 買取承諾
+async function sendSlackWaitingPayment(data: RequestData): Promise<boolean> {
+  const message = `✅ 振込待ち（お客様承諾）
 申込番号: ${data.request_number}
 氏名: ${data.customer_name} 様
 最終価格: ¥${(data.final_price || data.total_estimated_price).toLocaleString()}
@@ -211,8 +216,8 @@ ${data.account_holder || ''}`
   return sendSlack(message)
 }
 
-async function sendSlackRejected(data: RequestData): Promise<boolean> {
-  const message = `❌ 返却希望
+async function sendSlackReturnRequested(data: RequestData): Promise<boolean> {
+  const message = `📦 返送依頼
 申込番号: ${data.request_number}
 氏名: ${data.customer_name} 様
 → 返送手続きが必要です`
@@ -264,6 +269,13 @@ ${data.customer_name} 様
 【申込番号】${data.request_number}
 
 届きましたら、端末をキットに入れてご返送ください。
+
+■ 本人確認書類のお願い
+運転免許証・マイナンバーカード等の画像をこのLINEにお送りください。
+または端末と一緒にコピーを同封してください。
+
+※マイナンバーカードは表面のみ。裏面は送付不要です。
+
 ご不明点がございましたら、お気軽にメッセージください。`
 
   return sendLine(data.line_user_id!, message)
@@ -273,16 +285,46 @@ async function sendLineAssessed(data: RequestData): Promise<boolean> {
   const finalPrice = data.final_price || data.total_estimated_price
   const priceDiff = finalPrice - data.total_estimated_price
 
+  // 本査定値の表示用フォーマット（顧客向け）
+  const formatValueForCustomer = (field: string, value: string): string => {
+    switch (field) {
+      case 'nwStatus':
+        return value === 'ok' ? '○' : value === 'triangle' ? '△' : '×'
+      case 'cameraStain':
+        return value === 'none' ? 'なし' : 'あり'
+      case 'cameraBroken':
+      case 'repairHistory':
+        return value === 'yes' ? 'あり' : 'なし'
+      default:
+        return value
+    }
+  }
+
   let priceMessage = ''
+  let changesText = ''
+
+  // 項目変更リストを取得
+  const itemChanges = data.assessment_details?.item_changes?.filter(c => c.hasChanged) || []
+
   if (priceDiff === 0) {
     priceMessage = '事前査定と同額となりました。'
   } else if (priceDiff > 0) {
     priceMessage = `事前査定より ¥${priceDiff.toLocaleString()} アップしました！`
+    if (itemChanges.length > 0) {
+      changesText = '\n■ 増額理由\n'
+      itemChanges.forEach((change, idx) => {
+        changesText += `${idx + 1}. ${change.label}: ${change.beforeValue} → ${formatValueForCustomer(change.field, change.afterValue)}\n`
+      })
+    }
   } else {
     priceMessage = `事前査定より ¥${Math.abs(priceDiff).toLocaleString()} 減額となりました。`
+    if (itemChanges.length > 0) {
+      changesText = '\n■ 減額理由\n'
+      itemChanges.forEach((change, idx) => {
+        changesText += `${idx + 1}. ${change.label}: ${change.beforeValue} → ${formatValueForCustomer(change.field, change.afterValue)}\n`
+      })
+    }
   }
-
-  // TODO: 変更箇所の詳細と写真を追加
 
   const responseUrl = `${BASE_URL}/liff/buyback-response?id=${data.id}`
 
@@ -297,7 +339,7 @@ ${data.customer_name} 様
 本査定: ¥${finalPrice.toLocaleString()}
 
 ${priceMessage}
-
+${changesText}
 以下のリンクから「承諾」または「返却希望」をお選びください。
 
 ${responseUrl}
@@ -384,8 +426,16 @@ async function sendEmailKitSent(data: RequestData): Promise<boolean> {
 ・集荷依頼またはヤマト営業所への持ち込みで発送してください
 
 【STEP4】本人確認書類の送付
-・LINEで本人確認書類の画像を送信してください
-　（免許証・マイナンバーカード・パスポート等）
+本人確認書類（運転免許証・マイナンバーカード・パスポート等）の
+画像またはコピーをお送りください。
+
+＜送信方法＞※いずれか1つの方法でお送りください
+・買取端末と一緒にコピーを同封して郵送
+・このメールに画像を添付して返信
+・公式LINEで画像を送信
+
+※マイナンバーカードは表面のみお送りください。
+　裏面（個人番号が記載された面）は送付しないでください。
 
 ■ お問い合わせ
 ご不明点などございましたら、いずれかの方法でお問い合わせください。
@@ -417,13 +467,15 @@ async function sendEmailAssessed(data: RequestData): Promise<boolean> {
 
   const subject = `【ONE STOP】本査定が完了しました（${data.request_number}）`
 
-  // 本査定値の表示用フォーマット
+  // 本査定値の表示用フォーマット（顧客向け）
+  // カメラ染みは管理画面では少/多を選択するが、顧客にはあり/なしのみ表示
   const formatAfterValue = (field: string, value: string): string => {
     switch (field) {
       case 'nwStatus':
         return value === 'ok' ? '○' : value === 'triangle' ? '△' : '×'
       case 'cameraStain':
-        return value === 'none' ? 'なし' : value === 'minor' ? 'あり（小）' : 'あり（大）'
+        // 顧客には あり/なし のみ表示（管理画面では 少/多 を選択）
+        return value === 'none' ? 'なし' : 'あり'
       case 'cameraBroken':
       case 'repairHistory':
         return value === 'yes' ? 'あり' : 'なし'
