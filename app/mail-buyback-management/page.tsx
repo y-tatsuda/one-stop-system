@@ -83,6 +83,7 @@ type MailBuybackRequest = {
     modelDisplayName: string
     storage: string
     rank: string
+    basePrice?: number  // 減額前の基準価格（本査定計算用）
     estimatedPrice: number
     guaranteePrice?: number  // 最低保証価格
     cameraPhoto?: string
@@ -363,9 +364,11 @@ export default function MailBuybackManagementPage() {
     ]
 
     // 最低保証価格と基準価格を設定
+    // basePriceがある場合はそれを使用（減額前の価格）、なければestimatedPriceを使用（既存データ互換）
     const itemGuaranteePrice = item?.guaranteePrice || 0
+    const itemBasePrice = item?.basePrice || item?.estimatedPrice || req.total_estimated_price
     setGuaranteePrice(itemGuaranteePrice)
-    setBasePrice(item?.estimatedPrice || req.total_estimated_price)
+    setBasePrice(itemBasePrice)
 
     // 既存の査定詳細があればそれを使用、なければ初期化
     let details: AssessmentDetails
@@ -387,8 +390,8 @@ export default function MailBuybackManagementPage() {
     }
     setAssessmentDetails(details)
 
-    // 初期金額計算
-    recalculatePrice(details.item_changes, item?.estimatedPrice || req.total_estimated_price, itemGuaranteePrice)
+    // 初期金額計算（basePriceを使用）
+    recalculatePrice(details.item_changes, itemBasePrice, itemGuaranteePrice)
 
     setShowAssessmentModal(true)
   }

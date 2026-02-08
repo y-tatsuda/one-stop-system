@@ -481,12 +481,14 @@ function MailBuybackPageContent() {
         colorDisplayName: item.colorDisplayName,
         rank: item.rank,
         batteryPercent: parseInt(item.batteryPercent) || 100,
+        isServiceState: item.isServiceState,  // サービス状態
         imei: item.imei,
         nwStatus: item.nwStatus,
         cameraStain: item.cameraStain,
         cameraBroken: item.cameraBroken,
         repairHistory: item.repairHistory,
         cameraPhoto: item.cameraPhoto,  // カメラ部分の写真
+        basePrice: item.basePrice,  // 減額前の基準価格（本査定計算用）
         estimatedPrice: item.estimatedPrice,
         guaranteePrice: item.guaranteePrice,
       }))
