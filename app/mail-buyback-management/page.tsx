@@ -24,6 +24,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { calculateBuybackDeduction, BuybackCondition } from '../lib/pricing'
+import { DEFAULT_TENANT_ID } from '../lib/constants'
 
 // ステータス定義
 const STATUS_CONFIG = {
@@ -453,6 +454,55 @@ export default function MailBuybackManagementPage() {
     setCalculatedPrice(rawPrice)
     setFinalPrice(finalPriceValue)
     setIsGuaranteePriceApplied(isGuaranteeApplied)
+  }
+
+  // ランク変更時に価格を再取得する関数（事前査定と同じテーブル・ロジック）
+  const fetchPriceForRank = async (
+    model: string,
+    storage: string,
+    newRank: string,
+    itemChanges: ItemChange[]
+  ) => {
+    if (!model || !storage || !newRank) return
+
+    try {
+      // 事前査定と同じクエリ（m_buyback_pricesテーブル）
+      const [priceRes, bihinRes] = await Promise.all([
+        supabase
+          .from('m_buyback_prices')
+          .select('price')
+          .eq('tenant_id', DEFAULT_TENANT_ID)
+          .eq('model', model)
+          .eq('storage', parseInt(storage))
+          .eq('rank', newRank)
+          .single(),
+        supabase
+          .from('m_buyback_prices')
+          .select('price')
+          .eq('tenant_id', DEFAULT_TENANT_ID)
+          .eq('model', model)
+          .eq('storage', parseInt(storage))
+          .eq('rank', '美品')
+          .single(),
+      ])
+
+      const newBasePrice = (priceRes.data as { price: number } | null)?.price || 0
+      const newBihinPrice = (bihinRes.data as { price: number } | null)?.price || newBasePrice
+
+      // 価格が取得できなかった場合は警告
+      if (newBasePrice === 0) {
+        console.warn(`価格が取得できませんでした: model=${model}, storage=${storage}, rank=${newRank}`)
+      }
+
+      // 状態を更新
+      setBasePrice(newBasePrice)
+      setBihinPrice(newBihinPrice)
+
+      // 新しい価格で再計算
+      recalculatePrice(itemChanges, newBasePrice, newBihinPrice, guaranteePrice)
+    } catch (error) {
+      console.error('価格取得エラー:', error)
+    }
   }
 
   // 本査定画像アップロード
@@ -1613,14 +1663,19 @@ export default function MailBuybackManagementPage() {
                               <select
                                 value={change.afterValue}
                                 onChange={(e) => {
+                                  const newRank = e.target.value
                                   const newItemChanges = assessmentDetails.item_changes?.map(c =>
-                                    c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                    c.field === change.field ? { ...c, afterValue: newRank } : c
                                   ) || []
                                   setAssessmentDetails(prev => ({
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
+                                  // ランク変更時はDBから価格を再取得（事前査定と同じロジック）
+                                  const item = selectedRequest?.items[0]
+                                  if (item?.model && item?.storage) {
+                                    fetchPriceForRank(item.model, item.storage, newRank, newItemChanges)
+                                  }
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1640,7 +1695,23 @@ export default function MailBuybackManagementPage() {
                                   max="100"
                                   value={change.afterValue.replace('%', '')}
                                   onChange={(e) => {
-                                    const val = Math.min(100, Math.max(1, parseInt(e.target.value) || 1))
+                                    // 入力値をそのまま保持（空文字も許容）
+                                    const inputVal = e.target.value
+                                    const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                      c.field === change.field ? { ...c, afterValue: inputVal } : c
+                                    ) || []
+                                    setAssessmentDetails(prev => ({
+                                      ...prev,
+                                      item_changes: newItemChanges,
+                                    }))
+                                    // 有効な数値の場合のみ再計算
+                                    if (inputVal && !isNaN(parseInt(inputVal))) {
+                                      recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    // フォーカスが外れたら1-100の範囲に収める
+                                    const val = Math.min(100, Math.max(1, parseInt(e.target.value) || 80))
                                     const newItemChanges = assessmentDetails.item_changes?.map(c =>
                                       c.field === change.field ? { ...c, afterValue: val.toString() } : c
                                     ) || []
