@@ -606,6 +606,42 @@ export default function MailBuybackManagementPage() {
     }
 
     try {
+      // 本査定後のitemsを作成（変更内容を反映）
+      const updatedItems = selectedRequest.items.map((item) => {
+        const updatedItem = { ...item }
+
+        // 変更された項目を反映
+        assessmentDetails.item_changes.forEach(change => {
+          if (change.hasChanged) {
+            switch (change.field) {
+              case 'rank':
+                updatedItem.rank = change.afterValue
+                break
+              case 'batteryPercent':
+                updatedItem.batteryPercent = parseInt(change.afterValue.replace('%', '')) || item.batteryPercent
+                break
+              case 'nwStatus':
+                updatedItem.nwStatus = change.afterValue
+                break
+              case 'cameraStain':
+                updatedItem.cameraStain = change.afterValue
+                break
+              case 'cameraBroken':
+                updatedItem.cameraBroken = change.afterValue === 'yes'
+                break
+              case 'repairHistory':
+                updatedItem.repairHistory = change.afterValue === 'yes'
+                break
+            }
+          }
+        })
+
+        // 本査定価格も更新
+        updatedItem.estimatedPrice = finalPrice
+
+        return updatedItem
+      })
+
       const { error } = await supabase
         .from('t_mail_buyback_requests')
         .update({
@@ -613,6 +649,7 @@ export default function MailBuybackManagementPage() {
           assessed_at: new Date().toISOString(),
           final_price: finalPrice,
           assessment_details: assessmentDetails,
+          items: updatedItems,  // 本査定後のitemsを保存
         })
         .eq('id', selectedRequest.id)
 
