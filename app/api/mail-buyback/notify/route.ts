@@ -26,6 +26,19 @@ type NotifyAction =
   | 'rejected'      // 返却希望
   | 'paid'          // 振込完了
 
+type AssessmentIssue = {
+  hasIssue: boolean
+  description: string
+  photos: string[]
+}
+
+type AssessmentDetails = {
+  screen_scratches: AssessmentIssue
+  body_scratches: AssessmentIssue
+  camera_stain: AssessmentIssue
+  other: AssessmentIssue
+}
+
 type RequestData = {
   id: number
   request_number: string
@@ -51,6 +64,7 @@ type RequestData = {
   account_number: string | null
   account_holder: string | null
   price_changes: Array<{ field: string; before: string; after: string; diff: number }> | null
+  assessment_details: AssessmentDetails | null
 }
 
 export async function POST(request: NextRequest) {
@@ -333,11 +347,36 @@ async function sendEmailKitSent(data: RequestData): Promise<boolean> {
   const body = `${data.customer_name} 様
 
 買取キットを本日発送いたしました。
-到着まで1〜2日程度お待ちください。
 
 ■ 申込番号: ${data.request_number}
 
-届きましたら、端末をキットに入れてご返送ください。
+■ お届けについて
+・お届けまで2〜3日程度かかります
+・離島など一部地域はさらにお時間がかかる場合がございます
+・ポスト投函でのお届けとなりますので、届かない場合はポストもご確認ください
+
+■ 返送期限について
+キット到着後、1週間以内を目安にご返送をお願いいたします。
+
+※発送日から14日以上経過した場合、市場価格の変動により
+　買取査定額が変更となる場合がございます。あらかじめご了承ください。
+
+■ キット到着後の手順
+
+【STEP1】発送前の準備（必須）
+・「iPhoneを探す」をオフにしてください
+・端末を初期化してください
+
+【STEP2】梱包
+・買取同意書にご署名のうえ、端末と一緒に箱に入れてください
+
+【STEP3】返送
+・着払いで発送できます（送料無料）
+・集荷依頼またはヤマト営業所への持ち込みで発送してください
+
+【STEP4】本人確認書類の送付
+・LINEで本人確認書類の画像を送信してください
+　（免許証・マイナンバーカード・パスポート等）
 
 ■ お問い合わせ
 ご不明点などございましたら、いずれかの方法でお問い合わせください。
@@ -364,6 +403,7 @@ ONE STOP
 async function sendEmailAssessed(data: RequestData): Promise<boolean> {
   const finalPrice = data.final_price || data.total_estimated_price
   const priceDiff = finalPrice - data.total_estimated_price
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
   let priceMessage = ''
   if (priceDiff === 0) {
@@ -372,6 +412,38 @@ async function sendEmailAssessed(data: RequestData): Promise<boolean> {
     priceMessage = `事前査定より ¥${priceDiff.toLocaleString()} アップしました！`
   } else {
     priceMessage = `事前査定より ¥${Math.abs(priceDiff).toLocaleString()} 減額となりました。`
+  }
+
+  // 減額理由の詳細を生成
+  let deductionDetails = ''
+  if (priceDiff < 0 && data.assessment_details) {
+    const labels: Record<string, string> = {
+      screen_scratches: '画面の傷',
+      body_scratches: '本体の傷',
+      camera_stain: 'カメラ染み',
+      other: 'その他',
+    }
+    const issues: string[] = []
+
+    for (const [key, issue] of Object.entries(data.assessment_details)) {
+      if (issue.hasIssue) {
+        let issueText = `【${labels[key] || key}】`
+        if (issue.description) {
+          issueText += `\n${issue.description}`
+        }
+        if (issue.photos && issue.photos.length > 0) {
+          issueText += '\n確認画像:'
+          issue.photos.forEach((photo: string, i: number) => {
+            issueText += `\n(${i + 1}) ${SUPABASE_URL}/storage/v1/object/public/buyback-documents/${photo}`
+          })
+        }
+        issues.push(issueText)
+      }
+    }
+
+    if (issues.length > 0) {
+      deductionDetails = `\n■ 減額理由\n${issues.join('\n\n')}\n`
+    }
   }
 
   const responseUrl = `${BASE_URL}/buyback-response?id=${data.id}&token=${data.request_number}`
@@ -388,7 +460,7 @@ async function sendEmailAssessed(data: RequestData): Promise<boolean> {
 本査定: ¥${finalPrice.toLocaleString()}
 
 ${priceMessage}
-
+${deductionDetails}
 ■ ご確認のお願い
 以下のリンクから「承諾」または「返却希望」をお選びください。
 

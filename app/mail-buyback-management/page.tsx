@@ -1327,26 +1327,15 @@ export default function MailBuybackManagementPage() {
 
                     {details.hasIssue && (
                       <>
-                        <input
-                          type="text"
-                          placeholder="詳細メモ（例：画面右下に2cm程度の傷）"
-                          value={details.description}
-                          onChange={(e) => setAssessmentDetails(prev => ({
-                            ...prev,
-                            [key]: { ...prev[key], description: e.target.value },
-                          }))}
-                          className="form-input"
-                          style={{ marginBottom: '8px' }}
-                        />
-
                         {/* 画像アップロード */}
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '8px' }}>
                           {details.photos.map((photo, i) => (
                             <div key={i} style={{ position: 'relative' }}>
                               <img
                                 src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${photo}`}
                                 alt={`${labels[key]} ${i + 1}`}
-                                style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 4, border: '1px solid #e5e7eb' }}
+                                style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 4, border: '1px solid #e5e7eb', cursor: 'pointer' }}
+                                onClick={() => window.open(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${photo}`, '_blank')}
                               />
                               <button
                                 type="button"
@@ -1402,6 +1391,24 @@ export default function MailBuybackManagementPage() {
                           <span style={{ fontSize: '0.75rem', color: '#999' }}>
                             ({details.photos.length}/3)
                           </span>
+                        </div>
+
+                        {/* 備考欄（画像の下に表示） */}
+                        <div style={{ marginTop: '8px' }}>
+                          <label style={{ fontSize: '0.8rem', color: '#666', display: 'block', marginBottom: '4px' }}>
+                            備考（お客様に表示・ECサイトにも使用）
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="例：画面右下に2cm程度の傷あり"
+                            value={details.description}
+                            onChange={(e) => setAssessmentDetails(prev => ({
+                              ...prev,
+                              [key]: { ...prev[key], description: e.target.value },
+                            }))}
+                            className="form-input"
+                            style={{ fontSize: '0.9rem' }}
+                          />
                         </div>
                       </>
                     )}
