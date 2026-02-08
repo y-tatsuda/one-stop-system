@@ -29,6 +29,7 @@ type NotifyAction =
   | 'approved'          // 旧: 承諾受付
   | 'rejected'          // 旧: 返却希望
 
+// 旧形式（互換性のため）
 type AssessmentIssue = {
   hasIssue: boolean
   description: string
@@ -43,12 +44,22 @@ type ItemChange = {
   hasChanged: boolean
 }
 
+// 新形式: 写真+備考
+type AssessmentPhoto = {
+  path: string
+  note: string
+}
+
+// 新旧両形式に対応
 type AssessmentDetails = {
-  screen_scratches: AssessmentIssue
-  body_scratches: AssessmentIssue
-  camera_stain: AssessmentIssue
-  other: AssessmentIssue
+  // 新形式
   item_changes?: ItemChange[]
+  photos?: AssessmentPhoto[]
+  // 旧形式（互換性のため）
+  screen_scratches?: AssessmentIssue
+  body_scratches?: AssessmentIssue
+  camera_stain?: AssessmentIssue
+  other?: AssessmentIssue
 }
 
 type RequestData = {

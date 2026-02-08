@@ -9,6 +9,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
+// 旧形式（互換性のため残す）
 type AssessmentIssue = {
   hasIssue: boolean
   description: string
@@ -23,12 +24,22 @@ type ItemChange = {
   hasChanged: boolean
 }
 
+// 新形式: 写真+備考
+type AssessmentPhoto = {
+  path: string
+  note: string
+}
+
+// 新旧両形式に対応
 type AssessmentDetails = {
-  screen_scratches: AssessmentIssue
-  body_scratches: AssessmentIssue
-  camera_stain: AssessmentIssue
-  other: AssessmentIssue
+  // 新形式
   item_changes?: ItemChange[]
+  photos?: AssessmentPhoto[]
+  // 旧形式（互換性のため）
+  screen_scratches?: AssessmentIssue
+  body_scratches?: AssessmentIssue
+  camera_stain?: AssessmentIssue
+  other?: AssessmentIssue
 }
 
 type RequestData = {
@@ -110,7 +121,10 @@ function AssessmentPageContent() {
   const finalPrice = data.final_price || data.total_estimated_price
   const priceDiff = finalPrice - data.total_estimated_price
 
-  // 画像付きの減額項目
+  // 新形式の写真リスト
+  const newFormatPhotos = assessmentDetails?.photos || []
+
+  // 旧形式の画像付きの減額項目（互換性のため）
   const issueLabels: Record<string, string> = {
     screen_scratches: '画面の傷',
     body_scratches: '本体の傷',
@@ -118,9 +132,13 @@ function AssessmentPageContent() {
     other: 'その他',
   }
 
-  const issues = assessmentDetails
+  const oldFormatIssues = assessmentDetails
     ? Object.entries(assessmentDetails)
-        .filter(([key, value]) => key !== 'item_changes' && (value as AssessmentIssue)?.hasIssue)
+        .filter(([key, value]) =>
+          key !== 'item_changes' &&
+          key !== 'photos' &&
+          (value as AssessmentIssue)?.hasIssue
+        )
         .map(([key, value]) => ({
           key,
           label: issueLabels[key] || key,
@@ -206,18 +224,58 @@ function AssessmentPageContent() {
           </div>
         )}
 
-        {/* 画像付きの減額項目 */}
-        {issues.length > 0 && (
+        {/* 確認画像（新形式） */}
+        {newFormatPhotos.length > 0 && (
           <div className="card" style={{ marginBottom: 20 }}>
             <div className="card-header">
               <h2 className="card-title" style={{ fontSize: 16 }}>確認画像</h2>
             </div>
             <div className="card-body">
-              {issues.map((issue, idx) => (
+              {newFormatPhotos.map((photo, idx) => (
+                <div key={idx} style={{
+                  marginBottom: idx < newFormatPhotos.length - 1 ? 16 : 0,
+                  paddingBottom: idx < newFormatPhotos.length - 1 ? 16 : 0,
+                  borderBottom: idx < newFormatPhotos.length - 1 ? '1px solid #e5e7eb' : 'none',
+                }}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    <img
+                      src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${photo.path}`}
+                      alt={`確認画像 ${idx + 1}`}
+                      style={{
+                        width: 100,
+                        height: 100,
+                        objectFit: 'cover',
+                        borderRadius: 8,
+                        border: '1px solid #e5e7eb',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                      onClick={() => setExpandedImage(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${photo.path}`)}
+                    />
+                    {photo.note && (
+                      <div style={{ fontSize: 14, color: '#374151', paddingTop: 4 }}>
+                        {photo.note}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 画像付きの減額項目（旧形式 - 互換性のため） */}
+        {oldFormatIssues.length > 0 && (
+          <div className="card" style={{ marginBottom: 20 }}>
+            <div className="card-header">
+              <h2 className="card-title" style={{ fontSize: 16 }}>確認画像</h2>
+            </div>
+            <div className="card-body">
+              {oldFormatIssues.map((issue, idx) => (
                 <div key={issue.key} style={{
-                  marginBottom: idx < issues.length - 1 ? 20 : 0,
-                  paddingBottom: idx < issues.length - 1 ? 20 : 0,
-                  borderBottom: idx < issues.length - 1 ? '1px solid #e5e7eb' : 'none',
+                  marginBottom: idx < oldFormatIssues.length - 1 ? 20 : 0,
+                  paddingBottom: idx < oldFormatIssues.length - 1 ? 20 : 0,
+                  borderBottom: idx < oldFormatIssues.length - 1 ? '1px solid #e5e7eb' : 'none',
                 }}>
                   <div style={{ fontWeight: 600, marginBottom: 8, color: '#374151' }}>{issue.label}</div>
                   {issue.description && (
