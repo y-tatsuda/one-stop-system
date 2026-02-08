@@ -1139,9 +1139,13 @@ function DeviceItemForm({
       })
 
       const result = await res.json()
+      console.log('Upload result:', result)
       if (res.ok && result.path) {
+        console.log('Camera photo path:', result.path)
+        console.log('Full URL:', `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${result.path}`)
         onUpdate({ cameraPhoto: result.path })
       } else {
+        console.error('Upload failed:', result)
         alert(result.error || '画像のアップロードに失敗しました')
       }
     } catch (err) {
@@ -1438,6 +1442,10 @@ function DeviceItemForm({
                 src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${item.cameraPhoto}`}
                 alt="カメラ部分の写真"
                 style={{ width: 150, height: 150, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb' }}
+                onError={(e) => {
+                  console.error('Image load error:', item.cameraPhoto)
+                  console.error('Full URL:', `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${item.cameraPhoto}`)
+                }}
               />
               <button
                 type="button"
