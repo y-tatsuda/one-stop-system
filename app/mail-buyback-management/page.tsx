@@ -1129,9 +1129,9 @@ export default function MailBuybackManagementPage() {
               </div>
 
               {/* カメラ写真 */}
-              {selectedRequest.items.some(item => item.cameraPhoto) && (
-                <div style={{ marginBottom: '20px', padding: '16px', background: 'var(--color-bg-secondary)', borderRadius: '8px' }}>
-                  <h3 style={{ margin: '0 0 12px', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>カメラ写真</h3>
+              <div style={{ marginBottom: '20px', padding: '16px', background: 'var(--color-bg-secondary)', borderRadius: '8px' }}>
+                <h3 style={{ margin: '0 0 12px', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>カメラ写真</h3>
+                {selectedRequest.items.some(item => item.cameraPhoto) ? (
                   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                     {selectedRequest.items.map((item, i) => (
                       item.cameraPhoto && (
@@ -1154,13 +1154,27 @@ export default function MailBuybackManagementPage() {
                               const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${item.cameraPhoto}`
                               window.open(url, '_blank')
                             }}
+                            onError={(e) => {
+                              console.error('画像読み込みエラー:', item.cameraPhoto)
+                              ;(e.target as HTMLImageElement).style.display = 'none'
+                            }}
                           />
+                          <div style={{ fontSize: '0.7rem', color: '#999', marginTop: '4px', wordBreak: 'break-all', maxWidth: 120 }}>
+                            {item.cameraPhoto}
+                          </div>
                         </div>
                       )
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div style={{ fontSize: '0.85rem', color: '#999' }}>
+                    カメラ写真なし
+                    <div style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+                      (items: {JSON.stringify(selectedRequest.items.map(it => ({ cameraPhoto: it.cameraPhoto })))})
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* 振込先情報（承諾済以降） */}
               {selectedRequest.bank_name && (
