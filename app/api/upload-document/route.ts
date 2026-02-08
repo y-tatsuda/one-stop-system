@@ -24,14 +24,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ファイルサイズが10MBを超えています' }, { status: 400 })
     }
 
-    // MIMEタイプチェック
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: '対応していないファイル形式です' }, { status: 400 })
+    // MIMEタイプチェック（スマホ撮影のHEIC/HEIFにも対応）
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+      'application/pdf'
+    ]
+    // HEICはブラウザによってMIMEタイプが異なる場合があるため、拡張子でもチェック
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || ''
+    const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'pdf']
+    if (!allowedTypes.includes(file.type) && !allowedExts.includes(fileExt)) {
+      return NextResponse.json({ error: '対応していないファイル形式です（jpg, png, heic, pdf対応）' }, { status: 400 })
     }
 
     // ファイル名生成
-    const ext = file.name.split('.').pop() || 'jpg'
+    const ext = fileExt || 'jpg'
     const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
 
     // ArrayBufferに変換
