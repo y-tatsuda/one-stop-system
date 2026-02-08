@@ -51,6 +51,7 @@ type MailBuybackRequest = {
     modelDisplayName: string
     storage: string
     rank: string
+    basePrice?: number
     estimatedPrice: number
     color?: string
     batteryPercent?: number
@@ -219,7 +220,7 @@ export async function POST(request: NextRequest) {
         bank_account_type: mailReq.bank_account_type,
         bank_account_number: mailReq.bank_account_number,
         bank_account_holder: mailReq.bank_account_holder,
-        // 後方互換性
+        // 後方互換性（店頭買取と同じカラム）
         model: item?.model || item?.modelDisplayName,
         storage: parseInt(item?.storage) || 128,
         rank: finalRank,
@@ -229,7 +230,11 @@ export async function POST(request: NextRequest) {
         camera_broken: finalCameraBroken,
         camera_stain: finalCameraStain !== 'none',
         repair_history: finalRepairHistory,
+        base_price: item?.basePrice || item?.estimatedPrice || buybackPrice,
+        total_deduction: 0,
         final_price: buybackPrice,
+        needs_repair: false,
+        repair_cost: 0,
         memo: `郵送買取 ${mailReq.request_number}`,
       })
       .select()

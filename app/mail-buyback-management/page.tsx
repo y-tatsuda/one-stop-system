@@ -1650,9 +1650,9 @@ export default function MailBuybackManagementPage() {
                     <div>変更</div>
                     <div>本査定</div>
                   </div>
-                  {/* 各項目 */}
-                  {assessmentDetails.item_changes?.map((change, idx) => (
-                    <div key={change.field} style={{ display: 'grid', gridTemplateColumns: '120px 100px 120px 1fr', padding: '10px 12px', borderBottom: idx < (assessmentDetails.item_changes?.length || 0) - 1 ? '1px solid #e5e7eb' : 'none', alignItems: 'center', fontSize: '0.85rem' }}>
+                  {/* 各項目（サービス状態はバッテリーの行に統合） */}
+                  {assessmentDetails.item_changes?.filter(c => c.field !== 'isServiceState').map((change, idx, filteredArr) => (
+                    <div key={change.field} style={{ display: 'grid', gridTemplateColumns: '120px 100px 120px 1fr', padding: '10px 12px', borderBottom: idx < filteredArr.length - 1 ? '1px solid #e5e7eb' : 'none', alignItems: 'center', fontSize: '0.85rem' }}>
                       <div style={{ fontWeight: '500' }}>{change.label}</div>
                       <div style={{ color: '#6b7280' }}>{change.beforeValue}</div>
                       <div style={{ display: 'flex', gap: '8px' }}>
@@ -1725,43 +1725,64 @@ export default function MailBuybackManagementPage() {
                               </select>
                             )}
                             {change.field === 'batteryPercent' && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="100"
-                                  value={change.afterValue.replace('%', '')}
-                                  onChange={(e) => {
-                                    // 入力値をそのまま保持（空文字も許容）
-                                    const inputVal = e.target.value
-                                    const newItemChanges = assessmentDetails.item_changes?.map(c =>
-                                      c.field === change.field ? { ...c, afterValue: inputVal } : c
-                                    ) || []
-                                    setAssessmentDetails(prev => ({
-                                      ...prev,
-                                      item_changes: newItemChanges,
-                                    }))
-                                    // 有効な数値の場合のみ再計算
-                                    if (inputVal && !isNaN(parseInt(inputVal))) {
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    value={change.afterValue.replace('%', '')}
+                                    onChange={(e) => {
+                                      // 入力値をそのまま保持（空文字も許容）
+                                      const inputVal = e.target.value
+                                      const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                        c.field === change.field ? { ...c, afterValue: inputVal } : c
+                                      ) || []
+                                      setAssessmentDetails(prev => ({
+                                        ...prev,
+                                        item_changes: newItemChanges,
+                                      }))
+                                      // 有効な数値の場合のみ再計算
+                                      if (inputVal && !isNaN(parseInt(inputVal))) {
+                                        recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      // フォーカスが外れたら1-100の範囲に収める
+                                      const val = Math.min(100, Math.max(1, parseInt(e.target.value) || 80))
+                                      const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                        c.field === change.field ? { ...c, afterValue: val.toString() } : c
+                                      ) || []
+                                      setAssessmentDetails(prev => ({
+                                        ...prev,
+                                        item_changes: newItemChanges,
+                                      }))
                                       recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
-                                    }
-                                  }}
-                                  onBlur={(e) => {
-                                    // フォーカスが外れたら1-100の範囲に収める
-                                    const val = Math.min(100, Math.max(1, parseInt(e.target.value) || 80))
-                                    const newItemChanges = assessmentDetails.item_changes?.map(c =>
-                                      c.field === change.field ? { ...c, afterValue: val.toString() } : c
-                                    ) || []
-                                    setAssessmentDetails(prev => ({
-                                      ...prev,
-                                      item_changes: newItemChanges,
-                                    }))
-                                    recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
-                                  }}
-                                  className="form-input"
-                                  style={{ fontSize: '0.85rem', padding: '4px 8px', width: '70px' }}
-                                />
-                                <span style={{ fontSize: '0.85rem' }}>%</span>
+                                    }}
+                                    className="form-input"
+                                    style={{ fontSize: '0.85rem', padding: '4px 8px', width: '70px' }}
+                                  />
+                                  <span style={{ fontSize: '0.85rem' }}>%</span>
+                                </div>
+                                {/* サービス状態チェックボックス */}
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', marginLeft: '8px', padding: '4px 8px', background: '#fef3c7', borderRadius: '4px' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={assessmentDetails.item_changes?.find(c => c.field === 'isServiceState')?.afterValue === 'yes'}
+                                    onChange={(e) => {
+                                      const newVal = e.target.checked ? 'yes' : 'no'
+                                      const newItemChanges = assessmentDetails.item_changes?.map(c =>
+                                        c.field === 'isServiceState' ? { ...c, afterValue: newVal, hasChanged: true } : c
+                                      ) || []
+                                      setAssessmentDetails(prev => ({
+                                        ...prev,
+                                        item_changes: newItemChanges,
+                                      }))
+                                      recalculatePrice(newItemChanges, basePrice, bihinPrice, guaranteePrice)
+                                    }}
+                                  />
+                                  <span style={{ fontSize: '0.75rem', color: '#92400e' }}>サービス状態（79%以下扱い）</span>
+                                </label>
                               </div>
                             )}
                             {change.field === 'isServiceState' && (
