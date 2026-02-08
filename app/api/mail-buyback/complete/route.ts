@@ -25,6 +25,101 @@ import { Resend } from 'resend'
 const resend = new Resend(process.env.RESEND_API_KEY)
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN
 
+// =====================================================
+// 販売価格計算ロジック（recalc-sales-prices.tsと同じ）
+// =====================================================
+
+/** バッテリー減額（全モデル共通） */
+const SALES_BATTERY_DEDUCTION = {
+  PERCENT_90_PLUS: 0,           // 90%以上: 減額なし
+  PERCENT_80_89: 1000,          // 89〜80%: 1,000円減額
+  PERCENT_79_OR_SERVICE: 2000,  // 79%以下またはサービス状態: 2,000円減額
+}
+
+/** カメラ染み減額（モデル世代別） */
+const SALES_CAMERA_STAIN_DEDUCTION = {
+  GEN_11_OR_EARLIER: { minor: 1000, major: 1000 },
+  GEN_12: { minor: 2000, major: 3000 },
+  GEN_13_OR_LATER: { minor: 3000, major: 5000 },
+}
+
+/** NW利用制限減額（モデル世代別） */
+const SALES_NW_DEDUCTION = {
+  GEN_11_OR_EARLIER: { triangle: 1000, cross: 1000 },
+  GEN_12: { triangle: 2000, cross: 3000 },
+  GEN_13_OR_LATER: { triangle: 3000, cross: 5000 },
+}
+
+/**
+ * モデル名から世代を判定する
+ */
+function getModelGeneration(model: string): 'gen_11_or_earlier' | 'gen_12' | 'gen_13_or_later' {
+  const m = model.toLowerCase()
+
+  // 13以降のモデル
+  if (m.startsWith('13') || m.startsWith('14') || m.startsWith('15') ||
+      m.startsWith('16') || m.startsWith('17') || m === 'se3' || m === 'air') {
+    return 'gen_13_or_later'
+  }
+
+  // 12シリーズ
+  if (m.startsWith('12')) {
+    return 'gen_12'
+  }
+
+  // 11以前（SE2含む）
+  return 'gen_11_or_earlier'
+}
+
+/**
+ * 販売減額を計算する
+ */
+function calculateSalesDeduction(
+  model: string,
+  batteryPercent: number | null,
+  isServiceState: boolean,
+  nwStatus: string | null,
+  cameraStainLevel: string | null
+): number {
+  let totalDeduction = 0
+  const generation = getModelGeneration(model)
+
+  // バッテリー減額（全モデル共通）
+  if (isServiceState || (batteryPercent !== null && batteryPercent < 80)) {
+    totalDeduction += SALES_BATTERY_DEDUCTION.PERCENT_79_OR_SERVICE
+  } else if (batteryPercent !== null && batteryPercent < 90) {
+    totalDeduction += SALES_BATTERY_DEDUCTION.PERCENT_80_89
+  }
+
+  // カメラ染み減額（モデル世代別）
+  if (cameraStainLevel === 'minor' || cameraStainLevel === 'major') {
+    const deductionTable = generation === 'gen_11_or_earlier'
+      ? SALES_CAMERA_STAIN_DEDUCTION.GEN_11_OR_EARLIER
+      : generation === 'gen_12'
+        ? SALES_CAMERA_STAIN_DEDUCTION.GEN_12
+        : SALES_CAMERA_STAIN_DEDUCTION.GEN_13_OR_LATER
+
+    totalDeduction += cameraStainLevel === 'minor' ? deductionTable.minor : deductionTable.major
+  }
+
+  // NW利用制限減額（モデル世代別）
+  if (nwStatus === 'triangle' || nwStatus === 'cross') {
+    const deductionTable = generation === 'gen_11_or_earlier'
+      ? SALES_NW_DEDUCTION.GEN_11_OR_EARLIER
+      : generation === 'gen_12'
+        ? SALES_NW_DEDUCTION.GEN_12
+        : SALES_NW_DEDUCTION.GEN_13_OR_LATER
+
+    totalDeduction += nwStatus === 'triangle' ? deductionTable.triangle : deductionTable.cross
+  }
+
+  return totalDeduction
+}
+
+// =====================================================
+// 型定義
+// =====================================================
+
 type ItemChange = {
   field: string
   label: string
@@ -334,6 +429,37 @@ export async function POST(request: NextRequest) {
       // 各アイテムの価格（複数台の場合は均等割りではなく個別価格を使用）
       const itemPrice = item?.estimatedPrice || Math.floor(buybackPrice / mailReq.items.length)
 
+      // 販売価格を計算（m_sales_pricesから基準価格を取得）
+      const modelCode = item?.model || item?.modelDisplayName || 'unknown'
+      const storageNum = parseInt(item?.storage) || 128
+      let salesPrice: number | null = null
+
+      try {
+        const { data: salesPriceData } = await supabaseAdmin
+          .from('m_sales_prices')
+          .select('price')
+          .eq('tenant_id', 1)
+          .eq('model', modelCode)
+          .eq('storage', storageNum)
+          .eq('rank', itemRank)
+          .eq('is_active', true)
+          .single()
+
+        if (salesPriceData?.price) {
+          // 減額を計算して販売価格を決定
+          const salesDeduction = calculateSalesDeduction(
+            modelCode,
+            itemBattery,
+            itemIsServiceState,
+            itemNwStatus,
+            itemCameraStain
+          )
+          salesPrice = salesPriceData.price - salesDeduction
+        }
+      } catch (priceErr) {
+        console.log(`販売価格マスタなし: ${modelCode} ${storageNum}GB ${itemRank}`)
+      }
+
       // 在庫登録（t_used_inventory）
       const { data: inventoryData, error: inventoryError } = await supabaseAdmin
         .from('t_used_inventory')
@@ -341,8 +467,8 @@ export async function POST(request: NextRequest) {
           tenant_id: 1,
           shop_id: shopId,
           arrival_date: buybackDate,
-          model: item?.model || item?.modelDisplayName || 'unknown',
-          storage: parseInt(item?.storage) || 128,
+          model: modelCode,
+          storage: storageNum,
           rank: itemRank,
           color: item?.color || null,
           imei: item?.imei || null,
@@ -356,7 +482,7 @@ export async function POST(request: NextRequest) {
           buyback_price: itemPrice,
           repair_cost: 0,
           total_cost: itemPrice,
-          sales_price: null,
+          sales_price: salesPrice,
           status: '販売可',
           buyback_id: buybackId,
           memo: `郵送買取 ${mailReq.request_number} より登録（${i + 1}/${mailReq.items.length}台目）`,

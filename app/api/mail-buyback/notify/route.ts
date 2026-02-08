@@ -147,6 +147,12 @@ export async function POST(request: NextRequest) {
       case 'waiting_payment':
       case 'approved': // 旧互換性
         results.slack = await sendSlackWaitingPayment(data)
+        // お客様にも振込予定の通知を送信
+        if (isLiff) {
+          results.line = await sendLineWaitingPayment(data)
+        } else if (data.email) {
+          results.email = await sendEmailWaitingPayment(data)
+        }
         break
 
       case 'return_requested':
@@ -387,6 +393,45 @@ ${data.customer_name} 様
 
 この度はご利用いただき、誠にありがとうございました。
 またのご利用をお待ちしております。`
+
+  return sendLine(data.line_user_id!, message)
+}
+
+async function sendLineWaitingPayment(data: RequestData): Promise<boolean> {
+  const finalPrice = data.final_price || data.total_estimated_price
+
+  // 振込予定の判定（19時以前/以降）
+  const now = new Date()
+  const hour = now.getHours()
+  const paymentTiming = hour < 19
+    ? '翌営業日の朝9時までにお振込みいたします。'
+    : '翌々営業日の朝9時までにお振込みいたします。'
+
+  const message = `✅ 買取のご依頼を承りました
+
+${data.customer_name} 様
+
+買取のご依頼ありがとうございます。
+以下の内容で振込手続きを進めます。
+
+【申込番号】${data.request_number}
+【振込金額】¥${finalPrice.toLocaleString()}
+
+【お振込先】
+${data.bank_name} ${data.branch_name}
+${data.account_type} ${data.account_number}
+${data.account_holder} 様
+
+【振込予定】
+${paymentTiming}
+
+※内容に誤りがある場合は、お手数ですがこのLINEまたはお電話でご連絡ください。
+
+━━━━━━━━━━━
+ONE STOP
+福井店：080-9361-6018
+鯖江店：080-5720-1164
+━━━━━━━━━━━`
 
   return sendLine(data.line_user_id!, message)
 }
@@ -653,6 +698,46 @@ ${data.account_holder} 様
 
 この度はご利用いただき、誠にありがとうございました。
 またのご利用をお待ちしております。
+
+━━━━━━━━━━━━━━━━━━━━
+ONE STOP
+福井店：080-9361-6018
+鯖江店：080-5720-1164
+メール：onestop.mobile2024@gmail.com
+LINE：https://lin.ee/F5fr4V7
+━━━━━━━━━━━━━━━━━━━━`
+
+  return sendEmail(data.email!, subject, body)
+}
+
+async function sendEmailWaitingPayment(data: RequestData): Promise<boolean> {
+  const finalPrice = data.final_price || data.total_estimated_price
+
+  // 振込予定の判定（19時以前/以降）
+  const now = new Date()
+  const hour = now.getHours()
+  const paymentTiming = hour < 19
+    ? '翌営業日の朝9時までにお振込みいたします。'
+    : '翌々営業日の朝9時までにお振込みいたします。'
+
+  const subject = `【ONE STOP】買取のご依頼を承りました（${data.request_number}）`
+  const body = `${data.customer_name} 様
+
+買取のご依頼ありがとうございます。
+以下の内容で振込手続きを進めます。
+
+■ 申込番号: ${data.request_number}
+■ 振込金額: ¥${finalPrice.toLocaleString()}
+
+■ お振込先
+${data.bank_name} ${data.branch_name}
+${data.account_type} ${data.account_number}
+${data.account_holder} 様
+
+■ 振込予定
+${paymentTiming}
+
+※内容に誤りがある場合は、お手数ですがメール・LINE・お電話にてご連絡ください。
 
 ━━━━━━━━━━━━━━━━━━━━
 ONE STOP
