@@ -390,29 +390,54 @@ export default function MailBuybackManagementPage() {
     }
     setAssessmentDetails(details)
 
-    // 初期金額計算（basePriceを使用）
-    recalculatePrice(details.item_changes, itemBasePrice, itemGuaranteePrice)
+    // 初期金額計算
+    // 事前査定価格（total_estimated_price）を渡して、変更がない場合はその価格を表示
+    recalculatePrice(details.item_changes, itemBasePrice, itemGuaranteePrice, req.total_estimated_price)
 
     setShowAssessmentModal(true)
   }
 
   // 金額を再計算する関数
-  const recalculatePrice = (itemChanges: ItemChange[], basePriceValue: number, guaranteePriceValue: number) => {
-    // 変更後の値を取得
-    const getAfterValue = (field: string, defaultValue: string): string => {
-      const change = itemChanges.find(c => c.field === field)
-      if (change?.hasChanged) {
-        return change.afterValue
-      }
-      return change?.afterValue || defaultValue
+  // estimatedPriceValue: 事前査定価格（お客様に提示した価格）
+  // basePriceValue: 減額前の基準価格（美品価格）
+  const recalculatePrice = (
+    itemChanges: ItemChange[],
+    basePriceValue: number,
+    guaranteePriceValue: number,
+    estimatedPriceValue: number  // 事前査定価格を追加
+  ) => {
+    // 変更があった項目のみをチェック
+    const hasAnyChange = itemChanges.some(c => c.hasChanged)
+
+    // 変更がない場合は事前査定価格をそのまま使用
+    if (!hasAnyChange) {
+      setCalculatedPrice(estimatedPriceValue)
+      setFinalPrice(estimatedPriceValue)
+      setIsGuaranteePriceApplied(false)
+      return
     }
 
-    const batteryPercent = parseInt(getAfterValue('batteryPercent', '80')) || 80
-    const isServiceState = getAfterValue('isServiceState', 'no') === 'yes'
-    const nwStatus = getAfterValue('nwStatus', 'ok') as 'ok' | 'triangle' | 'cross'
-    const cameraStain = getAfterValue('cameraStain', 'none') as 'none' | 'minor' | 'major'
-    const cameraBroken = getAfterValue('cameraBroken', 'no') === 'yes'
-    const repairHistory = getAfterValue('repairHistory', 'no') === 'yes'
+    // 変更がある場合のみ、本査定値で減額を再計算
+    // hasChanged=true の項目は afterValue を使用、hasChanged=false の項目は beforeValue ベースの値を使用
+    const getValueForCalculation = (field: string, defaultValue: string): string => {
+      const change = itemChanges.find(c => c.field === field)
+      if (!change) return defaultValue
+
+      // 変更ありの場合は afterValue（スタッフが入力した本査定値）
+      if (change.hasChanged) {
+        return change.afterValue
+      }
+      // 変更なしの場合は beforeValue をベースに、計算用の値に変換
+      // beforeValue は表示用の文字列なので、計算用の値に変換する必要がある
+      return convertBeforeValueToCalcValue(field, change.beforeValue)
+    }
+
+    const batteryPercent = parseInt(getValueForCalculation('batteryPercent', '80').replace('%', '')) || 80
+    const isServiceState = getValueForCalculation('isServiceState', 'no') === 'yes'
+    const nwStatus = getValueForCalculation('nwStatus', 'ok') as 'ok' | 'triangle' | 'cross'
+    const cameraStain = getValueForCalculation('cameraStain', 'none') as 'none' | 'minor' | 'major'
+    const cameraBroken = getValueForCalculation('cameraBroken', 'no') === 'yes'
+    const repairHistory = getValueForCalculation('repairHistory', 'no') === 'yes'
 
     const condition: BuybackCondition = {
       batteryPercent,
@@ -434,6 +459,26 @@ export default function MailBuybackManagementPage() {
     setCalculatedPrice(rawPrice)
     setFinalPrice(finalPriceValue)
     setIsGuaranteePriceApplied(isGuaranteeApplied)
+  }
+
+  // beforeValue（表示用文字列）を計算用の値に変換
+  const convertBeforeValueToCalcValue = (field: string, beforeValue: string): string => {
+    switch (field) {
+      case 'batteryPercent':
+        return beforeValue.replace('%', '')
+      case 'isServiceState':
+        return beforeValue === 'はい' ? 'yes' : 'no'
+      case 'cameraStain':
+        return beforeValue === 'なし' ? 'none' : beforeValue === '少' ? 'minor' : beforeValue === '多' ? 'major' : 'none'
+      case 'cameraBroken':
+        return beforeValue === 'あり' ? 'yes' : 'no'
+      case 'repairHistory':
+        return beforeValue === 'あり' ? 'yes' : 'no'
+      case 'nwStatus':
+        return beforeValue === '○' ? 'ok' : beforeValue === '△' ? 'triangle' : beforeValue === '×' ? 'cross' : 'ok'
+      default:
+        return beforeValue
+    }
   }
 
   // 本査定画像アップロード
@@ -1563,7 +1608,7 @@ export default function MailBuybackManagementPage() {
                                 ...prev,
                                 item_changes: newItemChanges,
                               }))
-                              recalculatePrice(newItemChanges, basePrice, guaranteePrice)
+                              recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
                             }}
                           />
                           <span style={{ fontSize: '0.8rem' }}>なし</span>
@@ -1581,7 +1626,7 @@ export default function MailBuybackManagementPage() {
                                 ...prev,
                                 item_changes: newItemChanges,
                               }))
-                              recalculatePrice(newItemChanges, basePrice, guaranteePrice)
+                              recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
                             }}
                           />
                           <span style={{ fontSize: '0.8rem' }}>あり</span>
@@ -1601,7 +1646,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1629,7 +1674,7 @@ export default function MailBuybackManagementPage() {
                                       ...prev,
                                       item_changes: newItemChanges,
                                     }))
-                                    recalculatePrice(newItemChanges, basePrice, guaranteePrice)
+                                    recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
                                   }}
                                   className="form-input"
                                   style={{ fontSize: '0.85rem', padding: '4px 8px', width: '70px' }}
@@ -1648,7 +1693,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1668,7 +1713,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1689,7 +1734,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1710,7 +1755,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1730,7 +1775,7 @@ export default function MailBuybackManagementPage() {
                                     ...prev,
                                     item_changes: newItemChanges,
                                   }))
-                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice)
+                                  recalculatePrice(newItemChanges, basePrice, guaranteePrice, selectedRequest!.total_estimated_price)
                                 }}
                                 className="form-select"
                                 style={{ fontSize: '0.85rem', padding: '4px 8px' }}
@@ -1849,9 +1894,9 @@ export default function MailBuybackManagementPage() {
                   </label>
                   <div style={{ fontSize: '1.1rem', fontWeight: '600', color: '#374151' }}>
                     ¥{calculatedPrice.toLocaleString()}
-                    {calculatedPrice !== basePrice && (
-                      <span style={{ fontSize: '0.85rem', fontWeight: '400', color: '#DC2626', marginLeft: '8px' }}>
-                        （事前査定から -{(basePrice - calculatedPrice).toLocaleString()}円）
+                    {calculatedPrice !== selectedRequest.total_estimated_price && (
+                      <span style={{ fontSize: '0.85rem', fontWeight: '400', color: calculatedPrice < selectedRequest.total_estimated_price ? '#DC2626' : '#059669', marginLeft: '8px' }}>
+                        （事前査定との差額: {calculatedPrice - selectedRequest.total_estimated_price > 0 ? '+' : ''}{(calculatedPrice - selectedRequest.total_estimated_price).toLocaleString()}円）
                       </span>
                     )}
                   </div>
