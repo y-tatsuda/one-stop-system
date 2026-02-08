@@ -600,7 +600,11 @@ LINE：https://lin.ee/F5fr4V7
       itemChanges.forEach((change, idx) => {
         decreaseReasons += `${idx + 1}. ${change.label}: ${change.beforeValue} → ${formatAfterValue(change.field, change.afterValue)}\n`
       })
-      decreaseReasons += `\n減額理由の画像: ${assessmentUrl}\n`
+      // 画像がある場合のみURLを表示
+      const hasPhotos = data.assessment_details?.photos && data.assessment_details.photos.length > 0
+      if (hasPhotos) {
+        decreaseReasons += `\n減額理由の画像: ${assessmentUrl}\n`
+      }
     }
 
     body = `${data.customer_name} 様
