@@ -362,6 +362,37 @@ function MailBuybackPageContent() {
   }
 
   // =====================================================
+  // 辞退処理（分析用にDBに記録）
+  // =====================================================
+  const handleDecline = async () => {
+    try {
+      const validItems = items.filter(item => item.estimatedPrice > 0)
+      if (validItems.length > 0) {
+        await fetch('/api/mail-buyback/decline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: validItems.map(item => ({
+              model: item.model,
+              modelDisplayName: item.modelDisplayName,
+              storage: item.storage,
+              rank: item.rank,
+              estimatedPrice: item.estimatedPrice,
+            })),
+            totalEstimatedPrice,
+            source: isFromLiff ? 'liff' : 'web',
+            lineUserId: lineUserId || null,
+          }),
+        })
+      }
+    } catch (error) {
+      console.error('Decline record error:', error)
+      // エラーでも画面遷移は行う
+    }
+    setStep('declined')
+  }
+
+  // =====================================================
   // 申込送信
   // =====================================================
   const handleSubmit = async () => {
@@ -766,7 +797,7 @@ function MailBuybackPageContent() {
                   上記の金額で買取を申し込む
                 </button>
                 <button
-                  onClick={() => setStep('declined')}
+                  onClick={handleDecline}
                   className="btn btn-secondary"
                   style={{ width: '100%', padding: '14px', fontSize: 15 }}
                 >

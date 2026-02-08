@@ -34,6 +34,7 @@ const STATUS_CONFIG = {
   paid: { label: '振込完了', color: '#059669', next: 'completed' },
   completed: { label: '完了', color: '#374151', next: null },
   returned: { label: '返送完了', color: '#9CA3AF', next: null },
+  declined: { label: '査定辞退', color: '#94A3B8', next: null },
 } as const
 
 type StatusKey = keyof typeof STATUS_CONFIG
@@ -109,6 +110,25 @@ type MailBuybackRequest = {
   assessment_details: AssessmentDetails | null
 }
 
+// 分析データの型
+type AnalyticsData = {
+  total: number
+  byStatus: Record<StatusKey, number>
+  bySource: { liff: number; web: number }
+  totalEstimatedPrice: number
+  totalFinalPrice: number
+  conversionRates: {
+    applicationToKit: number      // 申込 → キット送付
+    kitToArrival: number          // キット送付 → 到着
+    arrivalToAssessed: number     // 到着 → 査定完了
+    assessedToApproved: number    // 査定完了 → 承諾
+    assessedToRejected: number    // 査定完了 → 返却希望
+    overallConversion: number     // 申込 → 完了
+  }
+  declinedCount: number           // 査定辞退数
+  declinedRate: number            // 査定辞退率
+}
+
 export default function MailBuybackManagementPage() {
   const [requests, setRequests] = useState<MailBuybackRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -117,6 +137,10 @@ export default function MailBuybackManagementPage() {
   const [filterSource, setFilterSource] = useState<'all' | 'liff' | 'web'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedIds, setSelectedIds] = useState<number[]>([])  // クリックポスト印刷用
+
+  // 分析タブ
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
 
   // 本査定モーダル
   const [showAssessmentModal, setShowAssessmentModal] = useState(false)
@@ -382,10 +406,73 @@ export default function MailBuybackManagementPage() {
     }
   }
 
+  // 分析データを計算
+  const calculateAnalytics = useCallback((data: MailBuybackRequest[]): AnalyticsData => {
+    const byStatus = {} as Record<StatusKey, number>
+    Object.keys(STATUS_CONFIG).forEach(key => {
+      byStatus[key as StatusKey] = 0
+    })
+
+    let liffCount = 0
+    let webCount = 0
+    let totalEstimatedPrice = 0
+    let totalFinalPrice = 0
+
+    data.forEach(req => {
+      byStatus[req.status] = (byStatus[req.status] || 0) + 1
+      if (req.source === 'liff') liffCount++
+      else webCount++
+      totalEstimatedPrice += req.total_estimated_price || 0
+      totalFinalPrice += req.final_price || req.total_estimated_price || 0
+    })
+
+    // 各ステップの件数（累計ベース）
+    const applied = data.length
+    const kitSent = data.filter(r => ['kit_sent', 'arrived', 'assessing', 'assessed', 'approved', 'rejected', 'paid', 'completed', 'returned'].includes(r.status)).length
+    const arrived = data.filter(r => ['arrived', 'assessing', 'assessed', 'approved', 'rejected', 'paid', 'completed', 'returned'].includes(r.status)).length
+    const assessed = data.filter(r => ['assessed', 'approved', 'rejected', 'paid', 'completed', 'returned'].includes(r.status)).length
+    const approved = data.filter(r => ['approved', 'paid', 'completed'].includes(r.status)).length
+    const rejected = data.filter(r => ['rejected', 'returned'].includes(r.status)).length
+    const completed = data.filter(r => r.status === 'completed').length
+    const declined = data.filter(r => r.status === 'declined').length
+
+    return {
+      total: data.length,
+      byStatus,
+      bySource: { liff: liffCount, web: webCount },
+      totalEstimatedPrice,
+      totalFinalPrice,
+      conversionRates: {
+        applicationToKit: applied > 0 ? Math.round((kitSent / applied) * 100) : 0,
+        kitToArrival: kitSent > 0 ? Math.round((arrived / kitSent) * 100) : 0,
+        arrivalToAssessed: arrived > 0 ? Math.round((assessed / arrived) * 100) : 0,
+        assessedToApproved: assessed > 0 ? Math.round((approved / assessed) * 100) : 0,
+        assessedToRejected: assessed > 0 ? Math.round((rejected / assessed) * 100) : 0,
+        overallConversion: applied > 0 ? Math.round((completed / applied) * 100) : 0,
+      },
+      declinedCount: declined,
+      declinedRate: applied > 0 ? Math.round((declined / applied) * 100) : 0,
+    }
+  }, [])
+
   // データ取得
   const fetchRequests = useCallback(async () => {
     setLoading(true)
     try {
+      // 分析用に全データを取得（フィルターなし）
+      const { data: allData, error: allError } = await supabase
+        .from('t_mail_buyback_requests')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (allError) throw allError
+
+      // 分析データを計算
+      if (allData) {
+        setAnalytics(calculateAnalytics(allData))
+      }
+
+      // フィルター適用したデータを表示用に取得
       let query = supabase
         .from('t_mail_buyback_requests')
         .select('*')
@@ -407,7 +494,7 @@ export default function MailBuybackManagementPage() {
     } finally {
       setLoading(false)
     }
-  }, [filterStatus, filterSource])
+  }, [filterStatus, filterSource, calculateAnalytics])
 
   useEffect(() => {
     fetchRequests()
@@ -531,7 +618,153 @@ export default function MailBuybackManagementPage() {
 
   return (
     <div className="page-container">
-      <h1 className="page-title">郵送買取管理</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h1 className="page-title" style={{ margin: 0 }}>郵送買取管理</h1>
+        <button
+          onClick={() => setShowAnalytics(!showAnalytics)}
+          className="btn"
+          style={{
+            background: showAnalytics ? '#004AAD' : '#f3f4f6',
+            color: showAnalytics ? 'white' : '#374151',
+            border: 'none',
+          }}
+        >
+          📊 分析
+        </button>
+      </div>
+
+      {/* 分析ダッシュボード */}
+      {showAnalytics && analytics && (
+        <div className="card" style={{ marginBottom: '20px' }}>
+          <div className="card-header">
+            <h2 className="card-title">分析ダッシュボード</h2>
+          </div>
+          <div className="card-body">
+            {/* 概要指標 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ background: '#f0f9ff', padding: '16px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', fontWeight: '700', color: '#0369a1' }}>{analytics.total}</div>
+                <div style={{ fontSize: '0.85rem', color: '#0369a1' }}>総申込数</div>
+              </div>
+              <div style={{ background: '#f0fdf4', padding: '16px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', fontWeight: '700', color: '#059669' }}>{analytics.byStatus.completed || 0}</div>
+                <div style={{ fontSize: '0.85rem', color: '#059669' }}>完了</div>
+              </div>
+              <div style={{ background: '#fef3c7', padding: '16px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', fontWeight: '700', color: '#d97706' }}>{analytics.byStatus.pending || 0}</div>
+                <div style={{ fontSize: '0.85rem', color: '#d97706' }}>申込受付中</div>
+              </div>
+              <div style={{ background: '#f1f5f9', padding: '16px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', fontWeight: '700', color: '#64748b' }}>{analytics.declinedCount}</div>
+                <div style={{ fontSize: '0.85rem', color: '#64748b' }}>査定辞退</div>
+              </div>
+            </div>
+
+            {/* 経路別・ステータス別 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+              {/* 経路別 */}
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>経路別</h4>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <div style={{ flex: 1, background: '#06C755', padding: '12px', borderRadius: '8px', textAlign: 'center', color: 'white' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>{analytics.bySource.liff}</div>
+                    <div style={{ fontSize: '0.8rem' }}>LINE</div>
+                  </div>
+                  <div style={{ flex: 1, background: '#4285F4', padding: '12px', borderRadius: '8px', textAlign: 'center', color: 'white' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>{analytics.bySource.web}</div>
+                    <div style={{ fontSize: '0.8rem' }}>WEB</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ステータス別 */}
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>ステータス別</h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                    <div key={key} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      background: '#f9fafb',
+                      fontSize: '0.8rem',
+                    }}>
+                      <span style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: config.color,
+                      }} />
+                      <span>{config.label}</span>
+                      <span style={{ fontWeight: '600' }}>{analytics.byStatus[key as StatusKey] || 0}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* コンバージョン率 */}
+            <div>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>コンバージョン率（ファネル）</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ width: '140px', fontSize: '0.85rem' }}>申込 → キット送付</span>
+                  <div style={{ flex: 1, height: '24px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${analytics.conversionRates.applicationToKit}%`, height: '100%', background: '#3B82F6', transition: 'width 0.3s' }} />
+                  </div>
+                  <span style={{ width: '50px', textAlign: 'right', fontWeight: '600' }}>{analytics.conversionRates.applicationToKit}%</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ width: '140px', fontSize: '0.85rem' }}>キット送付 → 到着</span>
+                  <div style={{ flex: 1, height: '24px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${analytics.conversionRates.kitToArrival}%`, height: '100%', background: '#8B5CF6', transition: 'width 0.3s' }} />
+                  </div>
+                  <span style={{ width: '50px', textAlign: 'right', fontWeight: '600' }}>{analytics.conversionRates.kitToArrival}%</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ width: '140px', fontSize: '0.85rem' }}>到着 → 査定完了</span>
+                  <div style={{ flex: 1, height: '24px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${analytics.conversionRates.arrivalToAssessed}%`, height: '100%', background: '#F59E0B', transition: 'width 0.3s' }} />
+                  </div>
+                  <span style={{ width: '50px', textAlign: 'right', fontWeight: '600' }}>{analytics.conversionRates.arrivalToAssessed}%</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ width: '140px', fontSize: '0.85rem' }}>査定完了 → 承諾</span>
+                  <div style={{ flex: 1, height: '24px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${analytics.conversionRates.assessedToApproved}%`, height: '100%', background: '#10B981', transition: 'width 0.3s' }} />
+                  </div>
+                  <span style={{ width: '50px', textAlign: 'right', fontWeight: '600' }}>{analytics.conversionRates.assessedToApproved}%</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ width: '140px', fontSize: '0.85rem' }}>査定完了 → 返却希望</span>
+                  <div style={{ flex: 1, height: '24px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${analytics.conversionRates.assessedToRejected}%`, height: '100%', background: '#EF4444', transition: 'width 0.3s' }} />
+                  </div>
+                  <span style={{ width: '50px', textAlign: 'right', fontWeight: '600' }}>{analytics.conversionRates.assessedToRejected}%</span>
+                </div>
+              </div>
+              <div style={{ marginTop: '16px', padding: '12px', background: '#f0fdf4', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#059669' }}>全体コンバージョン率（申込 → 完了）</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: '700', color: '#059669' }}>{analytics.conversionRates.overallConversion}%</span>
+              </div>
+            </div>
+
+            {/* 金額サマリー */}
+            <div style={{ marginTop: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+              <div style={{ background: '#faf5ff', padding: '16px', borderRadius: '8px' }}>
+                <div style={{ fontSize: '0.85rem', color: '#7c3aed', marginBottom: '4px' }}>累計査定金額</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#7c3aed' }}>¥{analytics.totalEstimatedPrice.toLocaleString()}</div>
+              </div>
+              <div style={{ background: '#ecfdf5', padding: '16px', borderRadius: '8px' }}>
+                <div style={{ fontSize: '0.85rem', color: '#059669', marginBottom: '4px' }}>累計買取金額（確定）</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#059669' }}>¥{analytics.totalFinalPrice.toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* フィルター */}
       <div className="card" style={{ marginBottom: '20px' }}>
