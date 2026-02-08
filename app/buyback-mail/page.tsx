@@ -64,6 +64,7 @@ type CustomerInfo = {
   addressDetail: string
   phone: string
   email: string
+  emailConfirm: string  // メールアドレス確認用
   occupation: string
   // 未成年対応
   isMinor: boolean
@@ -148,6 +149,7 @@ function MailBuybackPageContent() {
     addressDetail: '',
     phone: '',
     email: '',
+    emailConfirm: '',
     occupation: '',
     // 未成年対応
     isMinor: false,
@@ -397,6 +399,10 @@ function MailBuybackPageContent() {
       newErrors.email = 'メールアドレスを入力してください'
     } else if (customerInfo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerInfo.email)) {
       newErrors.email = '正しいメールアドレスを入力してください'
+    }
+    // メールアドレス確認
+    if (!isFromLiff && customerInfo.email && customerInfo.email !== customerInfo.emailConfirm) {
+      newErrors.emailConfirm = 'メールアドレスが一致しません'
     }
 
     // 未成年の場合は保護者情報必須
@@ -1073,6 +1079,23 @@ function MailBuybackPageContent() {
                     />
                     {errors.email && <div className="form-error">{errors.email}</div>}
                   </div>
+                  {!isFromLiff && (
+                    <div className="form-group">
+                      <label className="form-label">
+                        メールアドレス（確認）
+                        <span className="form-label-required" style={{ marginLeft: 4 }}>必須</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={customerInfo.emailConfirm}
+                        onChange={(e) => setCustomerInfo({ ...customerInfo, emailConfirm: e.target.value })}
+                        onPaste={(e) => e.preventDefault()}
+                        className={`form-input ${errors.emailConfirm ? 'form-input-error' : ''}`}
+                        placeholder="もう一度入力してください"
+                      />
+                      {errors.emailConfirm && <div className="form-error">{errors.emailConfirm}</div>}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
