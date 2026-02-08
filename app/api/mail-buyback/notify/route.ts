@@ -32,11 +32,20 @@ type AssessmentIssue = {
   photos: string[]
 }
 
+type ItemChange = {
+  field: string
+  label: string
+  beforeValue: string
+  afterValue: string
+  hasChanged: boolean
+}
+
 type AssessmentDetails = {
   screen_scratches: AssessmentIssue
   body_scratches: AssessmentIssue
   camera_stain: AssessmentIssue
   other: AssessmentIssue
+  item_changes?: ItemChange[]
 }
 
 type RequestData = {
@@ -403,71 +412,53 @@ ONE STOP
 async function sendEmailAssessed(data: RequestData): Promise<boolean> {
   const finalPrice = data.final_price || data.total_estimated_price
   const priceDiff = finalPrice - data.total_estimated_price
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-
-  let priceMessage = ''
-  if (priceDiff === 0) {
-    priceMessage = '事前査定と同額となりました。'
-  } else if (priceDiff > 0) {
-    priceMessage = `事前査定より ¥${priceDiff.toLocaleString()} アップしました！`
-  } else {
-    priceMessage = `事前査定より ¥${Math.abs(priceDiff).toLocaleString()} 減額となりました。`
-  }
-
-  // 減額理由の詳細を生成
-  let deductionDetails = ''
-  if (priceDiff < 0 && data.assessment_details) {
-    const labels: Record<string, string> = {
-      screen_scratches: '画面の傷',
-      body_scratches: '本体の傷',
-      camera_stain: 'カメラ染み',
-      other: 'その他',
-    }
-    const issues: string[] = []
-
-    for (const [key, issue] of Object.entries(data.assessment_details)) {
-      if (issue.hasIssue) {
-        let issueText = `【${labels[key] || key}】`
-        if (issue.description) {
-          issueText += `\n${issue.description}`
-        }
-        if (issue.photos && issue.photos.length > 0) {
-          issueText += '\n確認画像:'
-          issue.photos.forEach((photo: string, i: number) => {
-            issueText += `\n(${i + 1}) ${SUPABASE_URL}/storage/v1/object/public/buyback-documents/${photo}`
-          })
-        }
-        issues.push(issueText)
-      }
-    }
-
-    if (issues.length > 0) {
-      deductionDetails = `\n■ 減額理由\n${issues.join('\n\n')}\n`
-    }
-  }
-
   const responseUrl = `${BASE_URL}/buyback-response?id=${data.id}&token=${data.request_number}`
+  const assessmentUrl = `${BASE_URL}/buyback-assessment?id=${data.id}&token=${data.request_number}`
 
   const subject = `【ONE STOP】本査定が完了しました（${data.request_number}）`
-  const body = `${data.customer_name} 様
+
+  // 本査定値の表示用フォーマット
+  const formatAfterValue = (field: string, value: string): string => {
+    switch (field) {
+      case 'nwStatus':
+        return value === 'ok' ? '○' : value === 'triangle' ? '△' : '×'
+      case 'cameraStain':
+        return value === 'none' ? 'なし' : value === 'minor' ? 'あり（小）' : 'あり（大）'
+      case 'cameraBroken':
+      case 'repairHistory':
+        return value === 'yes' ? 'あり' : 'なし'
+      default:
+        return value
+    }
+  }
+
+  // 項目変更リストを取得
+  const itemChanges = data.assessment_details?.item_changes?.filter(c => c.hasChanged) || []
+
+  let body = ''
+
+  if (priceDiff === 0) {
+    // パターン1: 価格変更なし
+    body = `${data.customer_name} 様
 
 本査定が完了しましたのでお知らせいたします。
 
 ■ 申込番号: ${data.request_number}
 
 ■ 査定結果
-事前査定: ¥${data.total_estimated_price.toLocaleString()}
-本査定: ¥${finalPrice.toLocaleString()}
+事前査定と同額のため、買取価格に変更はございません。
 
-${priceMessage}
-${deductionDetails}
-■ ご確認のお願い
-以下のリンクから「承諾」または「返却希望」をお選びください。
+買取価格: ¥${finalPrice.toLocaleString()}
+
+■ 買取をご希望の場合
+以下のリンクから振込先情報をご入力ください。
+2営業日以内にお振込みいたします。
 
 ${responseUrl}
 
-承諾いただいた場合は、振込先情報をご入力いただき、
-2営業日以内にお振込みいたします。
+■ 返却をご希望の場合
+上記リンクから返却依頼をお願いいたします。
+※返却時の送料は無料ですのでお気軽にお申し付けください。
 
 ■ お問い合わせ
 ご不明点などございましたら、いずれかの方法でお問い合わせください。
@@ -487,6 +478,112 @@ ONE STOP
 鯖江店：080-5720-1164
 メール：onestop.mobile2024@gmail.com
 ━━━━━━━━━━━━━━━━━━━━`
+
+  } else if (priceDiff > 0) {
+    // パターン2: 価格アップ（増額）
+    let increaseReasons = ''
+    if (itemChanges.length > 0) {
+      increaseReasons = '\n■ 増額理由\n'
+      itemChanges.forEach((change, idx) => {
+        increaseReasons += `${idx + 1}. ${change.label}: ${change.beforeValue} → ${formatAfterValue(change.field, change.afterValue)}\n`
+      })
+    }
+
+    body = `${data.customer_name} 様
+
+本査定が完了しましたのでお知らせいたします。
+
+■ 申込番号: ${data.request_number}
+
+■ 査定結果
+事前査定より ¥${priceDiff.toLocaleString()} アップしました！
+
+事前査定: ¥${data.total_estimated_price.toLocaleString()}
+　　↓
+買取価格: ¥${finalPrice.toLocaleString()}
+${increaseReasons}
+■ 買取をご希望の場合
+以下のリンクから振込先情報をご入力ください。
+2営業日以内にお振込みいたします。
+
+${responseUrl}
+
+■ 返却をご希望の場合
+上記リンクから返却依頼をお願いいたします。
+※返却時の送料は無料ですのでお気軽にお申し付けください。
+
+■ お問い合わせ
+ご不明点などございましたら、いずれかの方法でお問い合わせください。
+
+・公式LINE（オススメ）
+https://lin.ee/F5fr4V7
+
+・メール
+このメールに直接ご返信ください。
+
+※公式LINEの方が回答までのスピードが早いためオススメです。
+※メールでのお問い合わせは回答までにお時間がかかる場合がございます。
+
+━━━━━━━━━━━━━━━━━━━━
+ONE STOP
+福井店：080-9361-6018
+鯖江店：080-5720-1164
+メール：onestop.mobile2024@gmail.com
+━━━━━━━━━━━━━━━━━━━━`
+
+  } else {
+    // パターン3: 価格ダウン（減額）
+    let decreaseReasons = ''
+    if (itemChanges.length > 0) {
+      decreaseReasons = '\n■ 減額理由\n'
+      itemChanges.forEach((change, idx) => {
+        decreaseReasons += `${idx + 1}. ${change.label}: ${change.beforeValue} → ${formatAfterValue(change.field, change.afterValue)}\n`
+      })
+      decreaseReasons += `\n減額理由は下記URLから画像でご確認いただけます。\n${assessmentUrl}\n`
+    }
+
+    body = `${data.customer_name} 様
+
+本査定が完了しましたのでお知らせいたします。
+
+■ 申込番号: ${data.request_number}
+
+■ 査定結果
+事前査定より ¥${Math.abs(priceDiff).toLocaleString()} 減額となりました。
+
+事前査定: ¥${data.total_estimated_price.toLocaleString()}
+　　↓
+買取価格: ¥${finalPrice.toLocaleString()}
+${decreaseReasons}
+■ 買取をご希望の場合
+以下のリンクから振込先情報をご入力ください。
+2営業日以内にお振込みいたします。
+
+${responseUrl}
+
+■ 返却をご希望の場合
+上記リンクから返却依頼をお願いいたします。
+※返却時の送料は無料ですのでお気軽にお申し付けください。
+
+■ お問い合わせ
+ご不明点などございましたら、いずれかの方法でお問い合わせください。
+
+・公式LINE（オススメ）
+https://lin.ee/F5fr4V7
+
+・メール
+このメールに直接ご返信ください。
+
+※公式LINEの方が回答までのスピードが早いためオススメです。
+※メールでのお問い合わせは回答までにお時間がかかる場合がございます。
+
+━━━━━━━━━━━━━━━━━━━━
+ONE STOP
+福井店：080-9361-6018
+鯖江店：080-5720-1164
+メール：onestop.mobile2024@gmail.com
+━━━━━━━━━━━━━━━━━━━━`
+  }
 
   return sendEmail(data.email!, subject, body)
 }

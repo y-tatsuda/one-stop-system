@@ -46,11 +46,21 @@ type AssessmentIssue = {
   photos: string[]
 }
 
+// 項目変更の型
+type ItemChange = {
+  field: string        // フィールド名
+  label: string        // 表示名
+  beforeValue: string  // 事前査定値
+  afterValue: string   // 本査定値
+  hasChanged: boolean  // 変更ありか
+}
+
 type AssessmentDetails = {
   screen_scratches: AssessmentIssue
   body_scratches: AssessmentIssue
   camera_stain: AssessmentIssue & { level?: 'none' | 'minor' | 'major' }
   other: AssessmentIssue
+  item_changes?: ItemChange[]  // 項目変更リスト
 }
 
 const createEmptyAssessmentDetails = (): AssessmentDetails => ({
@@ -58,6 +68,7 @@ const createEmptyAssessmentDetails = (): AssessmentDetails => ({
   body_scratches: { hasIssue: false, description: '', photos: [] },
   camera_stain: { hasIssue: false, description: '', photos: [], level: 'none' },
   other: { hasIssue: false, description: '', photos: [] },
+  item_changes: [],
 })
 
 type MailBuybackRequest = {
@@ -298,7 +309,59 @@ export default function MailBuybackManagementPage() {
   const openAssessmentModal = (req: MailBuybackRequest) => {
     setSelectedRequest(req)
     setFinalPrice(req.total_estimated_price)
-    setAssessmentDetails(req.assessment_details || createEmptyAssessmentDetails())
+
+    // 事前査定値から項目変更リストを初期化
+    const item = req.items[0] // 1台目の端末
+    const initialItemChanges: ItemChange[] = [
+      {
+        field: 'rank',
+        label: 'ランク',
+        beforeValue: item?.rank || '',
+        afterValue: item?.rank || '',
+        hasChanged: false,
+      },
+      {
+        field: 'batteryPercent',
+        label: 'バッテリー',
+        beforeValue: item?.batteryPercent ? `${item.batteryPercent}%` : '',
+        afterValue: item?.batteryPercent ? `${item.batteryPercent}%` : '',
+        hasChanged: false,
+      },
+      {
+        field: 'nwStatus',
+        label: 'NW制限',
+        beforeValue: item?.nwStatus === 'ok' ? '○' : item?.nwStatus === 'triangle' ? '△' : item?.nwStatus === 'cross' ? '×' : '',
+        afterValue: item?.nwStatus || '',
+        hasChanged: false,
+      },
+      {
+        field: 'cameraStain',
+        label: 'カメラ染み',
+        beforeValue: item?.cameraStain === 'none' ? 'なし' : item?.cameraStain === 'minor' ? 'あり（小）' : item?.cameraStain === 'major' ? 'あり（大）' : 'なし',
+        afterValue: item?.cameraStain || 'none',
+        hasChanged: false,
+      },
+      {
+        field: 'cameraBroken',
+        label: 'カメラ窓破損',
+        beforeValue: item?.cameraBroken ? 'あり' : 'なし',
+        afterValue: item?.cameraBroken ? 'yes' : 'no',
+        hasChanged: false,
+      },
+      {
+        field: 'repairHistory',
+        label: '非正規修理歴',
+        beforeValue: item?.repairHistory ? 'あり' : 'なし',
+        afterValue: item?.repairHistory ? 'yes' : 'no',
+        hasChanged: false,
+      },
+    ]
+
+    const existingDetails = req.assessment_details || createEmptyAssessmentDetails()
+    setAssessmentDetails({
+      ...existingDetails,
+      item_changes: existingDetails.item_changes || initialItemChanges,
+    })
     setShowAssessmentModal(true)
   }
 
@@ -1267,6 +1330,185 @@ export default function MailBuybackManagementPage() {
                 <span style={{ marginLeft: '20px' }}>
                   <strong>事前査定:</strong> ¥{selectedRequest.total_estimated_price.toLocaleString()}
                 </span>
+              </div>
+
+              {/* 査定項目の比較 */}
+              <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>
+                  査定項目の比較
+                </h3>
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+                  {/* ヘッダー */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '120px 100px 120px 1fr', background: '#f9fafb', padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280' }}>
+                    <div>項目</div>
+                    <div>事前査定</div>
+                    <div>変更</div>
+                    <div>本査定</div>
+                  </div>
+                  {/* 各項目 */}
+                  {assessmentDetails.item_changes?.map((change, idx) => (
+                    <div key={change.field} style={{ display: 'grid', gridTemplateColumns: '120px 100px 120px 1fr', padding: '10px 12px', borderBottom: idx < (assessmentDetails.item_changes?.length || 0) - 1 ? '1px solid #e5e7eb' : 'none', alignItems: 'center', fontSize: '0.85rem' }}>
+                      <div style={{ fontWeight: '500' }}>{change.label}</div>
+                      <div style={{ color: '#6b7280' }}>{change.beforeValue}</div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                          <input
+                            type="radio"
+                            name={`change_${change.field}`}
+                            checked={!change.hasChanged}
+                            onChange={() => {
+                              setAssessmentDetails(prev => ({
+                                ...prev,
+                                item_changes: prev.item_changes?.map(c =>
+                                  c.field === change.field ? { ...c, hasChanged: false } : c
+                                ),
+                              }))
+                            }}
+                          />
+                          <span style={{ fontSize: '0.8rem' }}>なし</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                          <input
+                            type="radio"
+                            name={`change_${change.field}`}
+                            checked={change.hasChanged}
+                            onChange={() => {
+                              setAssessmentDetails(prev => ({
+                                ...prev,
+                                item_changes: prev.item_changes?.map(c =>
+                                  c.field === change.field ? { ...c, hasChanged: true } : c
+                                ),
+                              }))
+                            }}
+                          />
+                          <span style={{ fontSize: '0.8rem' }}>あり</span>
+                        </label>
+                      </div>
+                      <div>
+                        {change.hasChanged && (
+                          <>
+                            {change.field === 'rank' && (
+                              <select
+                                value={change.afterValue}
+                                onChange={(e) => {
+                                  setAssessmentDetails(prev => ({
+                                    ...prev,
+                                    item_changes: prev.item_changes?.map(c =>
+                                      c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                    ),
+                                  }))
+                                }}
+                                className="form-select"
+                                style={{ fontSize: '0.85rem', padding: '4px 8px' }}
+                              >
+                                <option value="超美品">超美品</option>
+                                <option value="美品">美品</option>
+                                <option value="良品">良品</option>
+                                <option value="並品">並品</option>
+                                <option value="リペア品">リペア品</option>
+                              </select>
+                            )}
+                            {change.field === 'batteryPercent' && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <input
+                                  type="number"
+                                  value={change.afterValue.replace('%', '')}
+                                  onChange={(e) => {
+                                    setAssessmentDetails(prev => ({
+                                      ...prev,
+                                      item_changes: prev.item_changes?.map(c =>
+                                        c.field === change.field ? { ...c, afterValue: `${e.target.value}%` } : c
+                                      ),
+                                    }))
+                                  }}
+                                  className="form-input"
+                                  style={{ width: '80px', fontSize: '0.85rem', padding: '4px 8px' }}
+                                  min={0}
+                                  max={100}
+                                />
+                                <span>%</span>
+                              </div>
+                            )}
+                            {change.field === 'nwStatus' && (
+                              <select
+                                value={change.afterValue}
+                                onChange={(e) => {
+                                  setAssessmentDetails(prev => ({
+                                    ...prev,
+                                    item_changes: prev.item_changes?.map(c =>
+                                      c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                    ),
+                                  }))
+                                }}
+                                className="form-select"
+                                style={{ fontSize: '0.85rem', padding: '4px 8px' }}
+                              >
+                                <option value="ok">○（制限なし）</option>
+                                <option value="triangle">△（分割支払い中）</option>
+                                <option value="cross">×（利用制限あり）</option>
+                              </select>
+                            )}
+                            {change.field === 'cameraStain' && (
+                              <select
+                                value={change.afterValue}
+                                onChange={(e) => {
+                                  setAssessmentDetails(prev => ({
+                                    ...prev,
+                                    item_changes: prev.item_changes?.map(c =>
+                                      c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                    ),
+                                  }))
+                                }}
+                                className="form-select"
+                                style={{ fontSize: '0.85rem', padding: '4px 8px' }}
+                              >
+                                <option value="none">なし</option>
+                                <option value="minor">あり（小）</option>
+                                <option value="major">あり（大）</option>
+                              </select>
+                            )}
+                            {change.field === 'cameraBroken' && (
+                              <select
+                                value={change.afterValue}
+                                onChange={(e) => {
+                                  setAssessmentDetails(prev => ({
+                                    ...prev,
+                                    item_changes: prev.item_changes?.map(c =>
+                                      c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                    ),
+                                  }))
+                                }}
+                                className="form-select"
+                                style={{ fontSize: '0.85rem', padding: '4px 8px' }}
+                              >
+                                <option value="no">なし</option>
+                                <option value="yes">あり</option>
+                              </select>
+                            )}
+                            {change.field === 'repairHistory' && (
+                              <select
+                                value={change.afterValue}
+                                onChange={(e) => {
+                                  setAssessmentDetails(prev => ({
+                                    ...prev,
+                                    item_changes: prev.item_changes?.map(c =>
+                                      c.field === change.field ? { ...c, afterValue: e.target.value } : c
+                                    ),
+                                  }))
+                                }}
+                                className="form-select"
+                                style={{ fontSize: '0.85rem', padding: '4px 8px' }}
+                              >
+                                <option value="no">なし</option>
+                                <option value="yes">あり</option>
+                              </select>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* 本査定価格 */}
