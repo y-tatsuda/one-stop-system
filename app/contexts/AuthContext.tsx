@@ -37,8 +37,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// 認証不要のパス
-const PUBLIC_PATHS = ['/login', '/invite', '/change-password', '/buyback-kiosk', '/buyback-mail']
+// 認証不要のパス（client-layout.tsxと同期させること）
+const PUBLIC_PATHS = ['/login', '/invite', '/change-password', '/buyback-kiosk', '/buyback-mail', '/buyback-response', '/shop', '/liff']
 
 // UTF-8対応のBase64デコード
 function decodeBase64UTF8(str: string): string {

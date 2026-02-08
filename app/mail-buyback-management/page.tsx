@@ -713,23 +713,11 @@ export default function MailBuybackManagementPage() {
 
       const result = await res.json()
       if (result.success) {
-        // 振込完了メールを送信
-        try {
-          await fetch('/api/mail-buyback/notify', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': authToken ? `Bearer ${authToken}` : '',
-            },
-            body: JSON.stringify({ action: 'paid', requestId: req.id }),
-          })
-        } catch (notifyErr) {
-          console.error('通知エラー:', notifyErr)
-        }
-
+        // 通知はcomplete APIで送信済み
         await fetchRequests()
         setSelectedRequest(null)
-        alert('在庫に登録し、振込完了メールを送信しました')
+        const itemCountMsg = result.itemCount > 1 ? `（${result.itemCount}台）` : ''
+        alert(`在庫に登録し、振込完了通知を送信しました${itemCountMsg}`)
       } else {
         alert(`エラー: ${result.error}`)
       }

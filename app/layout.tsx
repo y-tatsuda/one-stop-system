@@ -6,7 +6,7 @@ import ClientLayout from './client-layout'
 
 export const metadata: Metadata = {
   title: 'ONE STOP',
-  description: 'スマホ修理店舗管理システム',
+  description: 'スマホ買取・修理サービス',
   manifest: '/manifest.json',
   icons: {
     icon: '/favicon.png',
@@ -16,6 +16,12 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'ONE STOP',
+  },
+  openGraph: {
+    title: 'ONE STOP - スマホ買取・修理',
+    description: 'スマホ買取・修理サービス',
+    siteName: 'ONE STOP',
+    type: 'website',
   },
 }
 
