@@ -431,6 +431,44 @@ export async function POST(request: NextRequest) {
     <div class="footer-note">
       ※裏面の発送方法をご参照の上、発送をお願いいたします。
     </div>
+
+    <!-- 本査定変更点セクション（スタッフ記入用） -->
+    <div style="margin-top: 15px; border: 2px solid #333; padding: 12px;">
+      <div style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background: #f0f0f0; padding: 6px 10px; border-left: 3px solid #333;">
+        【本査定での変更点】（スタッフ記入欄）
+      </div>
+      <div style="font-size: 9px; color: #666; margin-bottom: 8px;">
+        ※ 事前査定との差異がある場合、下記に記載してください。
+      </div>
+      <div style="display: flex; gap: 15px; margin-bottom: 8px;">
+        <div style="flex: 1;">
+          <div style="font-size: 9px; font-weight: bold; margin-bottom: 4px;">□ カメラ染み</div>
+          <div style="height: 24px; border-bottom: 1px solid #999;"></div>
+        </div>
+        <div style="flex: 1;">
+          <div style="font-size: 9px; font-weight: bold; margin-bottom: 4px;">□ 画面の傷</div>
+          <div style="height: 24px; border-bottom: 1px solid #999;"></div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 15px; margin-bottom: 8px;">
+        <div style="flex: 1;">
+          <div style="font-size: 9px; font-weight: bold; margin-bottom: 4px;">□ 本体の傷</div>
+          <div style="height: 24px; border-bottom: 1px solid #999;"></div>
+        </div>
+        <div style="flex: 1;">
+          <div style="font-size: 9px; font-weight: bold; margin-bottom: 4px;">□ その他</div>
+          <div style="height: 24px; border-bottom: 1px solid #999;"></div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <div style="font-size: 10px; font-weight: bold;">本査定価格：</div>
+        <div style="width: 120px; height: 28px; background: #f9f9f9; border: 1px solid #999; border-radius: 3px;"></div>
+        <div style="font-size: 10px;">円</div>
+        <div style="margin-left: 20px; font-size: 9px; color: #666;">
+          （事前査定: ${body.totalEstimatedPrice.toLocaleString()}円）
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 裏面：発送方法 -->

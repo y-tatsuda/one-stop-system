@@ -1433,38 +1433,36 @@ function DeviceItemForm({
         <div className="form-group" style={{ marginBottom: 16 }}>
           <label className="form-label form-label-required">カメラ部分の写真</label>
           <div style={{ fontSize: 12, color: '#666', marginBottom: 8, lineHeight: 1.6 }}>
-            ※ 白またはグレーの無地の背景にカメラをかざして撮影してください
+            ※ 白またはそれに近い色の無地の背景を撮影して下さい
           </div>
 
           {item.cameraPhoto ? (
-            <div style={{ position: 'relative', display: 'inline-block' }}>
-              <img
-                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${item.cameraPhoto}`}
-                alt="カメラ部分の写真"
-                style={{ width: 150, height: 150, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb' }}
-                onError={(e) => {
-                  console.error('Image load error:', item.cameraPhoto)
-                  console.error('Full URL:', `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${item.cameraPhoto}`)
-                }}
-              />
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '12px 16px',
+              background: '#f0fdf4',
+              borderRadius: 8,
+              border: '1px solid #86efac',
+            }}>
+              <span style={{ fontSize: 20, color: '#16a34a' }}>✓</span>
+              <span style={{ fontSize: 14, color: '#166534', fontWeight: 500 }}>保存が完了しました</span>
               <button
                 type="button"
                 onClick={() => onUpdate({ cameraPhoto: '' })}
                 style={{
-                  position: 'absolute',
-                  top: -8,
-                  right: -8,
-                  width: 24,
-                  height: 24,
-                  borderRadius: '50%',
-                  background: '#ef4444',
-                  color: 'white',
-                  border: 'none',
+                  marginLeft: 'auto',
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  background: '#f3f4f6',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 6,
                   cursor: 'pointer',
-                  fontSize: 14,
+                  color: '#374151',
                 }}
               >
-                ×
+                再撮影
               </button>
             </div>
           ) : (
@@ -1498,6 +1496,9 @@ function DeviceItemForm({
               </span>
             </label>
           )}
+          <div style={{ fontSize: 11, color: '#059669', marginTop: 8, lineHeight: 1.6 }}>
+            ※ 本査定時に改めてカメラの状態を確認いたします
+          </div>
           {errors[`item_${index}_cameraPhoto`] && <div className="form-error">{errors[`item_${index}_cameraPhoto`]}</div>}
         </div>
 

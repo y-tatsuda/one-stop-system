@@ -79,6 +79,14 @@ type MailBuybackRequest = {
     storage: string
     rank: string
     estimatedPrice: number
+    cameraPhoto?: string
+    colorDisplayName?: string
+    batteryPercent?: number
+    imei?: string
+    nwStatus?: string
+    cameraStain?: string
+    cameraBroken?: boolean
+    repairHistory?: boolean
   }>
   total_estimated_price: number
   final_price: number | null
@@ -790,9 +798,19 @@ export default function MailBuybackManagementPage() {
                 <h3 style={{ margin: '0 0 12px', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>端末情報</h3>
                 {selectedRequest.items.map((item, i) => (
                   <div key={i} style={{ marginBottom: i < selectedRequest.items.length - 1 ? '12px' : 0, paddingBottom: i < selectedRequest.items.length - 1 ? '12px' : 0, borderBottom: i < selectedRequest.items.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
-                    <div style={{ fontWeight: '600' }}>{i + 1}. {item.modelDisplayName} {item.storage}GB</div>
+                    <div style={{ fontWeight: '600' }}>{i + 1}. {item.modelDisplayName} {item.storage}GB {item.colorDisplayName && `(${item.colorDisplayName})`}</div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
                       ランク: {item.rank} / 査定額: ¥{item.estimatedPrice.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                      {item.batteryPercent && `バッテリー: ${item.batteryPercent}%`}
+                      {item.imei && ` / IMEI: ${item.imei}`}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                      {item.nwStatus && `NW制限: ${item.nwStatus === 'ok' ? '○' : item.nwStatus === 'triangle' ? '△' : '×'}`}
+                      {item.cameraStain && ` / カメラ染み: ${item.cameraStain === 'none' ? 'なし' : 'あり'}`}
+                      {item.cameraBroken !== undefined && ` / カメラ窓: ${item.cameraBroken ? '割れあり' : '割れなし'}`}
+                      {item.repairHistory !== undefined && ` / 非正規修理: ${item.repairHistory ? 'あり' : 'なし'}`}
                     </div>
                   </div>
                 ))}
@@ -800,6 +818,40 @@ export default function MailBuybackManagementPage() {
                   合計: ¥{(selectedRequest.final_price || selectedRequest.total_estimated_price).toLocaleString()}
                 </div>
               </div>
+
+              {/* カメラ写真 */}
+              {selectedRequest.items.some(item => item.cameraPhoto) && (
+                <div style={{ marginBottom: '20px', padding: '16px', background: 'var(--color-bg-secondary)', borderRadius: '8px' }}>
+                  <h3 style={{ margin: '0 0 12px', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>カメラ写真</h3>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {selectedRequest.items.map((item, i) => (
+                      item.cameraPhoto && (
+                        <div key={i} style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                            {i + 1}台目
+                          </div>
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${item.cameraPhoto}`}
+                            alt={`カメラ写真 ${i + 1}`}
+                            style={{
+                              width: 120,
+                              height: 120,
+                              objectFit: 'cover',
+                              borderRadius: 8,
+                              border: '1px solid var(--color-border)',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => {
+                              const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/buyback-documents/${item.cameraPhoto}`
+                              window.open(url, '_blank')
+                            }}
+                          />
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* 振込先情報（承諾済以降） */}
               {selectedRequest.bank_name && (
