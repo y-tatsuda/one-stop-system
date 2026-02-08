@@ -227,11 +227,56 @@ const deduction = calculateBuybackDeduction(basePrice, {
 
 ---
 
+## 開発の鉄則
+
+### 絶対に守ること
+
+1. **新しい計算ロジックを作らない**
+   - 価格計算は `pricing.ts` の関数を使う
+   - 同じ機能が既にあるなら、それを使う
+   - 「似たようなコード」を新規作成しない
+
+2. **既存コードを先に確認する**
+   - 新機能を実装する前に、類似機能がないか確認
+   - 正しく動いているコードを参考にする
+   - コピー＆修正ではなく、共通化する
+
+3. **一箇所に集約する**
+   - 同じロジックを複数箇所に書かない
+   - 変更が必要な場合は一箇所だけ直せばよい状態を維持
+
+### 価格計算の統一
+
+すべての買取ページは **同じ計算ロジック** を使用：
+
+| ページ | 計算関数 |
+|--------|---------|
+| `/app/buyback/page.tsx`（店頭） | `calculateBuybackDeduction` |
+| `/app/buyback-mail/page.tsx`（事前査定） | `calculateBuybackDeduction` |
+| `/app/mail-buyback-management/page.tsx`（本査定） | `calculateBuybackDeduction` |
+
+```typescript
+// 正しい使い方
+import { calculateBuybackDeduction } from '@/app/lib/pricing'
+
+const deduction = calculateBuybackDeduction(
+  basePrice,      // 選択ランクの価格
+  condition,      // 端末状態
+  [],             // 減額マスタ（未使用）
+  bihinPrice      // 美品価格（減額計算の基準）← 重要
+)
+```
+
+**注意:** 第4引数の `bihinPrice` を正しく渡さないと計算結果がズレる
+
+---
+
 ## 修正時の注意
 
 1. **価格計算を変更する場合**
    - `/app/lib/pricing.ts` のみを修正
    - 各ページには計算ロジックを書かない
+   - 新しい計算関数を作らない
 
 2. **通知を追加・変更する場合**
    - 申込み時: `/app/api/mail-buyback/route.ts`
@@ -246,3 +291,8 @@ const deduction = calculateBuybackDeduction(basePrice, {
    - `/app/mail-buyback-management/page.tsx` の AssessmentDetails 型を修正
    - `/app/api/mail-buyback/notify/route.ts` のメール本文を修正
    - `/app/buyback-assessment/page.tsx` の表示を修正
+
+5. **バグ修正の場合**
+   - まず正しく動いているコードを探す
+   - そのコードと同じ方法で修正する
+   - 新しいアプローチを発明しない
